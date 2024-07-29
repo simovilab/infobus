@@ -12,6 +12,7 @@ django-filter
 drf-spectacular
 requests
 pandas
+openpyxl
 geopandas
 gtfs-realtime-bindings
 psycopg2-binary

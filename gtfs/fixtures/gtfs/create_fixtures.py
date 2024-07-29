@@ -15,7 +15,6 @@ django.setup()
 
 from datetime import datetime
 from django.db.models import DateField, IntegerField, FloatField, DecimalField
-from django.contrib.gis.geos import Point
 from django.apps import apps
 from gtfs.models import *
 
@@ -58,7 +57,7 @@ xls = pd.ExcelFile(excel_file_path)
 
 # Maximum number of rows to process from each sheet
 # Set to None to process all rows (used for debugging)
-max_rows_per_sheet = 2
+max_rows_per_sheet = ''
 
 # Initialize an empty list for fixtures
 fixtures = []
