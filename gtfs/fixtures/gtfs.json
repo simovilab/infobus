@@ -12,7 +12,7 @@
             "vehicle_positions_url": "https://realtime.bucr.digital/gtfs/realtime/vehicle_positions.pb",
             "service_alerts_url": "https://realtime.bucr.digital/gtfs/realtime/service_alerts.pb",
             "timezone": "America/Costa_Rica",
-            "is_active": false
+            "is_active": true
         }
     },
     {
@@ -28,7 +28,7 @@
             "vehicle_positions_url": "http://localhost:8001/gtfs/realtime/vehicle_positions.pb",
             "service_alerts_url": null,
             "timezone": "America/Costa_Rica",
-            "is_active": true
+            "is_active": false
         }
     },
     {
@@ -629,6 +629,24 @@
         }
     },
     {
+        "model": "gtfs.trip",
+        "pk": 8,
+        "fields": {
+            "feed": "1",
+            "route_id": "bUCR_L2",
+            "service_id": "entresemana",
+            "trip_id": "desde_educacion_con_milla_entresemana_13:33",
+            "trip_headsign": "Deportivas",
+            "trip_short_name": null,
+            "direction_id": 0,
+            "block_id": null,
+            "shape_id": "shape_test",
+            "geoshape": 2,
+            "wheelchair_accessible": 1,
+            "bikes_allowed": 2
+        }
+    },
+    {
         "model": "gtfs.feedmessage",
         "pk": "TP-trip_updates-1724962186",
         "fields": {
@@ -646,6 +664,116 @@
             "provider": 3,
             "entity_type": "vehicle",
             "timestamp": "2024-08-29T21:30:33.821Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": "2.0"
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-trip_updates-1725245253",
+        "fields": {
+            "provider": 2,
+            "entity_type": "trip_update",
+            "timestamp": "2024-09-02T02:47:42.337Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": "2.0"
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-trip_updates-1725245493",
+        "fields": {
+            "provider": 2,
+            "entity_type": "trip_update",
+            "timestamp": "2024-09-02T02:51:34.036Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": "2.0"
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-trip_updates-1725245753",
+        "fields": {
+            "provider": 2,
+            "entity_type": "trip_update",
+            "timestamp": "2024-09-02T02:56:09.528Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": "2.0"
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-trip_updates-1725245773",
+        "fields": {
+            "provider": 2,
+            "entity_type": "trip_update",
+            "timestamp": "2024-09-02T02:56:24.506Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": "2.0"
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-trip_updates-1725245953",
+        "fields": {
+            "provider": 2,
+            "entity_type": "trip_update",
+            "timestamp": "2024-09-02T02:59:30.216Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": "2.0"
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-trip_updates-1726575037",
+        "fields": {
+            "provider": 2,
+            "entity_type": "trip_update",
+            "timestamp": "2024-09-17T12:10:57.669Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": "2.0"
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-vehicle-0",
+        "fields": {
+            "provider": 2,
+            "entity_type": "vehicle",
+            "timestamp": "2024-09-02T02:51:35.762Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": ""
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-vehicle-1725245768",
+        "fields": {
+            "provider": 2,
+            "entity_type": "vehicle",
+            "timestamp": "2024-09-02T02:56:24.500Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": "2.0"
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-vehicle-1725245968",
+        "fields": {
+            "provider": 2,
+            "entity_type": "vehicle",
+            "timestamp": "2024-09-02T02:59:30.197Z",
+            "incrementality": "0",
+            "gtfs_realtime_version": "2.0"
+        }
+    },
+    {
+        "model": "gtfs.feedmessage",
+        "pk": "bUCR-vehicle-1726575042",
+        "fields": {
+            "provider": 2,
+            "entity_type": "vehicle",
+            "timestamp": "2024-09-17T12:10:57.669Z",
             "incrementality": "0",
             "gtfs_realtime_version": "2.0"
         }
@@ -687,6 +815,266 @@
             "vehicle_license_plate": null,
             "vehicle_wheelchair_accessible": null,
             "timestamp": "2024-08-29T19:35:48Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 7,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "trip_route_id": "bUCR_L1",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:30:06",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB1234",
+            "vehicle_label": "SJB1234",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:48Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 8,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "trip_route_id": "bUCR_L2",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:35:12",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB5678",
+            "vehicle_label": "SJB5678",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:52Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 9,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "trip_route_id": "bUCR_L1",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:30:06",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB1234",
+            "vehicle_label": "SJB1234",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:48Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 10,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "trip_route_id": "bUCR_L2",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:35:12",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB5678",
+            "vehicle_label": "SJB5678",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:52Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 11,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "trip_route_id": "bUCR_L1",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:30:06",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB1234",
+            "vehicle_label": "SJB1234",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:48Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 12,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "trip_route_id": "bUCR_L2",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:35:12",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB5678",
+            "vehicle_label": "SJB5678",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:52Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 13,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "trip_route_id": "bUCR_L1",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:30:06",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB1234",
+            "vehicle_label": "SJB1234",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:48Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 14,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "trip_route_id": "bUCR_L2",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:35:12",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB5678",
+            "vehicle_label": "SJB5678",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:52Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 15,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "trip_route_id": "bUCR_L1",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:30:06",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB1234",
+            "vehicle_label": "SJB1234",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:48Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 16,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "trip_route_id": "bUCR_L2",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:35:12",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB5678",
+            "vehicle_label": "SJB5678",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:52Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 17,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "trip_route_id": "bUCR_L1",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:30:06",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB1234",
+            "vehicle_label": "SJB1234",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:48Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 18,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "trip_route_id": "bUCR_L2",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:35:12",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB5678",
+            "vehicle_label": "SJB5678",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:52Z",
+            "delay": null
+        }
+    },
+    {
+        "model": "gtfs.tripupdate",
+        "pk": 19,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_trip_id": "desde_educacion_con_milla_entresemana_13:33",
+            "trip_route_id": "bUCR_L1",
+            "trip_direction_id": 0,
+            "trip_start_time": "13:33:06",
+            "trip_start_date": "2024-08-29",
+            "trip_schedule_relationship": "SCHEDULED",
+            "vehicle_id": "SJB5678",
+            "vehicle_label": "SJB5678",
+            "vehicle_license_plate": null,
+            "vehicle_wheelchair_accessible": null,
+            "timestamp": "2024-08-29T19:35:55Z",
             "delay": null
         }
     },
@@ -979,6 +1367,1878 @@
         }
     },
     {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 23,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 7,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:49:33Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:50:29Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 24,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 7,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:53:01Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:54:31Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 25,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 7,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:56:08Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:56:09Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 26,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 7,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:00:02Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:01:13Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 27,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 7,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:03:49Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:04:16Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 28,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 7,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:07:52Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:09:27Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 29,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 7,
+            "stop_sequence": 9,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:11:11Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:11:18Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 30,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 7,
+            "stop_sequence": 10,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:14:54Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:15:22Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 31,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 8,
+            "stop_sequence": 1,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:49:33Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:50:08Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 32,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 8,
+            "stop_sequence": 2,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:53:06Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:54:52Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 33,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 8,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:57:09Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:57:28Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 34,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 8,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:00:08Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:00:35Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 35,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 8,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:04:06Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:06:01Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 36,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 8,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:07:04Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:07:59Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 37,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 8,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:11:13Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:12:39Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 38,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245253",
+            "trip_update": 8,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:15:15Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:16:37Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 39,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 9,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:56:33Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:57:42Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 40,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 9,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:59:48Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:01:22Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 41,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 9,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:04:03Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:05:37Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 42,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 9,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:08:42Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:08:56Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 43,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 9,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:12:57Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:13:06Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 44,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 9,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:15:47Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:16:58Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 45,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 9,
+            "stop_sequence": 9,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:19:21Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:20:45Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 46,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 9,
+            "stop_sequence": 10,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:23:00Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:23:34Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 47,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 10,
+            "stop_sequence": 1,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:55:33Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:56:35Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 48,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 10,
+            "stop_sequence": 2,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:58:27Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:59:26Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 49,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 10,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:03:15Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:05:12Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 50,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 10,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:06:41Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:07:21Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 51,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 10,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:11:30Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:11:43Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 52,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 10,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:14:13Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:15:01Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 53,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 10,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:17:53Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:19:02Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 54,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245493",
+            "trip_update": 10,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:21:50Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:23:39Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 55,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 11,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:58:53Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:59:13Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 56,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 11,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:02:32Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:03:12Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 57,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 11,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:06:01Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:07:19Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 58,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 11,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:10:06Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:10:52Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 59,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 11,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:12:47Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:14:03Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 60,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 11,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:16:39Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:18:31Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 61,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 11,
+            "stop_sequence": 9,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:21:36Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:23:11Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 62,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 11,
+            "stop_sequence": 10,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:26:34Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:27:12Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 63,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 12,
+            "stop_sequence": 1,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:59:53Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:00:36Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 64,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 12,
+            "stop_sequence": 2,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:04:10Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:05:38Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 65,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 12,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:07:17Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:09:02Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 66,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 12,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:10:50Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:12:20Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 67,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 12,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:13:20Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:14:38Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 68,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 12,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:16:54Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:17:03Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 69,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 12,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:20:23Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:21:15Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 70,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245753",
+            "trip_update": 12,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:24:16Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:25:00Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 71,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 13,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:58:13Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:58:52Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 72,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 13,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:01:06Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:02:40Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 73,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 13,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:05:22Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:06:08Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 74,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 13,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:09:25Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:10:48Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 75,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 13,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:14:17Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:15:59Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 76,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 13,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:16:49Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:18:20Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 77,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 13,
+            "stop_sequence": 9,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:20:31Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:21:40Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 78,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 13,
+            "stop_sequence": 10,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:25:01Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:25:06Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 79,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 14,
+            "stop_sequence": 1,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:56:13Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T02:58:10Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 80,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 14,
+            "stop_sequence": 2,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T02:59:45Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:00:55Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 81,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 14,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:04:41Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:06:18Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 82,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 14,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:09:36Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:11:12Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 83,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 14,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:12:24Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:12:55Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 84,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 14,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:17:07Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:18:48Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 85,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 14,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:20:45Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:22:26Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 86,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245773",
+            "trip_update": 14,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:24:35Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:26:33Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 87,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 15,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:03:13Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:03:32Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 88,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 15,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:06:20Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:06:37Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 89,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 15,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:09:23Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:11:23Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 90,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 15,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:13:52Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:14:29Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 91,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 15,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:16:35Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:16:38Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 92,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 15,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:20:07Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:20:34Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 93,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 15,
+            "stop_sequence": 9,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:24:23Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:26:01Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 94,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 15,
+            "stop_sequence": 10,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:27:29Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:28:38Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 95,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 16,
+            "stop_sequence": 1,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:04:13Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:05:21Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 96,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 16,
+            "stop_sequence": 2,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:08:55Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:09:19Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 97,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 16,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:13:22Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:15:12Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 98,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 16,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:16:13Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:17:10Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 99,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 16,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:18:47Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:19:49Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 100,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 16,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:22:16Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:23:42Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 101,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 16,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:25:47Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:25:58Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 102,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1725245953",
+            "trip_update": 16,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-02T03:29:30Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-02T03:30:37Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 103,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 17,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:15:37Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:17:06Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 104,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 17,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:18:57Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:19:17Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 105,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 17,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:22:38Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:23:28Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 106,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 17,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:27:12Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:28:04Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 107,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 17,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:30:02Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:30:09Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 108,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 17,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:32:34Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:33:20Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 109,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 17,
+            "stop_sequence": 9,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:35:58Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:36:33Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 110,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 17,
+            "stop_sequence": 10,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:39:04Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:40:00Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 111,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 18,
+            "stop_sequence": 1,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:13:37Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:15:33Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 112,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 18,
+            "stop_sequence": 2,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:16:46Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:17:33Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 113,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 18,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:21:27Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:21:53Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 114,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 18,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:24:35Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:25:33Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 115,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 18,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:29:23Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:29:34Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 116,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 18,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:33:01Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:34:38Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 117,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 18,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:36:01Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:36:55Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 118,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 18,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:40:44Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:42:44Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 119,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 19,
+            "stop_sequence": 3,
+            "stop_id": "UCR_0_04",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:10:37Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:11:24Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 120,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 19,
+            "stop_sequence": 4,
+            "stop_id": "UCR_0_05",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:14:27Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:15:33Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 121,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 19,
+            "stop_sequence": 5,
+            "stop_id": "UCR_0_06",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:17:39Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:19:12Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 122,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 19,
+            "stop_sequence": 6,
+            "stop_id": "UCR_0_07",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:21:24Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:22:24Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 123,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 19,
+            "stop_sequence": 7,
+            "stop_id": "UCR_0_08",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:24:07Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:24:39Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 124,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 19,
+            "stop_sequence": 8,
+            "stop_id": "UCR_0_09",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:26:59Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:27:55Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 125,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 19,
+            "stop_sequence": 9,
+            "stop_id": "UCR_0_10",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:31:53Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:32:22Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
+        "model": "gtfs.stoptimeupdate",
+        "pk": 126,
+        "fields": {
+            "feed_message": "bUCR-trip_updates-1726575037",
+            "trip_update": 19,
+            "stop_sequence": 10,
+            "stop_id": "UCR_0_11",
+            "arrival_delay": null,
+            "arrival_time": "2024-09-17T12:35:56Z",
+            "arrival_uncertainty": 120,
+            "departure_delay": null,
+            "departure_time": "2024-09-17T12:37:14Z",
+            "departure_uncertainty": 120,
+            "departure_occupancy_status": null,
+            "schedule_relationship": null
+        }
+    },
+    {
         "model": "gtfs.vehicleposition",
         "pk": 9250,
         "fields": {
@@ -1038,6 +3298,285 @@
             "vehicle_congestion_level": "RUNNING_SMOOTHLY",
             "vehicle_occupancy_status": "CRUSHED_STANDING_ROOM_ONLY",
             "vehicle_occupancy_percentage": 90.0
+        }
+    },
+    {
+        "model": "gtfs.vehicleposition",
+        "pk": 9252,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-vehicle-1725245768",
+            "vehicle_trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "vehicle_trip_route_id": "bUCR_L1",
+            "vehicle_trip_direction_id": 0,
+            "vehicle_trip_start_time": "13:30:06",
+            "vehicle_trip_start_date": "2024-08-29",
+            "vehicle_trip_schedule_relationship": "SCHEDULED",
+            "vehicle_vehicle_id": "SJB1234",
+            "vehicle_vehicle_label": "SJB1234",
+            "vehicle_vehicle_license_plate": "SJB1234",
+            "vehicle_vehicle_wheelchair_accessible": null,
+            "vehicle_position_latitude": 9.935407,
+            "vehicle_position_longitude": -84.045555,
+            "vehicle_position_point": "SRID=4326;POINT (-84.045555 9.935407)",
+            "vehicle_position_bearing": 0.0,
+            "vehicle_position_odometer": 9.0,
+            "vehicle_position_speed": 12.0,
+            "vehicle_current_stop_sequence": 3,
+            "vehicle_stop_id": "bUCR_0_04",
+            "vehicle_current_status": "INCOMING_AT",
+            "vehicle_timestamp": "2024-08-29T19:35:48Z",
+            "vehicle_congestion_level": "RUNNING_SMOOTHLY",
+            "vehicle_occupancy_status": "CRUSHED_STANDING_ROOM_ONLY",
+            "vehicle_occupancy_percentage": 90.0
+        }
+    },
+    {
+        "model": "gtfs.vehicleposition",
+        "pk": 9253,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-vehicle-1725245768",
+            "vehicle_trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "vehicle_trip_route_id": "bUCR_L2",
+            "vehicle_trip_direction_id": 0,
+            "vehicle_trip_start_time": "13:35:12",
+            "vehicle_trip_start_date": "2024-08-29",
+            "vehicle_trip_schedule_relationship": "SCHEDULED",
+            "vehicle_vehicle_id": "SJB5678",
+            "vehicle_vehicle_label": "SJB5678",
+            "vehicle_vehicle_license_plate": "SJB5678",
+            "vehicle_vehicle_wheelchair_accessible": null,
+            "vehicle_position_latitude": 9.935495,
+            "vehicle_position_longitude": -84.052155,
+            "vehicle_position_point": "SRID=4326;POINT (-84.052155 9.935495)",
+            "vehicle_position_bearing": 75.0,
+            "vehicle_position_odometer": 479.0,
+            "vehicle_position_speed": 25.0,
+            "vehicle_current_stop_sequence": 1,
+            "vehicle_stop_id": "bUCR_0_04",
+            "vehicle_current_status": "IN_TRANSIT_TO",
+            "vehicle_timestamp": "2024-08-29T19:35:52Z",
+            "vehicle_congestion_level": "STOP_AND_GO",
+            "vehicle_occupancy_status": "MANY_SEATS_AVAILABLE",
+            "vehicle_occupancy_percentage": 60.0
+        }
+    },
+    {
+        "model": "gtfs.vehicleposition",
+        "pk": 9254,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-vehicle-1725245768",
+            "vehicle_trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "vehicle_trip_route_id": "bUCR_L1",
+            "vehicle_trip_direction_id": 0,
+            "vehicle_trip_start_time": "13:30:06",
+            "vehicle_trip_start_date": "2024-08-29",
+            "vehicle_trip_schedule_relationship": "SCHEDULED",
+            "vehicle_vehicle_id": "SJB1234",
+            "vehicle_vehicle_label": "SJB1234",
+            "vehicle_vehicle_license_plate": "SJB1234",
+            "vehicle_vehicle_wheelchair_accessible": null,
+            "vehicle_position_latitude": 9.935407,
+            "vehicle_position_longitude": -84.045555,
+            "vehicle_position_point": "SRID=4326;POINT (-84.045555 9.935407)",
+            "vehicle_position_bearing": 0.0,
+            "vehicle_position_odometer": 9.0,
+            "vehicle_position_speed": 12.0,
+            "vehicle_current_stop_sequence": 3,
+            "vehicle_stop_id": "bUCR_0_04",
+            "vehicle_current_status": "INCOMING_AT",
+            "vehicle_timestamp": "2024-08-29T19:35:48Z",
+            "vehicle_congestion_level": "RUNNING_SMOOTHLY",
+            "vehicle_occupancy_status": "CRUSHED_STANDING_ROOM_ONLY",
+            "vehicle_occupancy_percentage": 90.0
+        }
+    },
+    {
+        "model": "gtfs.vehicleposition",
+        "pk": 9255,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-vehicle-1725245768",
+            "vehicle_trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "vehicle_trip_route_id": "bUCR_L2",
+            "vehicle_trip_direction_id": 0,
+            "vehicle_trip_start_time": "13:35:12",
+            "vehicle_trip_start_date": "2024-08-29",
+            "vehicle_trip_schedule_relationship": "SCHEDULED",
+            "vehicle_vehicle_id": "SJB5678",
+            "vehicle_vehicle_label": "SJB5678",
+            "vehicle_vehicle_license_plate": "SJB5678",
+            "vehicle_vehicle_wheelchair_accessible": null,
+            "vehicle_position_latitude": 9.935495,
+            "vehicle_position_longitude": -84.052155,
+            "vehicle_position_point": "SRID=4326;POINT (-84.052155 9.935495)",
+            "vehicle_position_bearing": 75.0,
+            "vehicle_position_odometer": 479.0,
+            "vehicle_position_speed": 25.0,
+            "vehicle_current_stop_sequence": 1,
+            "vehicle_stop_id": "bUCR_0_04",
+            "vehicle_current_status": "IN_TRANSIT_TO",
+            "vehicle_timestamp": "2024-08-29T19:35:52Z",
+            "vehicle_congestion_level": "STOP_AND_GO",
+            "vehicle_occupancy_status": "MANY_SEATS_AVAILABLE",
+            "vehicle_occupancy_percentage": 60.0
+        }
+    },
+    {
+        "model": "gtfs.vehicleposition",
+        "pk": 9256,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-vehicle-1725245968",
+            "vehicle_trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "vehicle_trip_route_id": "bUCR_L1",
+            "vehicle_trip_direction_id": 0,
+            "vehicle_trip_start_time": "13:30:06",
+            "vehicle_trip_start_date": "2024-08-29",
+            "vehicle_trip_schedule_relationship": "SCHEDULED",
+            "vehicle_vehicle_id": "SJB1234",
+            "vehicle_vehicle_label": "SJB1234",
+            "vehicle_vehicle_license_plate": "SJB1234",
+            "vehicle_vehicle_wheelchair_accessible": null,
+            "vehicle_position_latitude": 9.935407,
+            "vehicle_position_longitude": -84.045555,
+            "vehicle_position_point": "SRID=4326;POINT (-84.045555 9.935407)",
+            "vehicle_position_bearing": 0.0,
+            "vehicle_position_odometer": 9.0,
+            "vehicle_position_speed": 12.0,
+            "vehicle_current_stop_sequence": 3,
+            "vehicle_stop_id": "bUCR_0_04",
+            "vehicle_current_status": "INCOMING_AT",
+            "vehicle_timestamp": "2024-08-29T19:35:48Z",
+            "vehicle_congestion_level": "RUNNING_SMOOTHLY",
+            "vehicle_occupancy_status": "CRUSHED_STANDING_ROOM_ONLY",
+            "vehicle_occupancy_percentage": 90.0
+        }
+    },
+    {
+        "model": "gtfs.vehicleposition",
+        "pk": 9257,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-vehicle-1725245968",
+            "vehicle_trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "vehicle_trip_route_id": "bUCR_L2",
+            "vehicle_trip_direction_id": 0,
+            "vehicle_trip_start_time": "13:35:12",
+            "vehicle_trip_start_date": "2024-08-29",
+            "vehicle_trip_schedule_relationship": "SCHEDULED",
+            "vehicle_vehicle_id": "SJB5678",
+            "vehicle_vehicle_label": "SJB5678",
+            "vehicle_vehicle_license_plate": "SJB5678",
+            "vehicle_vehicle_wheelchair_accessible": null,
+            "vehicle_position_latitude": 9.935495,
+            "vehicle_position_longitude": -84.052155,
+            "vehicle_position_point": "SRID=4326;POINT (-84.052155 9.935495)",
+            "vehicle_position_bearing": 75.0,
+            "vehicle_position_odometer": 479.0,
+            "vehicle_position_speed": 25.0,
+            "vehicle_current_stop_sequence": 1,
+            "vehicle_stop_id": "bUCR_0_04",
+            "vehicle_current_status": "IN_TRANSIT_TO",
+            "vehicle_timestamp": "2024-08-29T19:35:52Z",
+            "vehicle_congestion_level": "STOP_AND_GO",
+            "vehicle_occupancy_status": "MANY_SEATS_AVAILABLE",
+            "vehicle_occupancy_percentage": 60.0
+        }
+    },
+    {
+        "model": "gtfs.vehicleposition",
+        "pk": 9258,
+        "fields": {
+            "entity_id": "bus-SJB1234",
+            "feed_message": "bUCR-vehicle-1726575042",
+            "vehicle_trip_trip_id": "desde_educacion_con_milla_entresemana_13:30",
+            "vehicle_trip_route_id": "bUCR_L1",
+            "vehicle_trip_direction_id": 0,
+            "vehicle_trip_start_time": "13:30:06",
+            "vehicle_trip_start_date": "2024-08-29",
+            "vehicle_trip_schedule_relationship": "SCHEDULED",
+            "vehicle_vehicle_id": "SJB1234",
+            "vehicle_vehicle_label": "SJB1234",
+            "vehicle_vehicle_license_plate": "SJB1234",
+            "vehicle_vehicle_wheelchair_accessible": null,
+            "vehicle_position_latitude": 9.935407,
+            "vehicle_position_longitude": -84.045555,
+            "vehicle_position_point": "SRID=4326;POINT (-84.045555 9.935407)",
+            "vehicle_position_bearing": 0.0,
+            "vehicle_position_odometer": 9.0,
+            "vehicle_position_speed": 12.0,
+            "vehicle_current_stop_sequence": 3,
+            "vehicle_stop_id": "bUCR_0_04",
+            "vehicle_current_status": "INCOMING_AT",
+            "vehicle_timestamp": "2024-08-29T19:35:48Z",
+            "vehicle_congestion_level": "RUNNING_SMOOTHLY",
+            "vehicle_occupancy_status": "CRUSHED_STANDING_ROOM_ONLY",
+            "vehicle_occupancy_percentage": 90.0
+        }
+    },
+    {
+        "model": "gtfs.vehicleposition",
+        "pk": 9259,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-vehicle-1726575042",
+            "vehicle_trip_trip_id": "desde_educacion_sin_milla_entresemana_13:35",
+            "vehicle_trip_route_id": "bUCR_L2",
+            "vehicle_trip_direction_id": 0,
+            "vehicle_trip_start_time": "13:35:12",
+            "vehicle_trip_start_date": "2024-08-29",
+            "vehicle_trip_schedule_relationship": "SCHEDULED",
+            "vehicle_vehicle_id": "SJB5678",
+            "vehicle_vehicle_label": "SJB5678",
+            "vehicle_vehicle_license_plate": "SJB5678",
+            "vehicle_vehicle_wheelchair_accessible": null,
+            "vehicle_position_latitude": 9.935495,
+            "vehicle_position_longitude": -84.052155,
+            "vehicle_position_point": "SRID=4326;POINT (-84.052155 9.935495)",
+            "vehicle_position_bearing": 75.0,
+            "vehicle_position_odometer": 479.0,
+            "vehicle_position_speed": 25.0,
+            "vehicle_current_stop_sequence": 1,
+            "vehicle_stop_id": "bUCR_0_04",
+            "vehicle_current_status": "IN_TRANSIT_TO",
+            "vehicle_timestamp": "2024-08-29T19:35:52Z",
+            "vehicle_congestion_level": "STOP_AND_GO",
+            "vehicle_occupancy_status": "MANY_SEATS_AVAILABLE",
+            "vehicle_occupancy_percentage": 60.0
+        }
+    },
+    {
+        "model": "gtfs.vehicleposition",
+        "pk": 9260,
+        "fields": {
+            "entity_id": "bus-SJB5678",
+            "feed_message": "bUCR-vehicle-1726575042",
+            "vehicle_trip_trip_id": "desde_educacion_con_milla_entresemana_13:33",
+            "vehicle_trip_route_id": "bUCR_L1",
+            "vehicle_trip_direction_id": 0,
+            "vehicle_trip_start_time": "13:33:06",
+            "vehicle_trip_start_date": "2024-08-29",
+            "vehicle_trip_schedule_relationship": "SCHEDULED",
+            "vehicle_vehicle_id": "SJB5678",
+            "vehicle_vehicle_label": "SJB5678",
+            "vehicle_vehicle_license_plate": "SJB5678",
+            "vehicle_vehicle_wheelchair_accessible": null,
+            "vehicle_position_latitude": 9.935407,
+            "vehicle_position_longitude": -84.045555,
+            "vehicle_position_point": "SRID=4326;POINT (-84.045555 9.935407)",
+            "vehicle_position_bearing": 0.0,
+            "vehicle_position_odometer": 9.0,
+            "vehicle_position_speed": 12.0,
+            "vehicle_current_stop_sequence": 3,
+            "vehicle_stop_id": "bUCR_0_04",
+            "vehicle_current_status": "INCOMING_AT",
+            "vehicle_timestamp": "2024-08-29T19:35:55Z",
+            "vehicle_congestion_level": "RUNNING_SMOOTHLY",
+            "vehicle_occupancy_status": "CRUSHED_STANDING_ROOM_ONLY",
+            "vehicle_occupancy_percentage": 81.0
         }
     }
 ]

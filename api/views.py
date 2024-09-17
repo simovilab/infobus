@@ -53,10 +53,19 @@ class NextTripView(APIView):
         # Get query parameters
         if request.query_params.get("stop_id"):
             stop_id = request.query_params.get("stop_id")
+            try:
+                Stop.objects.get(stop_id=stop_id)
+            except Stop.DoesNotExist:
+                return Response(
+                    {
+                        "error": f"No existe la parada especificada {stop_id} en la base de datos."
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
         else:
             return Response(
                 {
-                    "error": "Es necesario especificar el stop_id como parámetro de la solicitud."
+                    "error": "Es necesario especificar el stop_id como parámetro de la solicitud: /next-trips?stop_id=bUCR-0-01, por ejemplo."
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )

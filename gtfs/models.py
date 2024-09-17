@@ -550,6 +550,9 @@ class FeedMessage(models.Model):
     incrementality = models.CharField(max_length=15)
     gtfs_realtime_version = models.CharField(max_length=15)
 
+    class Meta:
+        ordering = ["-timestamp"]
+
     def __str__(self):
         return f"{self.entity_type} ({self.timestamp})"
 

@@ -48,7 +48,17 @@
 
         // Registrar la conexión abierta
         statusSocket.onopen = function (event) {
-            console.log('status: Conexión abierta exitosamente en ' + wsUrl);
+            console.log('status: Conexión abierta exitosamente en ' + wsUrl, event);
+        };
+        // Event handler for when the connection is closed
+        statusSocket.onclose = function(event) {
+            console.log('status: conexión cerrada del WebSocket:', event);
+            // You can add custom logic here, such as attempting to reconnect
+        };
+        // Event handler for when an error occurs
+        statusSocket.onerror = function(event) {
+            console.log('status: error del WebSocket:', event);
+            // You can add custom logic here, such as attempting to reconnect
         };
 
         // Manejo de eventos de mensajes
