@@ -1,0 +1,195 @@
+[
+{
+    "model": "gtfs.gtfsprovider",
+    "pk": 1,
+    "fields": {
+        "code": "bUCR",
+        "name": "bUCR",
+        "description": "Bus de la UCR",
+        "website": "https://bucr.digital",
+        "schedule_url": null,
+        "trip_updates_url": null,
+        "vehicle_positions_url": null,
+        "service_alerts_url": null,
+        "timezone": "America/costa_rica",
+        "is_active": true
+    }
+},
+{
+    "model": "gtfs.feed",
+    "pk": "1",
+    "fields": {
+        "provider": 1,
+        "http_etag": null,
+        "http_last_modified": "2024-07-11T00:00:00Z",
+        "is_current": true,
+        "retrieved_at": "2024-07-11T04:28:41.332Z"
+    }
+},
+{
+    "model": "gtfs.agency",
+    "pk": 2,
+    "fields": {
+        "feed": "1",
+        "agency_id": "UCR",
+        "agency_name": "Universidad de Costa Rica",
+        "agency_url": "https://bus.ucr.ac.cr/",
+        "agency_timezone": "America/Costa_Rica",
+        "agency_lang": "es",
+        "agency_phone": "25113652",
+        "agency_fare_url": "https://bus.ucr.ac.cr/#tarifas",
+        "agency_email": "bus@ucr.ac.cr"
+    }
+},
+{
+    "model": "gtfs.stop",
+    "pk": 5,
+    "fields": {
+        "feed": "1",
+        "stop_id": "UCR_0_00",
+        "stop_code": "",
+        "stop_name": "Facultad de Educación",
+        "stop_desc": "Frente al jardín de la Facultad de Educación (FE)",
+        "stop_lat": "9.935610",
+        "stop_lon": "-84.048993",
+        "stop_point": "SRID=4326;POINT (-84.04899295728595 9.935610136323218)",
+        "zone_id": "UCR_0",
+        "stop_url": "https://buses.ucr.ac.cr/paradas/UCR_0_00",
+        "location_type": 0,
+        "parent_station": "",
+        "stop_timezone": "",
+        "wheelchair_boarding": 1,
+        "level_id": "",
+        "platform_code": ""
+    }
+},
+{
+    "model": "gtfs.stop",
+    "pk": 6,
+    "fields": {
+        "feed": "1",
+        "stop_id": "UCR_0_01",
+        "stop_code": "",
+        "stop_name": "Escuela de Artes Plásticas",
+        "stop_desc": "Nuevo edificio de la Escuela de Artes Plásticas (EAP)",
+        "stop_lat": "9.935502",
+        "stop_lon": "-84.052176",
+        "stop_point": "SRID=4326;POINT (-84.05217559901489 9.935501598287884)",
+        "zone_id": "UCR_0",
+        "stop_url": "https://buses.ucr.ac.cr/paradas/UCR_0_01",
+        "location_type": 0,
+        "parent_station": "",
+        "stop_timezone": "",
+        "wheelchair_boarding": 1,
+        "level_id": "",
+        "platform_code": ""
+    }
+},
+{
+    "model": "gtfs.route",
+    "pk": 3,
+    "fields": {
+        "feed": "1",
+        "route_id": "bUCR_L1",
+        "agency_id": "UCR",
+        "route_short_name": "bUCR L1",
+        "route_long_name": "Bus UCR (L1) con milla",
+        "route_desc": "Esta ruta conecta las tres fincas del Campus Universitario Rodrigo Facio en San Pedro de Montes de Oca, e incluye la vuelta por la milla universitaria.",
+        "route_type": 3,
+        "route_url": "https://bus.ucr.ac.cr/#L1",
+        "route_color": "008641",
+        "route_text_color": "FFFFFF",
+        "route_sort_order": null
+    }
+},
+{
+    "model": "gtfs.route",
+    "pk": 4,
+    "fields": {
+        "feed": "1",
+        "route_id": "bUCR_L2",
+        "agency_id": "UCR",
+        "route_short_name": "bUCR L2",
+        "route_long_name": "Bus UCR (L2) sin milla",
+        "route_desc": "Esta ruta conecta las tres fincas del Campus Universitario Rodrigo Facio en San Pedro de Montes de Oca, y no incluye la vuelta por la milla universitaria.",
+        "route_type": 3,
+        "route_url": "https://bus.ucr.ac.cr/#L2",
+        "route_color": "F37021",
+        "route_text_color": "FFFFFF",
+        "route_sort_order": null
+    }
+},
+{
+    "model": "gtfs.calendar",
+    "pk": 7,
+    "fields": {
+        "feed": "1",
+        "service_id": "entresemana",
+        "monday": true,
+        "tuesday": true,
+        "wednesday": true,
+        "thursday": true,
+        "friday": true,
+        "saturday": false,
+        "sunday": false,
+        "start_date": "2024-01-01",
+        "end_date": "2030-12-31"
+    }
+},
+{
+    "model": "gtfs.calendardate",
+    "pk": 8,
+    "fields": {
+        "feed": "1",
+        "service_id": "entresemana",
+        "date": "2024-01-01",
+        "exception_type": 2,
+        "holiday_name": "Año Nuevo"
+    }
+},
+{
+    "model": "gtfs.calendardate",
+    "pk": 9,
+    "fields": {
+        "feed": "1",
+        "service_id": "domingo",
+        "date": "2024-01-01",
+        "exception_type": 1,
+        "holiday_name": "Año Nuevo"
+    }
+},
+{
+    "model": "gtfs.stoptime",
+    "pk": 10,
+    "fields": {
+        "feed": "1",
+        "trip_id": "desde_educacion_sin_milla_entresemana_6:10",
+        "arrival_time": "06:10:00",
+        "departure_time": "06:10:00",
+        "stop_id": "UCR_0_00",
+        "stop_sequence": 0,
+        "stop_headsign": "",
+        "pickup_type": 0,
+        "drop_off_type": 0,
+        "shape_dist_traveled": null,
+        "timepoint": true
+    }
+},
+{
+    "model": "gtfs.stoptime",
+    "pk": 11,
+    "fields": {
+        "feed": "1",
+        "trip_id": "desde_educacion_sin_milla_entresemana_6:10",
+        "arrival_time": "06:18:20",
+        "departure_time": "06:18:20",
+        "stop_id": "UCR_0_04",
+        "stop_sequence": 1,
+        "stop_headsign": "",
+        "pickup_type": 0,
+        "drop_off_type": 0,
+        "shape_dist_traveled": null,
+        "timepoint": false
+    }
+}
+]

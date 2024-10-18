@@ -8,13 +8,13 @@ import django
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "datahub.settings")
 
 # Add the project directory to the sys.path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../")))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 # Setup Django
 django.setup()
 
 from datetime import datetime
-from django.db.models import DateField, IntegerField, FloatField, DecimalField
+from django.db.models import DateField, IntegerField, FloatField, DecimalField, ForeignKey
 from django.apps import apps
 from gtfs.models import *
 
@@ -38,7 +38,8 @@ for model in gtfs_models:
 # print(model_field_mapping["agency"])
 
 # Path to your Excel file
-excel_file_path = "./gtfs/fixtures/gtfs/UCR_bus_GTFS_v2024_1.xlsx"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+excel_file_path = os.path.join(script_dir, "UCR_bus_GTFS_v2024_2.xlsx")
 
 # Mapping of Excel tab names to Django model names and their fields in ../../models.py
 # The mapping is: 'excel_tab': (app_name.model_name, model_field_mapping["model_name"])
@@ -49,6 +50,11 @@ tab_to_model_mapping = {
     "calendar_dates": ("gtfs.calendardate", model_field_mapping["calendardate"]),
     "stops": ("gtfs.stop", model_field_mapping["stop"]),
     "stop_times": ("gtfs.stoptime", model_field_mapping["stoptime"]),
+    "fare_attributes": ("gtfs.fareattribute", model_field_mapping["fareattribute"]),
+    "fare_rules": ("gtfs.farerule", model_field_mapping["farerule"]),
+    "shapes": ("gtfs.shape", model_field_mapping["shape"]),
+    "trips": ("gtfs.trip", model_field_mapping["trip"]),\
+    'GEOSHAPES': ('gtfs.geoshape', model_field_mapping['geoshape']),
 }
 
 
@@ -63,10 +69,11 @@ max_rows_per_sheet = ''
 fixtures = []
 
 # Initialize a counter for primary keys
-pk_counter = 2  # Start at 2 to avoid conflicts with the existing fixtures
+#pk_counter = 2  # Start at 2 to avoid conflicts with the existing fixtures
 
 # Process each sheet in the Excel file
 for sheet_name in xls.sheet_names:
+    pk_counter = 1  # Start at 2 to avoid conflicts with the existing fixtures
     df = pd.read_excel(xls, sheet_name)
 
     # Limit the number of rows if max_rows_per_sheet is set
@@ -79,6 +86,9 @@ for sheet_name in xls.sheet_names:
         model_name, model_fields = model_info
         custom_model_name = model_name.split(".")[1]
         model_class = apps.get_model(app_label="gtfs", model_name=custom_model_name)
+
+        # Print model fields for debugging
+        print(f"Model fields for {model_name}: {model_fields}")
 
         for index, row in df.iterrows():
             fields_data = {}
@@ -123,11 +133,18 @@ for sheet_name in xls.sheet_names:
                     fields_data[field] = str(field_value) if field_value else None
                 elif field_type.get_internal_type() == "TimeField":
                     # Convert the string to a time object
-                    fields_data[field] = (
-                        datetime.strptime(str(field_value), "%H:%M:%S").time().isoformat()
-                        if field_value
-                        else None
-                    )
+                    if field_value:
+                        try:
+                            fields_data[field] = datetime.strptime(str(field_value), "%H:%M:%S").time().isoformat()
+                        except ValueError:
+                            fields_data[field] = datetime.strptime(str(field_value), "%H:%M:%S.%f").time().isoformat()
+                    else:
+                        fields_data[field] = None
+                elif isinstance(field_type, ForeignKey):
+                    # Handle ForeignKey fields
+                    related_model_name = field_type.related_model._meta.model_name
+                    related_pk = row.get(f"{field}_id", None)
+                    fields_data[field] = related_pk if related_pk else 1  # Default to 1 if no related_pk
                 #elif field_type.get_internal_type() == "ForeignKey":
                     # Get the related model name
                 #    related_model_name = field_type.related_model._meta.model_name
@@ -139,9 +156,29 @@ for sheet_name in xls.sheet_names:
                     # Set the field value to the row's value
                     fields_data[field] = field_value
 
-            # Add a fixed field 'feed' with a value of "1234" for 'gtfs.stop' and 'gtfs.route'
+            # Add a fixed field 'feed' with a value of "1" for 'gtfs.stop' and 'gtfs.route'
             if "feed" in model_fields:
                 fields_data["feed"] = "1"
+            if "pickup_type" in model_fields:
+                fields_data["pickup_type"] = 0
+            if "drop_off_type" in model_fields:
+                fields_data["drop_off_type"] = 0
+
+            # Assign geoshape based on shape_id
+            if "geoshape" in model_fields and "shape_id" in row:
+                shape_id = row["shape_id"]
+                if shape_id == "desde_educacion_sin_milla":
+                    fields_data["geoshape"] = 1
+                elif shape_id == "desde_educacion_con_milla":
+                    fields_data["geoshape"] = 2
+                elif shape_id == "desde_artes_sin_milla":
+                    fields_data["geoshape"] = 3
+                elif shape_id == "desde_artes_con_milla":
+                    fields_data["geoshape"] = 4
+                elif shape_id == "hacia_artes":
+                    fields_data["geoshape"] = 5
+                elif shape_id == "hacia_educacion":
+                    fields_data["geoshape"] = 6
 
             #if "parent_station" in model_fields and fields_data.get("parent_station") is None:
             #    fields_data["parent_station"] = "Estacion Principal"  # or some default value
@@ -192,5 +229,6 @@ additional_data = [
 fixtures.extend(additional_data)
 
 # Write fixtures to a file
-with open("./gtfs/fixtures/gtfs.json", "w") as f:
+json_file_path = os.path.join(script_dir, "gtfs.json")
+with open(json_file_path, "w") as f:
     json.dump(fixtures, f, ensure_ascii=False, indent=4)
