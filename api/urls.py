@@ -14,7 +14,7 @@ router.register(r"shapes", views.ShapeViewSet)
 router.register(r"calendars", views.CalendarViewSet)
 router.register(r"calendar-dates", views.CalendarDateViewSet)
 router.register(r"agencies", views.AgencyViewSet)
-# router.register(r"next-trips", views.NextTripView, basename="next-trips")
+router.register(r"geo-shapes", views.GeoShapeViewSet)
 
 
 # Wire up our API using automatic URL routing.
