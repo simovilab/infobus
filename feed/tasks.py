@@ -109,10 +109,12 @@ def get_vehicle_positions():
     for provider in providers:
         vehicle_positions = gtfs_rt.FeedMessage()
         try:
-           vehicle_positions_response = requests.get(provider.vehicle_positions_url)
-           print(f"Fetching vehicle positions from {provider.vehicle_positions_url}")
+            vehicle_positions_response = requests.get(provider.vehicle_positions_url)
+            print(f"Fetching vehicle positions from {provider.vehicle_positions_url}")
         except:
-            print(f"Error fetching vehicle positions from {provider.vehicle_positions_url}")
+            print(
+                f"Error fetching vehicle positions from {provider.vehicle_positions_url}"
+            )
             continue
         vehicle_positions.ParseFromString(vehicle_positions_response.content)
 
@@ -261,7 +263,6 @@ def get_trip_updates():
         )
         # Fix trip direction
         trip_updates_df["trip_update_trip_direction_id"].fillna(-1, inplace=True)
-        
 
         for i, trip_update in trip_updates_df.iterrows():
             this_trip_update = TripUpdate(
