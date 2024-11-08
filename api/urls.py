@@ -7,14 +7,18 @@ from . import views
 router = routers.DefaultRouter()
 router.register(r"info-services", views.InfoServiceViewSet)
 router.register(r"gtfs-providers", views.GTFSProviderViewSet)
-router.register(r"routes", views.RouteViewSet)
-router.register(r"trips", views.TripViewSet)
+router.register(r"agencies", views.AgencyViewSet)
 router.register(r"stops", views.StopViewSet)
 router.register(r"shapes", views.ShapeViewSet)
+router.register(r"geo-shapes", views.GeoShapeViewSet)
+router.register(r"routes", views.RouteViewSet)
 router.register(r"calendars", views.CalendarViewSet)
 router.register(r"calendar-dates", views.CalendarDateViewSet)
-router.register(r"agencies", views.AgencyViewSet)
-router.register(r"geo-shapes", views.GeoShapeViewSet)
+router.register(r"trips", views.TripViewSet)
+router.register(r"stop-times", views.StopTimeViewSet)
+router.register(r"fare-attributes", views.FareAttributeViewSet)
+router.register(r"fare-rules", views.FareRuleViewSet)
+router.register(r"feed-info", views.FeedInfoViewSet)
 
 
 # Wire up our API using automatic URL routing.
