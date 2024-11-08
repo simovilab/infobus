@@ -66,7 +66,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -88,7 +87,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -110,7 +108,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -132,7 +129,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -154,7 +150,6 @@
             "parent_station": "bUCR_LA",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -176,7 +171,6 @@
             "parent_station": "bUCR_FI",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -198,7 +192,6 @@
             "parent_station": "bUCR_CS",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -220,7 +213,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -242,7 +234,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -264,7 +255,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -286,7 +276,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -308,7 +297,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -330,7 +318,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -352,7 +339,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -374,7 +360,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -396,7 +381,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -418,7 +402,6 @@
             "parent_station": "bUCR_CS",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -440,7 +423,6 @@
             "parent_station": "bUCR_FI",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -462,7 +444,6 @@
             "parent_station": "bUCR_LA",
             "stop_timezone": "",
             "wheelchair_boarding": 2,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -484,7 +465,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -506,7 +486,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -528,7 +507,6 @@
             "parent_station": "",
             "stop_timezone": "",
             "wheelchair_boarding": 1,
-            "level_id": "",
             "platform_code": ""
         }
     },
@@ -32747,7 +32725,7 @@
         "model": "gtfs.feed",
         "pk": 1,
         "fields": {
-            "provider": 1,
+            "gtfs_provider": 1,
             "http_etag": null,
             "http_last_modified": "2024-07-11T00:00:00Z",
             "is_current": true,

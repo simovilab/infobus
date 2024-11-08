@@ -1,4 +1,5 @@
 import re
+from django.db.models import UniqueConstraint
 from django.core.exceptions import ValidationError
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point
@@ -74,7 +75,7 @@ class GTFSProvider(models.Model):
 
 class Feed(models.Model):
     feed_id = models.CharField(max_length=100, primary_key=True, unique=True)
-    provider = models.ForeignKey(
+    gtfs_provider = models.ForeignKey(
         GTFSProvider, on_delete=models.SET_NULL, blank=True, null=True
     )
     http_etag = models.CharField(max_length=1023, blank=True, null=True)
@@ -122,10 +123,11 @@ class Agency(models.Model):
     )
 
     class Meta:
+        constraints = [
+            UniqueConstraint(fields=["feed", "agency_id"], name="unique_agency_in_feed")
+        ]
         verbose_name = "agency"
         verbose_name_plural = "agencies"
-
-    # TODO: colocar las restricciones con unique_constraint. Por ejemplo: la combinación agency_id + feed debe ser única.
 
     def __str__(self):
         return self.agency_name
@@ -166,11 +168,23 @@ class Stop(models.Model):
         blank=True, null=True, help_text="Punto georreferenciado de la parada."
     )
     zone_id = models.CharField(
-        max_length=255, blank=True, null=True, help_text="Identificador de la zona."
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Identificador de la zona tarifaria.",
     )
     stop_url = models.URLField(blank=True, null=True, help_text="URL de la parada.")
     location_type = models.PositiveIntegerField(
-        blank=True, null=True, help_text="Tipo de parada."
+        blank=True,
+        null=True,
+        help_text="Tipo de parada.",
+        choices=(
+            (0, "Parada o plataforma"),
+            (1, "Estación"),
+            (2, "Entrada o salida"),
+            (3, "Nodo genérico"),
+            (4, "Área de abordaje"),
+        ),
     )
     parent_station = models.CharField(
         max_length=255, blank=True, help_text="Estación principal."
@@ -179,19 +193,28 @@ class Stop(models.Model):
         max_length=255, blank=True, help_text="Zona horaria de la parada."
     )
     wheelchair_boarding = models.PositiveIntegerField(
-        blank=True, null=True, help_text="Acceso para sillas de ruedas."
-    )
-    level_id = models.CharField(
-        max_length=255, blank=True, help_text="Identificador del nivel."
+        blank=True,
+        null=True,
+        help_text="Acceso para sillas de ruedas.",
+        choices=((0, "No especificado"), (1, "Accesible"), (2, "No accesible")),
     )
     platform_code = models.CharField(
         max_length=255, blank=True, help_text="Código de la plataforma."
     )
 
-    # Build stop_point from stop_lat and stop_lon
-    # def save(self, *args, **kwargs):
-    #    self.stop_point = Point(self.stop_lon, self.stop_lat)
-    #    super(Stop, self).save(*args, **kwargs)
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["feed", "stop_id"], name="unique_stop_in_feed")
+        ]
+
+    # Build stop_point or stop_lat and stop_lon
+    def save(self, *args, **kwargs):
+        if self.stop_point:
+            self.stop_lat = self.stop_point.y
+            self.stop_lon = self.stop_point.x
+        else:
+            self.stop_point = Point(self.stop_lon, self.stop_lat)
+        super(Stop, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.stop_id}: {self.stop_name}"
@@ -219,16 +242,16 @@ class Route(models.Model):
     )
     route_type = models.PositiveIntegerField(
         choices=(
-            (0, "Tranvía o tren ligero."),
-            (1, "Subterráneo o metro."),
-            (2, "Ferrocarril."),
-            (3, "Bus."),
-            (4, "Ferry."),
-            (5, "Teleférico."),
-            (6, "Góndola."),
-            (7, "Funicular."),
+            (0, "Tranvía o tren ligero"),
+            (1, "Subterráneo o metro"),
+            (2, "Ferrocarril"),
+            (3, "Bus"),
+            (4, "Ferry"),
+            (5, "Teleférico"),
+            (6, "Góndola"),
+            (7, "Funicular"),
         ),
-        help_text="Tipo de ruta (bus, subway, train, tram, ferry, cable car, gondola, funicular).",
+        help_text="Modo de transporte público.",
     )
     route_url = models.URLField(
         blank=True, null=True, help_text="URL de la ruta en el sitio web de la agencia."
@@ -246,6 +269,11 @@ class Route(models.Model):
         help_text="Color del texto que representa la ruta en formato hexadecimal.",
     )
     route_sort_order = models.PositiveIntegerField(blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["feed", "route_id"], name="unique_route_in_feed")
+        ]
 
     def __str__(self):
         return f"{self.route_short_name}: {self.route_long_name}"
@@ -271,6 +299,13 @@ class Calendar(models.Model):
     start_date = models.DateField(help_text="Fecha de inicio del servicio.")
     end_date = models.DateField(help_text="Fecha de finalización del servicio.")
 
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["feed", "service_id"], name="unique_service_in_feed"
+            )
+        ]
+
     def __str__(self):
         return self.service_id
 
@@ -289,7 +324,18 @@ class CalendarDate(models.Model):
     exception_type = models.PositiveIntegerField(
         choices=((1, "Agregar"), (2, "Eliminar")), help_text="Tipo de excepción."
     )
-    holiday_name = models.CharField(max_length=255, blank=True, null=True)
+    holiday_name = models.CharField(
+        max_length=255,
+        default="Feriado",
+        help_text="Nombre de la festividad o feriado.",
+    )
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["feed", "service_id", "date"], name="unique_date_in_feed"
+            )
+        ]
 
     def __str__(self):
         return f"{self.holiday_name} ({self.service_id})"
@@ -326,8 +372,16 @@ class Shape(models.Model):
         help_text="Distancia recorrida en la trayectoria.",
     )
 
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["feed", "shape_id", "shape_pt_sequence"],
+                name="unique_shape_in_feed",
+            )
+        ]
+
     def __str__(self):
-        return self.shape_id
+        return f"{self.shape_id}: {self.shape_pt_sequence}"
 
 
 class GeoShape(models.Model):
@@ -347,6 +401,13 @@ class GeoShape(models.Model):
     has_altitude = models.BooleanField(
         help_text="Indica si la trayectoria tiene datos de altitud", default=False
     )
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["feed", "shape_id"], name="unique_geoshape_in_feed"
+            )
+        ]
 
     def __str__(self):
         return self.shape_id
@@ -390,6 +451,11 @@ class Trip(models.Model):
         help_text="¿ Es permitido llevar bicicletas?",
     )
 
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["feed", "trip_id"], name="unique_trip_in_feed")
+        ]
+
     def __str__(self):
         return self.trip_id
 
@@ -431,11 +497,96 @@ class StopTime(models.Model):
     timepoint = models.BooleanField(
         blank=True,
         null=True,
-        help_text="¿Es un punto de tiempo programado?",
+        default=False,
+        help_text="¿Es un punto de tiempo programado y exacto?",
     )
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["feed", "trip_id", "stop_sequence"],
+                name="unique_stoptime_in_feed",
+            )
+        ]
 
     def __str__(self):
         return f"{self.trip_id}: {self.stop_id} ({self.stop_sequence})"
+
+
+class FareAttribute(models.Model):
+    """Rules for how to calculate the fare for a certain kind of trip.
+    Maps to fare_attributes.txt in the GTFS feed.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
+    fare_id = models.CharField(
+        max_length=255, help_text="Identificador único de la tarifa."
+    )
+    price = models.DecimalField(
+        max_digits=6, decimal_places=2, help_text="Precio de la tarifa."
+    )
+    currency_type = models.CharField(
+        max_length=3, help_text="Código ISO 4217 de la moneda."
+    )
+    payment_method = models.PositiveIntegerField(
+        choices=((0, "Pago a bordo"), (1, "Pago anticipado")),
+        help_text="Método de pago.",
+    )
+    transfers = models.PositiveIntegerField(
+        choices=(
+            (0, "No permitido"),
+            (1, "Permitido una vez"),
+            (2, "Permitido dos veces"),
+        ),
+        blank=True,
+        null=True,
+        help_text="Número de transferencias permitidas.",
+    )
+    agency_id = models.CharField(max_length=255, blank=True, null=True)
+    transfer_duration = models.PositiveIntegerField(
+        blank=True, null=True, help_text="Duración de la transferencia."
+    )
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(fields=["feed", "fare_id"], name="unique_fare_in_feed")
+        ]
+
+    def __str__(self):
+        return self.fare_id
+
+
+class FareRule(models.Model):
+    """Rules for which fare to apply in a given situation.
+    Maps to fare_rules.txt in the GTFS feed.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
+    fare_id = models.CharField(max_length=200)
+    route_id = models.CharField(max_length=200)
+    origin_id = models.CharField(max_length=255, blank=True, null=True)
+    destination_id = models.CharField(max_length=255, blank=True, null=True)
+    contains_id = models.CharField(max_length=255, blank=True, null=True)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=[
+                    "feed",
+                    "fare_id",
+                    "route_id",
+                    "origin_id",
+                    "destination_id",
+                    "contains_id",
+                ],
+                name="unique_fare_rule_in_feed",
+            )
+        ]
+
+    def __str__(self):
+        return f"{self.fare_id}: {self.route_id}"
 
 
 class FeedInfo(models.Model):
@@ -468,59 +619,6 @@ class FeedInfo(models.Model):
 
     def __str__(self):
         return f"{self.feed_publisher_name}: {self.feed_version}"
-
-
-class FareAttribute(models.Model):
-    """Rules for how to calculate the fare for a certain kind of trip.
-    Maps to fare_attributes.txt in the GTFS feed.
-    """
-
-    id = models.BigAutoField(primary_key=True)
-    feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
-    fare_id = models.CharField(
-        max_length=255, help_text="Identificador único de la tarifa."
-    )
-    price = models.DecimalField(
-        max_digits=6, decimal_places=2, help_text="Precio de la tarifa."
-    )
-    currency_type = models.CharField(
-        max_length=3, help_text="Código ISO 4217 de la moneda."
-    )
-    payment_method = models.PositiveIntegerField(
-        choices=((0, "Pago a bordo"), (1, "Pago anticipado")),
-        help_text="Método de pago.",
-    )
-    transfers = models.PositiveIntegerField(
-        choices=(
-            (0, "No permitido"),
-            (1, "Permitido"),
-            (2, "Permitido dentro de la misma agencia"),
-        ),
-        help_text="Número de transferencias permitidas.",
-    )
-    transfer_duration = models.PositiveIntegerField(
-        blank=True, null=True, help_text="Duración de la transferencia."
-    )
-
-    def __str__(self):
-        return self.fare_id
-
-
-class FareRule(models.Model):
-    """Rules for which fare to apply in a given situation.
-    Maps to fare_rules.txt in the GTFS feed.
-    """
-
-    id = models.BigAutoField(primary_key=True)
-    feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
-    fare_id = models.CharField(max_length=200)
-    route_id = models.CharField(max_length=200)
-    origin_id = models.CharField(max_length=255, blank=True, null=True)
-    destination_id = models.CharField(max_length=255, blank=True, null=True)
-    contains_id = models.CharField(max_length=255, blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.fare_id}: {self.route_id}"
 
 
 # -------------

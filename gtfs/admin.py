@@ -4,10 +4,15 @@ from .models import *
 
 # Register your models here.
 
+
+class StopAdmin(admin.GISModelAdmin):
+    exclude = ["stop_lat", "stop_lon"]
+
+
 admin.site.register(GTFSProvider)
 admin.site.register(Feed)
 admin.site.register(Agency)
-admin.site.register(Stop, admin.GISModelAdmin)
+admin.site.register(Stop, StopAdmin)
 admin.site.register(Route)
 admin.site.register(Calendar)
 admin.site.register(CalendarDate)
