@@ -96,10 +96,6 @@ def get_schedule():
                 model.objects.bulk_create(objects)
                 logging.info(f"{file} imported successfully")
 
-    Record.objects.create(
-        data_source="https://cdn.mbta.com/MBTA_GTFS.zip",
-    )
-
     return "Fetching Schedule"
 
 
