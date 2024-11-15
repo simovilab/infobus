@@ -134,6 +134,17 @@ class Stop(models.Model):
     Maps to stops.txt in the GTFS feed.
     """
 
+    STOP_HEADING_CHOICES = (
+        ("N", "norte"),
+        ("NE", "noreste"),
+        ("E", "este"),
+        ("SE", "sureste"),
+        ("S", "sur"),
+        ("SW", "suroeste"),
+        ("W", "oeste"),
+        ("NW", "noroeste"),
+    )
+
     id = models.BigAutoField(primary_key=True)
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
     stop_id = models.CharField(
@@ -143,6 +154,9 @@ class Stop(models.Model):
         max_length=255, blank=True, null=True, help_text="Código de la parada."
     )
     stop_name = models.CharField(max_length=255, help_text="Nombre de la parada.")
+    stop_heading = models.CharField(
+        max_length=2, blank=True, null=True, choices=STOP_HEADING_CHOICES
+    )
     stop_desc = models.TextField(
         blank=True, null=True, help_text="Descripción de la parada."
     )
@@ -197,6 +211,11 @@ class Stop(models.Model):
     platform_code = models.CharField(
         max_length=255, blank=True, help_text="Código de la plataforma."
     )
+    shelter = models.BooleanField(blank=True, null=True, help_text="Con techo.")
+    bench = models.BooleanField(blank=True, null=True, help_text="Con banco para sentarse.")
+    lit = models.BooleanField(blank=True, null=True, help_text="Con iluminación.")
+    bay = models.BooleanField(blank=True, null=True, help_text="Con bahía para el bus.")
+    device_charging_station = models.BooleanField(blank=True, null=True, help_text="Con estación de carga de dispositivos móviles.")
 
     class Meta:
         constraints = [
@@ -409,6 +428,10 @@ class GeoShape(models.Model):
         help_text="Trayectoria de la ruta.",
         # dim=3, # To store 3D coordinates (x, y, z)
     )
+    shape_name = models.CharField(max_length=255, blank=True, null=True)
+    shape_desc = models.TextField(blank=True, null=True)
+    shape_from = models.CharField(max_length=255, blank=True, null=True)
+    shape_to = models.CharField(max_length=255, blank=True, null=True)
     has_altitude = models.BooleanField(
         help_text="Indica si la trayectoria tiene datos de altitud", default=False
     )
@@ -687,7 +710,9 @@ class RouteStop(models.Model):
     route_id = models.CharField(max_length=200)
     _route = models.ForeignKey(Route, on_delete=models.CASCADE, blank=True, null=True)
     shape_id = models.CharField(max_length=200)
-    _shape = models.ForeignKey(GeoShape, on_delete=models.CASCADE, blank=True, null=True)
+    _shape = models.ForeignKey(
+        GeoShape, on_delete=models.CASCADE, blank=True, null=True
+    )
     direction_id = models.PositiveIntegerField()
     stop_id = models.CharField(max_length=200)
     _stop = models.ForeignKey(Stop, on_delete=models.CASCADE, blank=True, null=True)
