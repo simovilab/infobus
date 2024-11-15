@@ -50,7 +50,7 @@ class NextTripView(APIView):
     def get(self, request):
         # TODO: check for errors and exceptions and validations when data is not found
 
-        # Get query parameters
+        # Get query parameters (stop and, optionally, timestamp)
         if request.query_params.get("stop_id"):
             stop_id = request.query_params.get("stop_id")
             try:
@@ -74,7 +74,24 @@ class NextTripView(APIView):
             timestamp = request.query_params.get("timestamp")
         else:
             timestamp = datetime.now()
+
+        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        service_id = get_calendar(timestamp.date(), current_feed)
+        if service_id is None:
+            return Response(
+                {"error": "No hay servicio disponible para la fecha especificada."},
+                status=status.HTTP_204_NO_CONTENT,
+            )
+
         next_arrivals = []
+
+        # For scheduled trips
+        stop_times = StopTime.objects.filter(
+            feed=current_feed,
+            stop_id=stop_id,
+            arrival_time__gte=timestamp.time(),
+            _trip__service_id=service_id,
+        ).order_by("arrival_time")
 
         # For trips in progress
         latest_trip_update = FeedMessage.objects.filter(
@@ -84,8 +101,36 @@ class NextTripView(APIView):
         stop_time_updates = StopTimeUpdate.objects.filter(
             feed_message=latest_trip_update, stop_id=stop_id
         )
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
 
+        # Build the response for scheduled trips
+        for stop_time in stop_times:
+            trip = Trip.objects.filter(
+                trip_id=stop_time.trip_id, feed=current_feed
+            ).first()
+            route = Route.objects.filter(
+                route_id=trip.route_id, feed=current_feed
+            ).first()
+
+            next_arrivals.append(
+                {
+                    "trip_id": trip.trip_id,
+                    "route_id": route.route_id,
+                    "route_short_name": route.route_short_name,
+                    "route_long_name": route.route_long_name,
+                    "trip_headsign": trip.trip_headsign,
+                    "wheelchair_accessible": trip.wheelchair_accessible,
+                    "in_progress": False,
+                    "arrival_time": datetime.combine(
+                        timestamp.today(), stop_time.arrival_time
+                    ),
+                    "departure_time": datetime.combine(
+                        timestamp.today(), stop_time.departure_time
+                    ),
+                    "progression": None,
+                }
+            )
+
+        # Build the response for trips in progress
         for stop_time_update in stop_time_updates:
             trip_update = TripUpdate.objects.get(
                 id=stop_time_update.trip_update.id,
@@ -479,20 +524,6 @@ class VehiclePositionViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class RecordViewSet(viewsets.ModelViewSet):
-    """
-    Registros de datos.
-    """
-
-    queryset = Record.objects.all()
-    serializer_class = RecordSerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
-
-    # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
-
-
 class InfoServiceViewSet(viewsets.ModelViewSet):
     """
     Aplicaciones conectadas al servidor de datos.
@@ -516,3 +547,21 @@ def str_to_timedelta(time_str):
     hours, minutes, seconds = map(int, time_str.split(":"))
     duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
     return duration
+
+
+def get_calendar(date, current_feed):
+
+    exception_type = 1  # Service has been added for the specified date.
+    exception = CalendarDate.objects.filter(
+        feed=current_feed, date=date, exception_type=exception_type
+    ).first()
+
+    if exception:
+        service_id = exception.service_id
+    else:
+        day_of_week = date.strftime("%A").lower()
+        kwargs = {"feed": current_feed, day_of_week: True}
+        calendar = Calendar.objects.filter(**kwargs).first()
+        service_id = calendar.service_id
+
+    return service_id
