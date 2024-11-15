@@ -56,6 +56,45 @@ class NextStopSerializer(serializers.Serializer):
     next_stop_sequence = NextStopSequenceSerializer(many=True)
 
 
+class RoutesAtStopSerializer(serializers.Serializer):
+    route_id = serializers.CharField(required=False)
+
+
+class RouteStopPropertiesSerializer(serializers.Serializer):
+
+    route_id = serializers.CharField()
+    shape_id = serializers.CharField()
+    stop_id = serializers.CharField()
+    stop_name = serializers.CharField()
+    # stop_heading = serializers.CharField(required=False, allow_blank=True)
+    stop_desc = serializers.CharField()
+    stop_sequence = serializers.IntegerField()
+    timepoint = serializers.BooleanField()
+    wheelchair_boarding = serializers.IntegerField(required=False)
+    # shelter = serializers.BooleanField(required=False)
+    # bench = serializers.BooleanField(required=False)
+    # lit = serializers.BooleanField(required=False)
+    # bay = serializers.BooleanField(required=False)
+    # device_charging_station = serializers.BooleanField(required=False)
+    # other_routes = RoutesAtStopSerializer(many=True, required=False)
+
+
+class RouteStopGeometrySerializer(serializers.Serializer):
+    type = serializers.CharField()
+    coordinates = serializers.ListField(child=serializers.FloatField())
+
+
+class RouteStopFeatureSerializer(serializers.Serializer):
+    type = serializers.CharField()
+    geometry = RouteStopGeometrySerializer()
+    properties = RouteStopPropertiesSerializer()
+
+
+class RouteStopSerializer(serializers.Serializer):
+    type = serializers.CharField()
+    features = RouteStopFeatureSerializer(many=True)
+
+
 class AgencySerializer(serializers.HyperlinkedModelSerializer):
 
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
