@@ -4,10 +4,6 @@ from django.core.exceptions import ValidationError
 from django.contrib.gis.db import models
 from django.contrib.gis.geos import Point
 
-from django.db.models.signals import post_save
-
-from alerts.multicast import test_signal
-
 
 def validate_no_spaces_or_special_symbols(value):
     if re.search(r"[^a-zA-Z0-9_]", value):
@@ -223,6 +219,8 @@ class Stop(models.Model):
 class Route(models.Model):
     """A group of trips that are displayed to riders as a single service.
     Maps to routes.txt in the GTFS feed.
+
+    _agency is a field to store the Agency object related to the route.
     """
 
     id = models.BigAutoField(primary_key=True)
@@ -231,11 +229,12 @@ class Route(models.Model):
         max_length=255, help_text="Identificador único de la ruta."
     )
     agency_id = models.CharField(max_length=200)
+    _agency = models.ForeignKey(Agency, on_delete=models.CASCADE, blank=True, null=True)
     route_short_name = models.CharField(
         max_length=63, blank=True, null=True, help_text="Nombre corto de la ruta."
     )
     route_long_name = models.CharField(
-        max_length=255, help_text="Nombre largo de la ruta."
+        max_length=255, blank=True, null=True, help_text="Nombre largo de la ruta."
     )
     route_desc = models.TextField(
         blank=True, null=True, help_text="Descripción de la ruta."
@@ -251,6 +250,7 @@ class Route(models.Model):
             (6, "Góndola"),
             (7, "Funicular"),
         ),
+        default=3,
         help_text="Modo de transporte público.",
     )
     route_url = models.URLField(
@@ -274,6 +274,10 @@ class Route(models.Model):
         constraints = [
             UniqueConstraint(fields=["feed", "route_id"], name="unique_route_in_feed")
         ]
+
+    def save(self, *args, **kwargs):
+        self._agency = Agency.objects.get(feed=self.feed, agency_id=self.agency_id)
+        super(Route, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.route_short_name}: {self.route_long_name}"
@@ -320,6 +324,9 @@ class CalendarDate(models.Model):
     service_id = models.CharField(
         max_length=255, help_text="Identificador único del servicio."
     )
+    _service = models.ForeignKey(
+        Calendar, on_delete=models.CASCADE, blank=True, null=True
+    )
     date = models.DateField(help_text="Fecha de excepción.")
     exception_type = models.PositiveIntegerField(
         choices=((1, "Agregar"), (2, "Eliminar")), help_text="Tipo de excepción."
@@ -336,6 +343,10 @@ class CalendarDate(models.Model):
                 fields=["feed", "service_id", "date"], name="unique_date_in_feed"
             )
         ]
+
+    def save(self, *args, **kwargs):
+        self._service = Calendar.objects.get(feed=self.feed, service_id=self.service_id)
+        super(CalendarDate, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.holiday_name} ({self.service_id})"
@@ -421,7 +432,11 @@ class Trip(models.Model):
     id = models.BigAutoField(primary_key=True)
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
     route_id = models.CharField(max_length=200)
+    _route = models.ForeignKey(Route, on_delete=models.CASCADE, blank=True, null=True)
     service_id = models.CharField(max_length=200)
+    _service = models.ForeignKey(
+        Calendar, on_delete=models.CASCADE, blank=True, null=True
+    )
     trip_id = models.CharField(
         max_length=255, help_text="Identificador único del viaje."
     )
@@ -456,6 +471,11 @@ class Trip(models.Model):
             UniqueConstraint(fields=["feed", "trip_id"], name="unique_trip_in_feed")
         ]
 
+    def save(self, *args, **kwargs):
+        self._route = Route.objects.get(feed=self.feed, route_id=self.route_id)
+        self._service = Calendar.objects.get(feed=self.feed, service_id=self.service_id)
+        super(Trip, self).save(*args, **kwargs)
+
     def __str__(self):
         return self.trip_id
 
@@ -468,6 +488,7 @@ class StopTime(models.Model):
     id = models.BigAutoField(primary_key=True)
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
     trip_id = models.CharField(max_length=200)
+    _trip = models.ForeignKey(Trip, on_delete=models.CASCADE, blank=True, null=True)
     arrival_time = models.TimeField(
         help_text="Hora de llegada a la parada.", blank=True, null=True
     )
@@ -475,6 +496,7 @@ class StopTime(models.Model):
         help_text="Hora de salida de la parada.", blank=True, null=True
     )
     stop_id = models.CharField(max_length=200)
+    _stop = models.ForeignKey(Stop, on_delete=models.CASCADE, blank=True, null=True)
     stop_sequence = models.PositiveIntegerField(
         help_text="Secuencia de la parada en el viaje."
     )
@@ -508,6 +530,11 @@ class StopTime(models.Model):
                 name="unique_stoptime_in_feed",
             )
         ]
+
+    def save(self, *args, **kwargs):
+        self._trip = Trip.objects.get(feed=self.feed, trip_id=self.trip_id)
+        self._stop = Stop.objects.get(feed=self.feed, stop_id=self.stop_id)
+        super(StopTime, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.trip_id}: {self.stop_id} ({self.stop_sequence})"
@@ -544,6 +571,7 @@ class FareAttribute(models.Model):
         help_text="Número de transferencias permitidas.",
     )
     agency_id = models.CharField(max_length=255, blank=True, null=True)
+    _agency = models.ForeignKey(Agency, on_delete=models.CASCADE, blank=True, null=True)
     transfer_duration = models.PositiveIntegerField(
         blank=True, null=True, help_text="Duración de la transferencia."
     )
@@ -552,6 +580,11 @@ class FareAttribute(models.Model):
         constraints = [
             UniqueConstraint(fields=["feed", "fare_id"], name="unique_fare_in_feed")
         ]
+
+    def save(self, *args, **kwargs):
+        if self.agency_id:
+            self._agency = Agency.objects.get(feed=self.feed, agency_id=self.agency_id)
+        super(FareAttribute, self).save(*args, **kwargs)
 
     def __str__(self):
         return self.fare_id
@@ -565,7 +598,11 @@ class FareRule(models.Model):
     id = models.BigAutoField(primary_key=True)
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
     fare_id = models.CharField(max_length=200)
+    _fare = models.ForeignKey(
+        FareAttribute, on_delete=models.CASCADE, blank=True, null=True
+    )
     route_id = models.CharField(max_length=200)
+    _route = models.ForeignKey(Route, on_delete=models.CASCADE, blank=True, null=True)
     origin_id = models.CharField(max_length=255, blank=True, null=True)
     destination_id = models.CharField(max_length=255, blank=True, null=True)
     contains_id = models.CharField(max_length=255, blank=True, null=True)
@@ -584,6 +621,11 @@ class FareRule(models.Model):
                 name="unique_fare_rule_in_feed",
             )
         ]
+
+    def save(self, *args, **kwargs):
+        self._fare = FareAttribute.objects.get(feed=self.feed, fare_id=self.fare_id)
+        self._route = Route.objects.get(feed=self.feed, route_id=self.route_id)
+        super(FareRule, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.fare_id}: {self.route_id}"
@@ -616,9 +658,134 @@ class FeedInfo(models.Model):
     feed_version = models.CharField(
         max_length=255, blank=True, null=True, help_text="Versión del feed."
     )
+    feed_contact_email = models.EmailField(
+        max_length=254,
+        blank=True,
+        null=True,
+        help_text="Correo electrónico de contacto.",
+    )
+    feed_contact_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL de contacto.",
+    )
 
     def __str__(self):
         return f"{self.feed_publisher_name}: {self.feed_version}"
+
+
+# ----------------
+# Auxiliary models
+# ----------------
+
+
+class RouteStop(models.Model):
+    """Describes the sequence of stops for a route and a shape."""
+
+    id = models.BigAutoField(primary_key=True)
+    feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
+    route_id = models.CharField(max_length=200)
+    _route = models.ForeignKey(Route, on_delete=models.CASCADE, blank=True, null=True)
+    shape_id = models.CharField(max_length=200)
+    _shape = models.ForeignKey(GeoShape, on_delete=models.CASCADE, blank=True, null=True)
+    direction_id = models.PositiveIntegerField()
+    stop_id = models.CharField(max_length=200)
+    _stop = models.ForeignKey(Stop, on_delete=models.CASCADE, blank=True, null=True)
+    stop_sequence = models.PositiveIntegerField()
+    timepoint = models.BooleanField()
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["feed", "route_id", "shape_id", "stop_sequence"],
+                name="unique_routestop_in_feed",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self._route = Route.objects.get(feed=self.feed, route_id=self.route_id)
+        self._shape = GeoShape.objects.get(feed=self.feed, shape_id=self.shape_id)
+        self._stop = Stop.objects.get(feed=self.feed, stop_id=self.stop_id)
+        super(RouteStop, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.route_id}: {self.stop_id} ({self.shape_id} {self.stop_sequence})"
+
+
+class TripDuration(models.Model):
+    """Describes the duration of a trip for a route and a service."""
+
+    id = models.BigAutoField(primary_key=True)
+    feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
+    route_id = models.CharField(max_length=200)
+    _route = models.ForeignKey(Route, on_delete=models.CASCADE, blank=True, null=True)
+    shape_id = models.CharField(max_length=200)
+    _shape = models.ForeignKey(Shape, on_delete=models.CASCADE, blank=True, null=True)
+    service_id = models.CharField(max_length=200)
+    _service = models.ForeignKey(
+        Calendar, on_delete=models.CASCADE, blank=True, null=True
+    )
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    stretch = models.PositiveIntegerField()
+    stretch_duration = models.DurationField()
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=[
+                    "feed",
+                    "route_id",
+                    "shape_id",
+                    "service_id",
+                    "start_time",
+                    "stretch",
+                ],
+                name="unique_tripduration_in_feed",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self._route = Route.objects.get(feed=self.feed, route_id=self.route_id)
+        self._shape = Shape.objects.get(feed=self.feed, shape_id=self.shape_id)
+        self._service = Calendar.objects.get(feed=self.feed, service_id=self.service_id)
+        super(TripDuration, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f"{self.route_id}: {self.service_id} ({self.start_time} - {self.end_time})"
+        )
+
+
+class TripTime(models.Model):
+    """
+    TODO: llenar cuando se hace el proceso de importación de GTFS. Este modelo se llena con los datos de stop_times.txt, con las filas donde timepoint = True.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
+    trip_id = models.CharField(max_length=200)
+    _trip = models.ForeignKey(Trip, on_delete=models.CASCADE, blank=True, null=True)
+    stop_id = models.CharField(max_length=200)
+    _stop = models.ForeignKey(Stop, on_delete=models.CASCADE, blank=True, null=True)
+    stop_sequence = models.PositiveIntegerField()
+    departure_time = models.TimeField()
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=["feed", "trip_id", "stop_id"],
+                name="unique_triptime_in_feed",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        self._trip = Trip.objects.get(feed=self.feed, trip_id=self.trip_id)
+        self._stop = Stop.objects.get(feed=self.feed, stop_id=self.stop_id)
+        super(TripTime, self).save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.trip_id}: {self.stop_id} ({self.departure_time})"
 
 
 # -------------
@@ -885,27 +1052,3 @@ class Alert(models.Model):
 
     def __str__(self):
         return self.alert_id
-
-
-# -------
-# Records
-# -------
-
-
-class Record(models.Model):
-    """A log of the GTFS Schedule updating sessions."""
-
-    id = models.BigAutoField(primary_key=True)
-    timestamp = models.DateTimeField(auto_now=True)
-    provider = models.ForeignKey(
-        GTFSProvider, on_delete=models.SET_NULL, blank=True, null=True
-    )
-    data_source = models.URLField(blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return f"{self.feed_transit_system} ({self.timestamp})"
-
-
-# Django Model Signal (find a good place for this)
-post_save.connect(test_signal, sender=Record)
