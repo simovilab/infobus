@@ -27,6 +27,7 @@ urlpatterns = [
     path("", include(router.urls)),
     path("next-trips/", views.NextTripView.as_view(), name="next-trips"),
     path("next-stops/", views.NextStopView.as_view(), name="next-stops"),
+    path("route-stops/", views.RouteStopView.as_view(), name="route-stops"),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("docs/schema/", views.get_schema, name="schema"),
     path("docs/", SpectacularRedocView.as_view(url_name="schema"), name="api_docs"),

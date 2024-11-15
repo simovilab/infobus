@@ -4,6 +4,7 @@ from feed.models import InfoService
 from gtfs.models import (
     GTFSProvider,
     Route,
+    RouteStop,
     Trip,
     FeedMessage,
     TripUpdate,
@@ -251,6 +252,81 @@ class NextStopView(APIView):
         serializer = NextStopSerializer(data)
 
         return Response(serializer.data)
+
+
+class RouteStopView(APIView):
+    def get(self, request):
+
+        # Get and validate query parameters
+        if request.query_params.get("route_id") and request.query_params.get(
+            "shape_id"
+        ):
+            route_id = request.query_params.get("route_id")
+            shape_id = request.query_params.get("shape_id")
+            try:
+                route_stops = RouteStop.objects.filter(
+                    route_id=route_id, shape_id=shape_id
+                )
+            except RouteStop.DoesNotExist:
+                return Response(
+                    {
+                        "error": f"No existe la combinación de ruta {route_id} y trayectoria {shape_id} en la base de datos."
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            return Response(
+                {
+                    "error": "Es necesario especificar el route_id y el shape_id como parámetros de la solicitud. Por ejemplo: /route-stops?route_id=bUCR_L1&shape_id=hacia_educacion"
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the current GTFS feed
+        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+
+        # Construct the GeoJSON structure
+        geojson = {"type": "FeatureCollection", "features": []}
+
+        # Build the response for scheduled trips
+        for route_stop in route_stops:
+            stop = Stop.objects.get(stop_id=route_stop.stop_id, feed=current_feed)
+
+            print(stop.shelter)
+            feature = {
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [stop.stop_point.x, stop.stop_point.y],
+                },
+                "properties": {
+                    "route_id": route_stop.route_id,
+                    "shape_id": route_stop.shape_id,
+                    "stop_id": stop.stop_id,
+                    "stop_name": stop.stop_name,
+                    # "stop_heading": stop.stop_heading,
+                    "stop_desc": stop.stop_desc,
+                    "stop_sequence": route_stop.stop_sequence,
+                    "timepoint": route_stop.timepoint,
+                    "wheelchair_boarding": 1,  # stop.wheelchair_boarding,
+                    # "shelter": True,  # stop.shelter,
+                    # "bench": True,  # stop.bench,
+                    # "lit": True,  # stop.lit,
+                    # "bay": True,  # stop.bay,
+                    # "device_charging_station": True,  # stop.device_charging_station,
+                    # "other_routes": [{"route_id": "adiós"}, {"route_id": "adiós"}],
+                },
+            }
+
+            geojson["features"].append(feature)
+
+        serializer = RouteStopSerializer(data=geojson)
+        if serializer.is_valid():
+            return Response(serializer.data)
+        else:
+            return Response(
+                serializer.errors, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
 class AgencyViewSet(viewsets.ModelViewSet):
