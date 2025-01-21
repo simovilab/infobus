@@ -113,6 +113,17 @@ class StopSerializer(serializers.HyperlinkedModelSerializer):
         fields = "__all__"
 
 
+class GeoStopSerializer(GeoFeatureModelSerializer):
+
+    feed = serializers.PrimaryKeyRelatedField(read_only=True)
+    stop_point = GeometryField()
+
+    class Meta:
+        model = Stop
+        geo_field = "stop_point"
+        fields = "__all__"
+
+
 class RouteSerializer(serializers.HyperlinkedModelSerializer):
 
     feed = serializers.PrimaryKeyRelatedField(read_only=True)

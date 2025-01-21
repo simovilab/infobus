@@ -360,6 +360,24 @@ class StopViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
+class GeoStopViewSet(viewsets.ModelViewSet):
+    """
+    Paradas como GeoJSON.
+    """
+
+    queryset = Stop.objects.all()
+    serializer_class = GeoStopSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = [
+        "stop_id",
+        "location_type",
+        "zone_id",
+        "parent_station",
+        "wheelchair_boarding",
+    ]
+    # permission_classes = [permissions.IsAuthenticated]
+
+
 class RouteViewSet(viewsets.ModelViewSet):
     """
     Rutas de transporte público.
