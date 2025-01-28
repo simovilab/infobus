@@ -74,10 +74,11 @@ class NextTripView(APIView):
         if request.query_params.get("timestamp"):
             timestamp = request.query_params.get("timestamp")
             timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
-            timestamp = timestamp.replace(tzinfo=timezone("America/Costa_Rica"))
+            timestamp = timestamp.replace(tzinfo=timezone(timedelta(hours=-6)))
         else:
             timestamp = datetime.now()
 
+        print(timestamp)
         # Get the current GTFS feed
         current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
         # Check current calendar service
@@ -661,6 +662,9 @@ def get_calendar(date, current_feed):
         day_of_week = date.strftime("%A").lower()
         kwargs = {"feed": current_feed, day_of_week: True}
         calendar = Calendar.objects.filter(**kwargs).first()
-        service_id = calendar.service_id
+        if not calendar:
+            service_id = None
+        else:
+            service_id = calendar.service_id
 
     return service_id
