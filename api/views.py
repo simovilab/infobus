@@ -16,7 +16,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from shapely import geometry
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from .serializers import *
 
@@ -51,7 +51,7 @@ class NextTripView(APIView):
     def get(self, request):
         # TODO: check for errors and exceptions and validations when data is not found
 
-        # Get query parameters (stop and, optionally, timestamp)
+        # Query parameters
         if request.query_params.get("stop_id"):
             stop_id = request.query_params.get("stop_id")
             try:
@@ -73,10 +73,14 @@ class NextTripView(APIView):
 
         if request.query_params.get("timestamp"):
             timestamp = request.query_params.get("timestamp")
+            timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
+            timestamp = timestamp.replace(tzinfo=timezone("America/Costa_Rica"))
         else:
             timestamp = datetime.now()
 
+        # Get the current GTFS feed
         current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        # Check current calendar service
         service_id = get_calendar(timestamp.date(), current_feed)
         if service_id is None:
             return Response(
@@ -644,7 +648,8 @@ def str_to_timedelta(time_str):
 
 
 def get_calendar(date, current_feed):
-
+    """Get the service_id for the specified date.
+    """
     exception_type = 1  # Service has been added for the specified date.
     exception = CalendarDate.objects.filter(
         feed=current_feed, date=date, exception_type=exception_type

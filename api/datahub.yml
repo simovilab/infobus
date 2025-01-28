@@ -418,8 +418,8 @@ paths:
           name: timestamp
           schema:
             type: string
-            example: '2024-07-31T16:12:25-06:00'
-          description: 'Fecha y hora de referencia en el futuro para buscar próximos viajes a partir de ese momento. Opcional, por defecto es el momento actual.'
+            example: '2024-07-31T16:12:25'
+          description: 'Fecha y hora de referencia en el futuro para buscar próximos viajes a partir de ese momento. Será asumida la zona horaria de la agencia. Parámetro opcional, por defecto es el momento actual.'
       responses:
         '200':
           description: OK
