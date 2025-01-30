@@ -16,7 +16,9 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from shapely import geometry
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+import pytz
+from django.conf import settings
 
 from .serializers import *
 
@@ -49,7 +51,8 @@ class GTFSProviderViewSet(viewsets.ModelViewSet):
 
 class NextTripView(APIView):
     def get(self, request):
-        # TODO: check for errors and exceptions and validations when data is not found
+
+        timezone = pytz.timezone(settings.TIME_ZONE)
 
         # Query parameters
         if request.query_params.get("stop_id"):
@@ -74,14 +77,13 @@ class NextTripView(APIView):
         if request.query_params.get("timestamp"):
             timestamp = request.query_params.get("timestamp")
             timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
-            timestamp = timestamp.replace(tzinfo=timezone(timedelta(hours=-6)))
+            timestamp = timezone.localize(timestamp)
         else:
             timestamp = datetime.now()
+            timestamp = timezone.localize(timestamp)
 
-        print(timestamp)
         # Get the current GTFS feed
         current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
-        # Check current calendar service
         service_id = get_calendar(timestamp.date(), current_feed)
         if service_id is None:
             return Response(
@@ -91,50 +93,20 @@ class NextTripView(APIView):
 
         next_arrivals = []
 
-        # For scheduled trips
-        stop_times = StopTime.objects.filter(
-            feed=current_feed,
-            stop_id=stop_id,
-            arrival_time__gte=timestamp.time(),
-            _trip__service_id=service_id,
-        ).order_by("arrival_time")
+        # -----------------
+        # Trips in progress
+        # -----------------
 
-        # For trips in progress
-        latest_trip_update = FeedMessage.objects.filter(
+        latest_feed_message = FeedMessage.objects.filter(
             entity_type="trip_update"
         ).latest("timestamp")
         # TODO: check TTL (time to live)
         stop_time_updates = StopTimeUpdate.objects.filter(
-            feed_message=latest_trip_update, stop_id=stop_id
+            feed_message=latest_feed_message, stop_id=stop_id
         )
+        print(f"stop_time_updates: {stop_time_updates}")
 
-        # Build the response for scheduled trips
-        for stop_time in stop_times:
-            trip = Trip.objects.filter(
-                trip_id=stop_time.trip_id, feed=current_feed
-            ).first()
-            route = Route.objects.filter(
-                route_id=trip.route_id, feed=current_feed
-            ).first()
-
-            next_arrivals.append(
-                {
-                    "trip_id": trip.trip_id,
-                    "route_id": route.route_id,
-                    "route_short_name": route.route_short_name,
-                    "route_long_name": route.route_long_name,
-                    "trip_headsign": trip.trip_headsign,
-                    "wheelchair_accessible": trip.wheelchair_accessible,
-                    "in_progress": False,
-                    "arrival_time": datetime.combine(
-                        timestamp.today(), stop_time.arrival_time
-                    ),
-                    "departure_time": datetime.combine(
-                        timestamp.today(), stop_time.departure_time
-                    ),
-                    "progression": None,
-                }
-            )
+        trips_in_progress = []
 
         # Build the response for trips in progress
         for stop_time_update in stop_time_updates:
@@ -144,6 +116,7 @@ class NextTripView(APIView):
             trip = Trip.objects.filter(
                 trip_id=trip_update.trip_trip_id, feed=current_feed
             ).first()
+            trips_in_progress.append(trip)
             route = Route.objects.filter(
                 route_id=trip.route_id, feed=current_feed
             ).first()
@@ -160,7 +133,7 @@ class NextTripView(APIView):
             location = vehicle_position.vehicle_position_point
             location = geometry.Point(location.x, location.y)
             position_in_shape = geo_shape.project(location) / geo_shape.length
-
+ 
             next_arrivals.append(
                 {
                     "trip_id": trip.trip_id,
@@ -181,7 +154,54 @@ class NextTripView(APIView):
                 }
             )
 
-            # For upcoming trips
+        print(trips_in_progress)
+
+        # ---------------
+        # Scheduled trips
+        # ---------------
+
+        stop_times = StopTime.objects.filter(
+            feed=current_feed,
+            stop_id=stop_id,
+            arrival_time__gte=timestamp.time(),
+            _trip__service_id=service_id,
+        ).order_by("arrival_time")
+
+        # Build the response for scheduled trips
+        for stop_time in stop_times:
+            trip = Trip.objects.filter(
+                trip_id=stop_time.trip_id, feed=current_feed
+            ).first()
+            if trip in trips_in_progress:
+                continue
+            route = Route.objects.filter(
+                route_id=trip.route_id, feed=current_feed
+            ).first()
+
+            arrival_time = timezone.localize(
+                datetime.combine(timestamp.today(), stop_time.arrival_time)
+            )
+            departure_time = timezone.localize(
+                datetime.combine(timestamp.today(), stop_time.departure_time)
+            )
+
+            next_arrivals.append(
+                {
+                    "trip_id": trip.trip_id,
+                    "route_id": route.route_id,
+                    "route_short_name": route.route_short_name,
+                    "route_long_name": route.route_long_name,
+                    "trip_headsign": trip.trip_headsign,
+                    "wheelchair_accessible": trip.wheelchair_accessible,
+                    "arrival_time": arrival_time,
+                    "departure_time": departure_time,
+                    "in_progress": False,
+                    "progression": None,
+                }
+            )
+
+        # Sort the list by arrival time
+        next_arrivals.sort(key=lambda x: x["arrival_time"])
 
         data = {
             "stop_id": stop_id,
@@ -649,8 +669,7 @@ def str_to_timedelta(time_str):
 
 
 def get_calendar(date, current_feed):
-    """Get the service_id for the specified date.
-    """
+    """Get the service_id for the specified date."""
     exception_type = 1  # Service has been added for the specified date.
     exception = CalendarDate.objects.filter(
         feed=current_feed, date=date, exception_type=exception_type
