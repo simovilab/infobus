@@ -102,6 +102,7 @@ def get_schedule():
 @shared_task
 def get_vehicle_positions():
     providers = GTFSProvider.objects.filter(is_active=True)
+    saved_data = False
     for provider in providers:
         vehicle_positions = gtfs_rt.FeedMessage()
         try:
@@ -126,12 +127,16 @@ def get_vehicle_positions():
             incrementality=vehicle_positions.header.incrementality,
             gtfs_realtime_version=vehicle_positions.header.gtfs_realtime_version,
         )
+
         feed_message.save()
 
         vehicle_positions_json = json_format.MessageToJson(
             vehicle_positions, preserving_proto_field_name=True
         )
         vehicle_positions_json = json.loads(vehicle_positions_json)
+        if "entity" not in vehicle_positions_json:
+            print("No vehicle positions found")
+            continue
         vehicle_positions_df = pd.json_normalize(
             vehicle_positions_json["entity"], sep="_"
         )
@@ -178,6 +183,7 @@ def get_vehicle_positions():
             for row in vehicle_positions_df.to_dict(orient="records")
         ]
         VehiclePosition.objects.bulk_create(objects)
+        saved_data = saved_data or True
 
     # Send status update to WebSocket
     message = {}
@@ -192,7 +198,10 @@ def get_vehicle_positions():
         },
     )
 
-    return "VehiclePositions saved to database"
+    if saved_data:
+        return "VehiclePositions saved to database"
+    else:
+        return "No VehiclePositions found"
 
 
 @shared_task
