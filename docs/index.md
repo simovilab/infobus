@@ -11,3 +11,9 @@ Este es un proyecto realizado por la Escuela de Ingeniería Eléctrica de la Uni
 ## Implementación
 
 El primer prototipo del sistema de pantallas en tiempo real será implementado en la segunda mitad de 2024.
+
+## Clientes de la información
+
+- Usuarios: información GTFS para utilizar el servicio
+- Operadores, gestores, administradores, reguladores, investigadores: métricas e información global del sistema de transporte público
+- Administradores del sistema informático: métricas de desempeño y estado de la infraestructura (seguridad, recursos computacionales, etc.)

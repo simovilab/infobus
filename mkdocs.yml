@@ -3,6 +3,7 @@ site_name: Sistema de pantallas en tiempo real
 nav:
   - Inicio: index.md
   - Arquitectura: architecture.md
+  - Métricas: metrics.md
   - Desarrollo: development.md
   - Sobre el proyecto: about.md
 
