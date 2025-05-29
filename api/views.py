@@ -20,6 +20,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from shapely import geometry
 from datetime import datetime, timedelta
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from .serializers import *
 
@@ -41,6 +43,24 @@ class FilterMixin:
 class GTFSProviderViewSet(viewsets.ModelViewSet):
     """
     Proveedores de datos GTFS.
+
+    retrieve:
+    Obtiene un proveedor de datos GTFS específico.
+
+    list:
+    Lista todos los proveedores de datos GTFS.
+
+    create:
+    Crea un nuevo proveedor de datos GTFS.
+
+    update:
+    Actualiza un proveedor de datos GTFS existente.
+
+    delete:
+    Elimina un proveedor de datos GTFS existente.
+
+    partial_update:
+    Actualiza parcialmente un proveedor de datos GTFS existente.
     """
 
     queryset = GTFSProvider.objects.all()
@@ -51,6 +71,70 @@ class GTFSProviderViewSet(viewsets.ModelViewSet):
 
 
 class NextTripView(APIView):
+    """
+    Obtiene la siguiente llegada de un viaje a una parada específica.
+
+    get:
+    Obtiene la siguiente llegada de un viaje a una parada específica.
+    """
+
+    @swagger_auto_schema(
+        operation_description="Devuelve la siguiente llegada de un viaje a una parada específica.",
+        manual_parameters=[
+            openapi.Parameter(
+                "stop_id", openapi.IN_QUERY, description="ID de la parada", type=openapi.TYPE_STRING, required=True
+            ),
+            openapi.Parameter(
+                "timestamp", openapi.IN_QUERY, description="Fecha y hora de consulta (YYYY-MM-DDTHH:MM:SS, opcional, por defecto ahora)", type=openapi.TYPE_STRING, required=False
+            ),
+        ],
+        responses={
+            200: openapi.Response(
+                description="Próximas llegadas a la parada",
+                examples={
+                    "application/json": {
+                        "stop_id": "bUCR-0-01",
+                        "timestamp": "2024-05-13T08:00:00",
+                        "next_arrivals": [
+                            {
+                                "trip_id": "1234",
+                                "route_id": "R1",
+                                "route_short_name": "Línea 1",
+                                "route_long_name": "Ruta Central",
+                                "trip_headsign": "Centro",
+                                "wheelchair_accessible": 1,
+                                "in_progress": False,
+                                "arrival_time": "2024-05-13T08:15:00Z",
+                                "departure_time": "2024-05-13T08:16:00Z",
+                                "progression": None
+                            },
+                            {
+                                "trip_id": "5678",
+                                "route_id": "R2",
+                                "route_short_name": "Línea 2",
+                                "route_long_name": "Ruta Norte",
+                                "trip_headsign": "Norte",
+                                "wheelchair_accessible": 2,
+                                "in_progress": True,
+                                "arrival_time": "2024-05-13T08:20:00Z",
+                                "departure_time": "2024-05-13T08:21:00Z",
+                                "progression": {
+                                    "position_in_shape": 0.45,
+                                    "current_stop_sequence": 7,
+                                    "current_status": "IN_TRANSIT_TO",
+                                    "occupancy_status": "MANY_SEATS_AVAILABLE"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ),
+            400: "Parámetros faltantes o incorrectos",
+            404: "No existe la parada especificada",
+            204: "No hay servicio disponible para la fecha especificada"
+        }
+    )
+
     def get(self, request):
         # TODO: check for errors and exceptions and validations when data is not found
 
@@ -192,6 +276,52 @@ class NextTripView(APIView):
 
 
 class NextStopView(APIView):
+    """
+    Obtiene la siguiente parada de un viaje específico.
+
+    get:
+    Obtiene la siguiente parada de un viaje específico.
+    """
+
+    @swagger_auto_schema(
+        operation_description="Devuelve la siguiente parada de un viaje específico.",
+        manual_parameters=[
+            openapi.Parameter(
+                "trip_id", openapi.IN_QUERY, description="ID del viaje", type=openapi.TYPE_STRING, required=True
+            ),
+            openapi.Parameter(
+                "start_date", openapi.IN_QUERY, description="Fecha de inicio (YYYY-MM-DD)", type=openapi.TYPE_STRING, required=True
+            ),
+            openapi.Parameter(
+                "start_time", openapi.IN_QUERY, description="Hora de inicio (HH:MM:SS)", type=openapi.TYPE_STRING, required=True
+            ),
+        ],
+        responses={
+            200: openapi.Response(
+                description="Secuencia de próximas paradas",
+                examples={
+                    "application/json": {
+                        "trip_id": "1234",
+                        "start_date": "2024-05-13",
+                        "start_time": "08:00:00",
+                        "next_stop_sequence": [
+                            {
+                                "stop_sequence": 5,
+                                "stop_id": "STOP_1",
+                                "stop_name": "Parada Central",
+                                "stop_lat": 9.9333,
+                                "stop_lon": -84.0833,
+                                "arrival": "2024-05-13T08:15:00Z",
+                                "departure": "2024-05-13T08:16:00Z"
+                            }
+                        ]
+                    }
+                }
+            ),
+            400: "Parámetros faltantes o incorrectos",
+        }
+    )
+
     def get(self, request):
 
         # Get query parameters
@@ -258,6 +388,56 @@ class NextStopView(APIView):
 
 
 class RouteStopView(APIView):
+    """
+    Obtiene las paradas de una ruta específica.
+
+    get:
+    Obtiene las paradas de una ruta específica.
+    """
+
+    @swagger_auto_schema(
+        operation_description="Devuelve las paradas de una ruta específica en formato GeoJSON.",
+        manual_parameters=[
+            openapi.Parameter(
+                "route_id", openapi.IN_QUERY, description="ID de la ruta", type=openapi.TYPE_STRING, required=True
+            ),
+            openapi.Parameter(
+                "shape_id", openapi.IN_QUERY, description="ID de la trayectoria", type=openapi.TYPE_STRING, required=True
+            ),
+        ],
+        responses={
+            200: openapi.Response(
+                description="GeoJSON con las paradas de la ruta",
+                examples={
+                    "application/json": {
+                        "type": "FeatureCollection",
+                        "features": [
+                            {
+                                "type": "Feature",
+                                "geometry": {
+                                    "type": "Point",
+                                    "coordinates": [-84.0833, 9.9333]
+                                },
+                                "properties": {
+                                    "route_id": "bUCR_L1",
+                                    "shape_id": "hacia_educacion",
+                                    "stop_id": "STOP_1",
+                                    "stop_name": "Parada Central",
+                                    "stop_desc": "Parada principal",
+                                    "stop_sequence": 1,
+                                    "timepoint": True,
+                                    "wheelchair_boarding": 1
+                                }
+                            }
+                        ]
+                    }
+                }
+            ),
+            400: "Parámetros faltantes o incorrectos",
+            404: "No existe la combinación de ruta y trayectoria en la base de datos"
+        }
+    )
+
     def get(self, request):
 
         # Get and validate query parameters
@@ -335,6 +515,24 @@ class RouteStopView(APIView):
 class AgencyViewSet(viewsets.ModelViewSet):
     """
     Agencias de transporte público.
+
+    retrieve:
+    Obtiene una agencia de transporte público específica.
+
+    list:
+    Lista todas las agencias de transporte público.
+
+    create:
+    Crea una nueva agencia de transporte público.
+
+    update:
+    Actualiza una agencia de transporte público existente.
+
+    delete:
+    Elimina una agencia de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente una agencia de transporte público existente.
     """
 
     queryset = Agency.objects.all()
@@ -347,6 +545,24 @@ class AgencyViewSet(viewsets.ModelViewSet):
 class StopViewSet(viewsets.ModelViewSet):
     """
     Paradas de transporte público.
+
+    retrieve:
+    Obtiene una parada de transporte público específica.
+
+    list:
+    Lista todas las paradas de transporte público.
+
+    create:
+    Crea una nueva parada de transporte público.
+
+    update:
+    Actualiza una parada de transporte público existente.
+
+    delete:
+    Elimina una parada de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente una parada de transporte público existente.
     """
 
     queryset = Stop.objects.all()
@@ -366,6 +582,24 @@ class StopViewSet(viewsets.ModelViewSet):
 class RouteViewSet(viewsets.ModelViewSet):
     """
     Rutas de transporte público.
+
+    retrieve:
+    Obtiene una ruta de transporte público específica.
+
+    list:
+    Lista todas las rutas de transporte público.
+
+    create:
+    Crea una nueva ruta de transporte público.
+
+    update:
+    Actualiza una ruta de transporte público existente.
+
+    delete:
+    Elimina una ruta de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente una ruta de transporte público existente.
     """
 
     queryset = Route.objects.all()
@@ -386,6 +620,24 @@ class RouteViewSet(viewsets.ModelViewSet):
 class CalendarViewSet(viewsets.ModelViewSet):
     """
     Calendarios de transporte público.
+    
+    retrieve:
+    Obtiene un calendario de transporte público específico.
+
+    list:
+    Lista todos los calendarios de transporte público.
+
+    create:
+    Crea un nuevo calendario de transporte público.
+
+    update:
+    Actualiza un calendario de transporte público existente.
+
+    delete:
+    Elimina un calendario de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente un calendario de transporte público existente.
     """
 
     queryset = Calendar.objects.all()
@@ -398,6 +650,24 @@ class CalendarViewSet(viewsets.ModelViewSet):
 class CalendarDateViewSet(viewsets.ModelViewSet):
     """
     Fechas de calendario de transporte público.
+
+    retrieve:
+    Obtiene una fecha de calendario de transporte público específica.
+
+    list:
+    Lista todas las fechas de calendario de transporte público.
+
+    create:
+    Crea una nueva fecha de calendario de transporte público.
+
+    update:
+    Actualiza una fecha de calendario de transporte público existente.
+
+    delete:
+    Elimina una fecha de calendario de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente una fecha de calendario de transporte público existente.
     """
 
     queryset = CalendarDate.objects.all()
@@ -410,6 +680,24 @@ class CalendarDateViewSet(viewsets.ModelViewSet):
 class ShapeViewSet(viewsets.ModelViewSet):
     """
     Formas de transporte público.
+
+    retrieve:
+    Obtiene una forma de transporte público específica.
+
+    list:
+    Lista todas las formas de transporte público.
+
+    create:
+    Crea una nueva forma de transporte público.
+
+    update:
+    Actualiza una forma de transporte público existente.
+
+    delete:
+    Elimina una forma de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente una forma de transporte público existente.
     """
 
     queryset = Shape.objects.all()
@@ -422,6 +710,24 @@ class ShapeViewSet(viewsets.ModelViewSet):
 class GeoShapeViewSet(viewsets.ModelViewSet):
     """
     Formas geográficas de transporte público.
+
+    retrieve:
+    Obtiene una forma geográfica de transporte público específica.
+
+    list:
+    Lista todas las formas geográficas de transporte público.
+
+    create:
+    Crea una nueva forma geográfica de transporte público.
+
+    update:
+    Actualiza una forma geográfica de transporte público existente.
+
+    delete:
+    Elimina una forma geográfica de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente una forma geográfica de transporte público existente.
     """
 
     queryset = GeoShape.objects.all()
@@ -434,6 +740,24 @@ class GeoShapeViewSet(viewsets.ModelViewSet):
 class TripViewSet(viewsets.ModelViewSet):
     """
     Viajes de transporte público.
+
+    retrieve:
+    Obtiene un viaje de transporte público específico.
+
+    list:
+    Lista todos los viajes de transporte público.
+
+    create:
+    Crea un nuevo viaje de transporte público.
+
+    update:
+    Actualiza un viaje de transporte público existente.
+
+    delete:
+    Elimina un viaje de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente un viaje de transporte público existente.
     """
 
     queryset = Trip.objects.all()
@@ -452,6 +776,24 @@ class TripViewSet(viewsets.ModelViewSet):
 class StopTimeViewSet(viewsets.ModelViewSet):
     """
     Horarios de paradas de transporte público.
+
+    retrieve:
+    Obtiene un horario de parada de transporte público específico.
+
+    list:
+    Lista todos los horarios de paradas de transporte público.
+
+    create:
+    Crea un nuevo horario de parada de transporte público.
+
+    update:
+    Actualiza un horario de parada de transporte público existente.
+
+    delete:
+    Elimina un horario de parada de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente un horario de parada de transporte público existente.
     """
 
     queryset = StopTime.objects.all()
@@ -464,6 +806,24 @@ class StopTimeViewSet(viewsets.ModelViewSet):
 class FeedInfoViewSet(viewsets.ModelViewSet):
     """
     Información de alimentación de transporte público.
+
+    retrieve:
+    Obtiene información de alimentación de transporte público específica.
+
+    list:
+    Lista toda la información de alimentación de transporte público.
+
+    create:
+    Crea nueva información de alimentación de transporte público.
+
+    update:
+    Actualiza información de alimentación de transporte público existente.
+
+    delete:
+    Elimina información de alimentación de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente información de alimentación de transporte público existente.
     """
 
     queryset = FeedInfo.objects.all()
@@ -476,6 +836,24 @@ class FeedInfoViewSet(viewsets.ModelViewSet):
 class FareAttributeViewSet(viewsets.ModelViewSet):
     """
     Atributos de tarifa de transporte público.
+
+    retrieve:
+    Obtiene un atributo de tarifa de transporte público específico.
+
+    list:
+    Lista todos los atributos de tarifa de transporte público.
+
+    create:
+    Crea un nuevo atributo de tarifa de transporte público.
+
+    update:
+    Actualiza un atributo de tarifa de transporte público existente.
+
+    delete:
+    Elimina un atributo de tarifa de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente un atributo de tarifa de transporte público existente.
     """
 
     queryset = FareAttribute.objects.all()
@@ -489,6 +867,24 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
 class FareRuleViewSet(viewsets.ModelViewSet):
     """
     Reglas de tarifa de transporte público.
+
+    retrieve:
+    Obtiene una regla de tarifa de transporte público específica.
+
+    list:
+    Lista todas las reglas de tarifa de transporte público.
+
+    create:
+    Crea una nueva regla de tarifa de transporte público.
+
+    update:
+    Actualiza una regla de tarifa de transporte público existente.
+
+    delete:
+    Elimina una regla de tarifa de transporte público existente.
+
+    partial_update:
+    Actualiza parcialmente una regla de tarifa de transporte público existente.
     """
 
     queryset = FareRule.objects.all()
@@ -502,6 +898,24 @@ class FareRuleViewSet(viewsets.ModelViewSet):
 class ServiceAlertViewSet(viewsets.ModelViewSet):
     """
     Alertas de servicio de transporte público.
+
+    retrieve:
+    Obtiene una alerta de servicio específica.
+    
+    list:
+    Lista todas las alertas de servicio.
+    
+    create:
+    Crea una nueva alerta de servicio.
+    
+    update:
+    Actualiza una alerta de servicio existente.
+    
+    delete:
+    Elimina una alerta de servicio existente.
+    
+    partial_update:
+    Actualiza parcialmente una alerta de servicio existente.
     """
 
     queryset = Alert.objects.all()
@@ -516,6 +930,24 @@ class ServiceAlertViewSet(viewsets.ModelViewSet):
 class WeatherViewSet(viewsets.ModelViewSet):
     """
     Condiciones climáticas.
+
+    retrieve:
+    Obtiene una condición climática específica.
+
+    list:
+    Lista todas las condiciones climáticas.
+
+    create:
+    Crea una nueva condición climática.
+
+    update:
+    Actualiza una condición climática existente.
+
+    delete:
+    Elimina una condición climática existente.
+
+    partial_update:
+    Actualiza parcialmente una condición climática existente.
     """
 
     queryset = Weather.objects.all()
@@ -528,6 +960,24 @@ class WeatherViewSet(viewsets.ModelViewSet):
 class SocialViewSet(viewsets.ModelViewSet):
     """
     Publicaciones en redes sociales.
+
+    retrieve:
+    Obtiene una publicación en redes sociales específica.
+
+    list:
+    Lista todas las publicaciones en redes sociales.
+
+    create:
+    Crea una nueva publicación en redes sociales.
+
+    update:
+    Actualiza una publicación en redes sociales existente.
+
+    delete:
+    Elimina una publicación en redes sociales existente.
+
+    partial_update:
+    Actualiza parcialmente una publicación en redes sociales existente.
     """
 
     queryset = Social.objects.all()
@@ -540,6 +990,24 @@ class SocialViewSet(viewsets.ModelViewSet):
 class FeedMessageViewSet(viewsets.ModelViewSet):
     """
     Mensajes de alimentación.
+
+    retrieve:
+    Obtiene un mensaje de alimentación específico.
+
+    list:
+    Lista todos los mensajes de alimentación.
+
+    create:
+    Crea un nuevo mensaje de alimentación.
+
+    update:
+    Actualiza un mensaje de alimentación existente.
+
+    delete:
+    Elimina un mensaje de alimentación existente.
+
+    partial_update:
+    Actualiza parcialmente un mensaje de alimentación existente.
     """
 
     queryset = FeedMessage.objects.all()
@@ -553,6 +1021,24 @@ class FeedMessageViewSet(viewsets.ModelViewSet):
 class TripUpdateViewSet(viewsets.ModelViewSet):
     """
     Actualizaciones de viaje.
+
+    retrieve:
+    Obtiene una actualización de viaje específica.
+
+    list:
+    Lista todas las actualizaciones de viaje.
+
+    create:
+    Crea una nueva actualización de viaje.
+
+    update:
+    Actualiza una actualización de viaje existente.
+
+    delete:
+    Elimina una actualización de viaje existente.
+
+    partial_update:
+    Actualiza parcialmente una actualización de viaje existente.
     """
 
     queryset = TripUpdate.objects.all()
@@ -570,6 +1056,24 @@ class TripUpdateViewSet(viewsets.ModelViewSet):
 class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     """
     Actualizaciones de horario de parada.
+
+    retrieve:
+    Obtiene una actualización de horario de parada específica.
+
+    list:
+    Lista todas las actualizaciones de horario de parada.
+
+    create:
+    Crea una nueva actualización de horario de parada.
+
+    update:
+    Actualiza una actualización de horario de parada existente.
+
+    delete:
+    Elimina una actualización de horario de parada existente.
+
+    partial_update:
+    Actualiza parcialmente una actualización de horario de parada existente.
     """
 
     queryset = StopTimeUpdate.objects.all()
@@ -584,6 +1088,24 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
 class VehiclePositionViewSet(viewsets.ModelViewSet):
     """
     Posiciones de vehículos.
+
+    retrieve:
+    Obtiene una posición de vehículo específica.
+
+    list:
+    Lista todas las posiciones de vehículos.
+
+    create:
+    Crea una nueva posición de vehículo.
+
+    update:
+    Actualiza una posición de vehículo existente.
+
+    delete:
+    Elimina una posición de vehículo existente.
+
+    partial_update:
+    Actualiza parcialmente una posición de vehículo existente.
     """
 
     queryset = VehiclePosition.objects.all()
@@ -602,6 +1124,24 @@ class VehiclePositionViewSet(viewsets.ModelViewSet):
 class InfoServiceViewSet(viewsets.ModelViewSet):
     """
     Aplicaciones conectadas al servidor de datos.
+
+    retrieve:
+    Obtiene una aplicación específica.
+
+    list:
+    Lista todas las aplicaciones.
+
+    create:
+    Crea una nueva aplicación.
+
+    update:
+    Actualiza una aplicación existente.
+
+    delete:
+    Elimina una aplicación existente.
+
+    partial_update:
+    Actualiza parcialmente una aplicación existente.
     """
 
     queryset = InfoService.objects.all()
@@ -614,6 +1154,24 @@ class InfoServiceViewSet(viewsets.ModelViewSet):
 class InfoProviderViewSet(viewsets.ModelViewSet):
     """
     Proveedores de servicios conectados al servidor de datos.
+
+    retrieve:
+    Obtiene un proveedor de servicios específico.
+
+    list:
+    Lista todos los proveedores de servicios.
+
+    create:
+    Crea un nuevo proveedor de servicios.
+
+    update:
+    Actualiza un proveedor de servicios existente.
+
+    delete:
+    Elimina un proveedor de servicios existente.
+
+    partial_update:
+    Actualiza parcialmente un proveedor de servicios existente.
     """
 
     queryset = InfoProvider.objects.all()
