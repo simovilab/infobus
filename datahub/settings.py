@@ -34,11 +34,8 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv())
 # Application definition
 
 INSTALLED_APPS = [
-<<<<<<< HEAD
-=======
     "daphne",
     "channels",
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
     "website.apps.WebsiteConfig",
     "gtfs.apps.GtfsConfig",
     "feed.apps.FeedConfig",
@@ -88,10 +85,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "datahub.wsgi.application"
-<<<<<<< HEAD
-=======
 ASGI_APPLICATION = "datahub.asgi.application"
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 
 
 # Database
@@ -140,20 +134,6 @@ CELERY_RESULT_BACKEND = "django-db"
 CELERY_CACHE_BACKEND = "django-cache"
 CELERY_RESULTS_EXTENDED = True
 
-<<<<<<< HEAD
-# Channels settings
-
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [(REDIS_HOST, REDIS_PORT)],
-        },
-    },
-}
-
-=======
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 # REST Framework settings
 
 REST_FRAMEWORK = {
@@ -166,8 +146,6 @@ SPECTACULAR_SETTINGS = {
     "TITLE": "Infobús API | bUCR",
 }
 
-<<<<<<< HEAD
-=======
 # Channels settings
 
 CHANNEL_LAYERS = {
@@ -179,7 +157,6 @@ CHANNEL_LAYERS = {
     },
 }
 
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
