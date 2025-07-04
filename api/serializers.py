@@ -2,13 +2,9 @@ from feed.models import InfoService
 from gtfs.models import *
 from alerts.models import *
 from rest_framework import serializers
-<<<<<<< HEAD
-# from gtfs.models import GTFSProvider, Route, Trip, StopTime, Stop, FeedInfo, Calendar, CalendarDate, Shape, GeoShape, FareAttribute, FareRule, ServiceAlert, Weather, Social, FeedMessage, TripUpdate, StopTimeUpdate, VehiclePosition, Record, Agency
-=======
 from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeometryField
 
 # from gtfs.models import GTFSProvider, Route, Trip, StopTime, Stop, FeedInfo, Calendar, CalendarDate, Shape, GeoShape, FareAttribute, FareRule, ServiceAlert, Weather, Social, FeedMessage, TripUpdate, StopTimeUpdate, VehiclePosition, Agency
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 
 
 class GTFSProviderSerializer(serializers.HyperlinkedModelSerializer):
@@ -17,8 +13,6 @@ class GTFSProviderSerializer(serializers.HyperlinkedModelSerializer):
         fields = "__all__"
 
 
-<<<<<<< HEAD
-=======
 class ProgressionSerializer(serializers.Serializer):
     position_in_shape = serializers.FloatField()
     current_stop_sequence = serializers.IntegerField()
@@ -101,7 +95,6 @@ class RouteStopSerializer(serializers.Serializer):
     features = RouteStopFeatureSerializer(many=True)
 
 
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 class AgencySerializer(serializers.HyperlinkedModelSerializer):
 
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -120,8 +113,6 @@ class StopSerializer(serializers.HyperlinkedModelSerializer):
         fields = "__all__"
 
 
-<<<<<<< HEAD
-=======
 class GeoStopSerializer(GeoFeatureModelSerializer):
 
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -133,7 +124,6 @@ class GeoStopSerializer(GeoFeatureModelSerializer):
         fields = "__all__"
 
 
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 class RouteSerializer(serializers.HyperlinkedModelSerializer):
 
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -170,14 +160,6 @@ class ShapeSerializer(serializers.HyperlinkedModelSerializer):
         fields = "__all__"
 
 
-<<<<<<< HEAD
-class GeoShapeSerializer(serializers.HyperlinkedModelSerializer):
-
-    feed = serializers.PrimaryKeyRelatedField(read_only=True)
-
-    class Meta:
-        model = GeoShape
-=======
 class GeoShapeSerializer(GeoFeatureModelSerializer):
 
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -186,7 +168,6 @@ class GeoShapeSerializer(GeoFeatureModelSerializer):
     class Meta:
         model = GeoShape
         geo_field = "geometry"
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
         fields = "__all__"
 
 
@@ -298,26 +279,7 @@ class VehiclePositionSerializer(serializers.HyperlinkedModelSerializer):
         fields = "__all__"
 
 
-<<<<<<< HEAD
-class RecordSerializer(serializers.HyperlinkedModelSerializer):
-
-    provider = serializers.PrimaryKeyRelatedField(read_only=True)
-
-    class Meta:
-        model = Record
-        fields = "__all__"
-
-
-=======
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 class InfoServiceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = InfoService
         fields = "__all__"
-<<<<<<< HEAD
-
-
-
-
-=======
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f

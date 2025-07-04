@@ -1,15 +1,10 @@
 from django.conf import settings
 from django.http import FileResponse
 from feed.models import InfoService
-<<<<<<< HEAD
-from gtfs.models import GTFSProvider, Route, Trip
-from rest_framework import viewsets, permissions
-from django_filters.rest_framework import DjangoFilterBackend
-=======
 from gtfs.models import (
     GTFSProvider,
     Route,
-    RouteStop,
+    #RouteStop,
     Trip,
     FeedMessage,
     TripUpdate,
@@ -24,7 +19,6 @@ from shapely import geometry
 from datetime import datetime, timedelta
 import pytz
 from django.conf import settings
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 
 from .serializers import *
 
@@ -55,8 +49,6 @@ class GTFSProviderViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-<<<<<<< HEAD
-=======
 class NextTripView(APIView):
     def get(self, request):
 
@@ -362,7 +354,6 @@ class RouteStopView(APIView):
             )
 
 
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 class AgencyViewSet(viewsets.ModelViewSet):
     """
     Agencias de transporte público.
@@ -384,14 +375,6 @@ class StopViewSet(viewsets.ModelViewSet):
     serializer_class = StopSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
-<<<<<<< HEAD
-        "route_id",
-        "location_type",
-        "wheelchair_boarding",
-        "located_within",
-        "close_to",
-        "distance",
-=======
         "stop_id",
         "stop_code",
         "stop_name",
@@ -416,7 +399,6 @@ class GeoStopViewSet(viewsets.ModelViewSet):
         "zone_id",
         "parent_station",
         "wheelchair_boarding",
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
     ]
     # permission_classes = [permissions.IsAuthenticated]
 
@@ -661,23 +643,6 @@ class VehiclePositionViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-<<<<<<< HEAD
-class RecordViewSet(viewsets.ModelViewSet):
-    """
-    Registros de datos.
-    """
-
-    queryset = Record.objects.all()
-    serializer_class = RecordSerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
-
-    # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
-
-
-=======
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 class InfoServiceViewSet(viewsets.ModelViewSet):
     """
     Aplicaciones conectadas al servidor de datos.
@@ -695,8 +660,6 @@ def get_schema(request):
     return FileResponse(
         open(file_path, "rb"), as_attachment=True, filename="datahub.yml"
     )
-<<<<<<< HEAD
-=======
 
 
 def str_to_timedelta(time_str):
@@ -724,4 +687,3 @@ def get_calendar(date, current_feed):
             service_id = calendar.service_id
 
     return service_id
->>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
