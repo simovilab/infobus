@@ -4,7 +4,7 @@ from feed.models import InfoService
 from gtfs.models import (
     GTFSProvider,
     Route,
-    RouteStop,
+    #RouteStop,
     Trip,
     FeedMessage,
     TripUpdate,

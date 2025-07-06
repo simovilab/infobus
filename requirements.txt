@@ -6,13 +6,25 @@ channels-redis
 celery[redis]
 django-celery-results
 django-celery-beat
+<<<<<<< HEAD
+=======
 flower
+>>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
 djangorestframework
 djangorestframework-gis
 django-filter
 drf-spectacular
 requests
 pandas
+<<<<<<< HEAD
+geopandas
+gtfs-realtime-bindings
+djangorestframework
+drf-spectacular
+python-decouple
+psycopg2-binary
+gunicorn
+=======
 openpyxl
 geopandas
 pillow
@@ -23,3 +35,4 @@ mkdocs-material
 python-decouple
 pytz
 unfold
+>>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
