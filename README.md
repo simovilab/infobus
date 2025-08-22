@@ -1,4 +1,6 @@
-# datahub
+<img width="250" alt="infobus" src="https://github.com/user-attachments/assets/ca800913-19cc-4101-844d-91099510d91c" />
+
+# Infobús
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 <a href="https://github.com/psf/black/blob/main/LICENSE"><img alt="License: MIT" src="https://black.readthedocs.io/en/stable/_static/license.svg"></a>
