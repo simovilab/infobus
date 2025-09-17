@@ -1,0 +1,165 @@
+services:
+  # PostgreSQL Database with PostGIS
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    environment:
+      POSTGRES_DB: infobus
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Celery and Channels
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Django Web App (Production with Daphne)
+  web:
+    build:
+      context: .
+      target: production
+    env_file:
+      - .env.prod
+    environment:
+      # Docker-specific environment variables that override env_file values if needed
+      - DB_HOST=db # Docker service name
+      - REDIS_HOST=redis # Docker service name
+      # Production optimizations
+      - PYTHONUNBUFFERED=1 # Ensure Python output is not buffered
+      - PYTHONDONTWRITEBYTECODE=1 # Prevent Python from writing .pyc files
+      # GDAL library path for ARM64 architecture
+      - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
+      - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+      # Remove the source code mount for production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command:
+      [
+        "uv",
+        "run",
+        "daphne",
+        "-b",
+        "0.0.0.0",
+        "-p",
+        "8000",
+        "--proxy-headers",
+        "datahub.asgi:application",
+      ]
+
+  # Celery Worker (Production)
+  celery-worker:
+    build:
+      context: .
+      target: production
+    env_file:
+      - .env.prod
+    environment:
+      # Docker-specific environment variables
+      - DB_HOST=db # Docker service name
+      - REDIS_HOST=redis # Docker service name
+      # Production optimizations
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      # GDAL library path for ARM64 architecture
+      - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
+      - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command:
+      ["uv", "run", "celery", "-A", "datahub", "worker", "--loglevel=info"]
+
+  # Celery Beat (Production)
+  celery-beat:
+    build:
+      context: .
+      target: production
+    env_file:
+      - .env.prod
+    environment:
+      # Docker-specific environment variables
+      - DB_HOST=db # Docker service name
+      - REDIS_HOST=redis # Docker service name
+      # Production optimizations
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      # GDAL library path for ARM64 architecture
+      - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
+      - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+    volumes:
+      - celery_beat_data:/app/celerybeat-schedule
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command:
+      [
+        "uv",
+        "run",
+        "celery",
+        "-A",
+        "datahub",
+        "beat",
+        "--loglevel=info",
+        "--scheduler=django_celery_beat.schedulers:DatabaseScheduler",
+      ]
+
+  # Nginx (Production)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443" # For future HTTPS support
+    volumes:
+      - static_volume:/var/www/static:ro
+      - media_volume:/var/www/media:ro
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro # For future SSL certificates
+    depends_on:
+      - web
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+  celery_beat_data:
+
+networks:
+  default:
+    name: infobus_network
