@@ -52,9 +52,21 @@ fi
 
 echo -e "${BLUE}🔧 Building development environment...${NC}"
 
+# Try to add the GTFS submodule if not present
+if [ ! -d "gtfs" ] || [ -z "$(ls -A gtfs 2>/dev/null)" ]; then
+    echo -e "${YELLOW}📦 Initializing GTFS submodule (django-app-gtfs)...${NC}"
+    if git submodule update --init --recursive; then
+        echo -e "${GREEN} GTFS submodule ready.${NC}"
+    else
+        echo -e "${RED} Failed to initialize GTFS submodule.${NC}"
+        echo "Please ensure you have network access and try: git submodule update --init --recursive, or verify the submodule URL in .gitmodules"
+        exit 1
+    fi
+fi
+
 # Use the base docker-compose.yml which is configured for development
 # Docker Compose will automatically load .env, .env.dev, and .env.local in order
-docker-compose up --build -d
+docker compose up --build -d
 
 echo ""
 echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
@@ -62,7 +74,7 @@ sleep 5
 
 # Check if services are running
 echo -e "${BLUE}🏥 Checking service status...${NC}"
-if docker-compose ps | grep -q "Up"; then
+if docker compose ps | grep -q "Up"; then
     echo -e "${GREEN}✅ Development environment started successfully!${NC}"
 else
     echo -e "${RED}⚠️  Some services may not be running properly. Check logs for details.${NC}"
