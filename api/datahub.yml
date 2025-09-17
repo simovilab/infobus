@@ -395,6 +395,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TripTimes'     
+<<<<<<< HEAD
+=======
   /next-trips:
     get:
       summary: Próximos viajes
@@ -466,6 +468,7 @@ paths:
                 $ref: '#/components/schemas/NextStops'
         '400':
           description: Bad Request - Es necesario especificar todos los parámetros de la solicitud, trip_id, start_date y start_time.
+>>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
   /vehicle-positions:
     get:
       summary: Posiciones de los vehículos
@@ -539,6 +542,41 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TripUpdates'
+<<<<<<< HEAD
+  /next-trips:
+    get:
+      summary: Próximos viajes
+      description: Obtiene los próximos viajes que pasarán por una parada según la hora indicada.
+      tags:
+        - Realtime
+      parameters:
+        - in: query
+          name: stop_id
+          required: true
+          schema:
+            type: string
+          description: 'Búsqueda de próximos viajes por identificador de parada.'
+        - in: query
+          name: route_id
+          schema:
+            type: string
+          description: 'Búsqueda de próximos viajes por ruta.'
+        - in: query
+          name: reference_time
+          schema:
+            type: string
+          description: 'Hora de referencia para buscar próximos viajes.'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NextTrips'
+=======
+>>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
   /service-alerts:
     get:
       summary: Alertas del servicio
@@ -1198,6 +1236,8 @@ components:
           description: Duración del viaje
           type: integer
           example: 3600
+<<<<<<< HEAD
+=======
     NextTrips:
       type: object
       properties:
@@ -1325,6 +1365,7 @@ components:
                 description: Día y hora de salida de la parada en formato ISO 8601
                 type: string
                 example: '2024-07-31T16:12:25-06:00'
+>>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
     VehiclePositions:
       type: object
       properties:
@@ -1364,6 +1405,66 @@ components:
                 description: Relación con el horario
                 type: string
                 enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
+<<<<<<< HEAD
+    NextTrips:
+      type: object
+      properties:
+        trip_id:
+          description: Identificador del viaje según GTFS Schedule
+          type: string
+          example: 'JFH367'
+        route_short_name:
+          description: Nombre corto de la ruta
+          type: string
+          example: 'L1'
+        route_long_name:
+          description: Nombre largo de la ruta
+          type: string
+          example: 'Línea 1'
+        trip_headsign:
+          description: Destino del viaje
+          type: string
+          example: 'Educación'
+        wheelchair_accessible:
+          description: Accesibilidad para sillas de ruedas
+          type: string
+          enum: ['NO_VALUE', 'UNKNOWN', 'WHEELCHAIR_ACCESSIBLE', 'WHEELCHAIR_INACCESSIBLE']
+          example: 'WHEELCHAIR_ACCESSIBLE'
+        arrival_time:
+          description: Hora de llegada a la parada
+          type: string
+          example: '07:15:00'
+        in_progress:
+          description: Indica si el viaje está en progreso o solamente programado
+          type: boolean
+          example: true
+        journey:
+          description: Datos del viaje en progreso
+          type: object
+          properties:
+            position_in_shape:
+              description: Progreso relativo a lo largo de la trayectoria del viaje
+              type: number
+              format: float
+              minimum: 0
+              maximum: 1
+              example: 0.629
+            current_stop_sequence:
+              description: Secuencia de la parada
+              type: integer
+              example: 15
+            current_status:
+              description: Estado actual del vehículo
+              type: string
+              enum: ['INCOMING_AT', 'STOPPED_AT', 'IN_TRANSIT_TO']
+              example: 'STOPPED_AT'
+            occupancy_status:
+              description: Estado de ocupación del vehículo
+              type: string
+              enum: ['EMPTY', 'MANY_SEATS_AVAILABLE', 'FEW_SEATS_AVAILABLE', 'STANDING_ROOM_ONLY', 'CRUSHED_STANDING_ROOM_ONLY', 'FULL', 'NOT_ACCEPTING_PASSENGERS', 'NO_DATA_AVAILABLE', 'NOT_BOARDABLE']
+              example: 'CRUSHED_STANDING_ROOM_ONLY'
+=======
+>>>>>>> fe8afcdb6c3425233286364f12d1774bf5288c9f
     ServiceAlerts:
       type: object
       properties:
