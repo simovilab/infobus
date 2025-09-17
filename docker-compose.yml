@@ -1,0 +1,165 @@
+services:
+  # PostgreSQL Database with PostGIS
+  db:
+    image: postgis/postgis:16-3.4-alpine
+    environment:
+      POSTGRES_DB: infobus
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for Celery and Channels
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Django Web App (Daphne ASGI server)
+  web:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env # Base configuration
+      - .env.dev # Development overrides (tracked)
+      - .env.local # Personal secrets and local overrides (git-ignored)
+    environment:
+      # Docker-specific environment variables that override env_file values if needed
+      - DB_HOST=db # Docker service name
+      - REDIS_HOST=redis # Docker service name
+      # Development optimizations for hot reload
+      - PYTHONUNBUFFERED=1 # Ensure Python output is not buffered
+      - PYTHONDONTWRITEBYTECODE=1 # Prevent Python from writing .pyc files
+      - WATCHDOG_POLLING=True # Force polling for file changes (better for Docker volumes)
+      # GDAL library path for ARM64 architecture
+      - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
+      - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+    volumes:
+      - .:/app # Mount current directory for live development
+      - /app/.venv # Exclude .venv directory to prevent conflicts
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command: ["uv", "run", "python", "manage.py", "runserver", "0.0.0.0:8000"]
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: .
+      target: development # Use development target for hot reload
+    env_file:
+      - .env # Base configuration
+      - .env.dev # Development overrides (tracked)
+      - .env.local # Personal secrets and local overrides (git-ignored)
+    environment:
+      # Docker-specific environment variables
+      - DB_HOST=db # Docker service name
+      - REDIS_HOST=redis # Docker service name
+      # Development optimizations for hot reload
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      # GDAL library path for ARM64 architecture
+      - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
+      - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+    volumes:
+      - .:/app # Mount source code for hot reload
+      - /app/.venv # Exclude .venv directory to prevent conflicts
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command:
+      [
+        "uv",
+        "run",
+        "watchmedo",
+        "auto-restart",
+        "--patterns=*.py",
+        "--recursive",
+        "--",
+        "celery",
+        "-A",
+        "datahub",
+        "worker",
+        "--loglevel=info",
+      ]
+
+  # Celery Beat (Scheduler)
+  celery-beat:
+    build:
+      context: .
+      target: development # Use development target for hot reload
+    env_file:
+      - .env # Base configuration
+      - .env.dev # Development overrides (tracked)
+      - .env.local # Personal secrets and local overrides (git-ignored)
+    environment:
+      # Docker-specific environment variables
+      - DB_HOST=db # Docker service name
+      - REDIS_HOST=redis # Docker service name
+      # Development optimizations for hot reload
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+      # GDAL library path for ARM64 architecture
+      - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
+      - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+    volumes:
+      - .:/app # Mount source code for hot reload
+      - /app/.venv # Exclude .venv directory to prevent conflicts
+      - celery_beat_data:/app/celerybeat-schedule
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      web:
+        condition: service_started
+    entrypoint: ["/app/docker-entrypoint.sh"]
+    command:
+      [
+        "uv",
+        "run",
+        "celery",
+        "-A",
+        "datahub",
+        "beat",
+        "--loglevel=info",
+        "--scheduler=django_celery_beat.schedulers:DatabaseScheduler",
+      ]
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
+  celery_beat_data:
+
+networks:
+  default:
+    name: infobus_network
