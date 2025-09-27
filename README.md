@@ -150,15 +150,15 @@ Infobús is a production-ready, containerized platform that transforms raw GTFS 
 docker-compose logs -f
 
 # Run Django commands
-docker-compose exec web uv run python manage.py migrate
-docker-compose exec web uv run python manage.py createsuperuser
-docker-compose exec web uv run python manage.py shell
+docker compose exec web uv run python manage.py migrate
+docker compose exec web uv run python manage.py createsuperuser
+docker compose exec web uv run python manage.py shell
 
 # Run tests
-docker-compose exec web uv run python manage.py test
+docker compose exec web uv run python manage.py test
 
 # Stop all services
-docker-compose down
+docker compose down
 ```
 
 ## 🏧 Architecture
