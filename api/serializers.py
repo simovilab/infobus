@@ -198,6 +198,27 @@ class FeedInfoSerializer(serializers.HyperlinkedModelSerializer):
         fields = "__all__"
 
 
+class DalDepartureSerializer(serializers.Serializer):
+    route_id = serializers.CharField()
+    route_short_name = serializers.CharField(allow_null=True, required=False)
+    route_long_name = serializers.CharField(allow_null=True, required=False)
+    trip_id = serializers.CharField()
+    stop_id = serializers.CharField()
+    headsign = serializers.CharField(allow_null=True, required=False)
+    direction_id = serializers.IntegerField(allow_null=True, required=False)
+    arrival_time = serializers.CharField(allow_null=True, required=False)
+    departure_time = serializers.CharField(allow_null=True, required=False)
+
+
+class DalDeparturesResponseSerializer(serializers.Serializer):
+    feed_id = serializers.CharField()
+    stop_id = serializers.CharField()
+    service_date = serializers.DateField()
+    from_time = serializers.CharField()
+    limit = serializers.IntegerField()
+    departures = DalDepartureSerializer(many=True)
+
+
 class FareAttributeSerializer(serializers.HyperlinkedModelSerializer):
 
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
