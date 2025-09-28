@@ -130,6 +130,10 @@ AUTH_PASSWORD_VALIDATORS = [
 REDIS_HOST = config("REDIS_HOST")
 REDIS_PORT = config("REDIS_PORT")
 
+# Optional Fuseki (SPARQL) backend
+FUSEKI_ENABLED = config("FUSEKI_ENABLED", cast=bool, default=False)
+FUSEKI_ENDPOINT = config("FUSEKI_ENDPOINT", default=None)
+
 # Celery settings
 
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"

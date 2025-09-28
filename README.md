@@ -190,6 +190,48 @@ docker-compose down
 
 ## 📚 API Documentation
 
+### New: Schedule Departures (Data Access Layer)
+An HTTP endpoint backed by the new DAL returns scheduled departures at a stop. It uses PostgreSQL as the source of truth and Redis for caching (read-through) by default.
+
+- Endpoint: GET /api/schedule/departures/
+- Query params:
+  - stop_id (required)
+  - feed_id (optional; defaults to current feed)
+  - date (optional; YYYY-MM-DD; defaults to today)
+  - time (optional; HH:MM or HH:MM:SS; defaults to now)
+  - limit (optional; default 10; max 100)
+
+Example:
+```bash
+curl "http://localhost:8000/api/schedule/departures/?stop_id=STOP_123&limit=5"
+```
+
+Response shape:
+```json
+{
+  "feed_id": "FEED_1",
+  "stop_id": "STOP_123",
+  "service_date": "2025-09-28",
+  "from_time": "08:00:00",
+  "limit": 5,
+  "departures": [
+    {
+      "route_id": "R1",
+      "trip_id": "T1",
+      "stop_id": "STOP_123",
+      "headsign": "Terminal Central",
+      "direction_id": 0,
+      "arrival_time": "08:05:00",
+      "departure_time": "08:06:00"
+    }
+  ]
+}
+```
+
+Configuration flags (optional):
+- FUSEKI_ENABLED=false
+- FUSEKI_ENDPOINT=
+
 ### REST API Endpoints
 - **`/api/`** - Main API endpoints with DRF browsable interface
 - **`/api/gtfs/`** - GTFS Schedule and Realtime data

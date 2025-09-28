@@ -21,6 +21,9 @@ import pytz
 from django.conf import settings
 
 from .serializers import *
+from django.utils import timezone as dj_timezone
+from storage.factory import get_schedule_repository
+from gtfs.models import Feed, Stop
 
 # from .serializers import InfoServiceSerializer, GTFSProviderSerializer, RouteSerializer, TripSerializer
 
@@ -35,6 +38,98 @@ class FilterMixin:
             if param in allowed_query_params and value is not None
         }
         return queryset.filter(**filter_args)
+
+
+class ScheduleDeparturesView(APIView):
+    """Simple endpoint backed by the DAL to get next scheduled departures at a stop.
+
+    Query params:
+    - stop_id (required)
+    - feed_id (optional, defaults to current feed)
+    - date (optional, YYYY-MM-DD; defaults to today in settings.TIME_ZONE)
+    - time (optional, HH:MM or HH:MM:SS; defaults to now in settings.TIME_ZONE)
+    - limit (optional, integer; default 10)
+    """
+
+    def get(self, request):
+        stop_id = request.query_params.get("stop_id")
+        if not stop_id:
+            return Response({"error": "stop_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve feed_id
+        feed_id = request.query_params.get("feed_id")
+        if not feed_id:
+            try:
+                current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+            except Feed.DoesNotExist:
+                return Response(
+                    {"error": "No GTFS feed configured as current (is_current=True). Load GTFS fixtures or import a feed and set one as current."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            feed_id = current_feed.feed_id
+        else:
+            if not Feed.objects.filter(feed_id=feed_id).exists():
+                return Response(
+                    {"error": f"feed_id '{feed_id}' not found"}, status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Validate stop exists for the chosen feed
+        if not Stop.objects.filter(feed__feed_id=feed_id, stop_id=stop_id).exists():
+            return Response(
+                {"error": f"stop_id '{stop_id}' not found for feed '{feed_id}'"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Parse date/time with TZ defaults
+        try:
+            date_str = request.query_params.get("date")
+            if date_str:
+                service_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            else:
+                service_date = dj_timezone.localdate()
+        except Exception:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            time_str = request.query_params.get("time")
+            if time_str:
+                fmt = "%H:%M:%S" if len(time_str.split(":")) == 3 else "%H:%M"
+                from_time = datetime.strptime(time_str, fmt).time()
+            else:
+                from_time = dj_timezone.localtime().time()
+        except Exception:
+            return Response({"error": "Invalid time format. Use HH:MM or HH:MM:SS"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            limit = int(request.query_params.get("limit", 10))
+            if limit <= 0 or limit > 100:
+                return Response({"error": "limit must be between 1 and 100"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "limit must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Build response using DAL
+        repo = get_schedule_repository(use_cache=True)
+        departures = repo.get_next_departures(
+            feed_id=feed_id,
+            stop_id=stop_id,
+            service_date=service_date,
+            from_time=from_time,
+            limit=limit,
+        )
+
+        # Format from_time as HH:MM:SS for a cleaner API response
+        from_time_str = from_time.strftime("%H:%M:%S")
+
+        payload = {
+            "feed_id": feed_id,
+            "stop_id": stop_id,
+            "service_date": service_date,
+            "from_time": from_time_str,
+            "limit": limit,
+            "departures": departures,
+        }
+        serializer = DalDeparturesResponseSerializer(payload)
+        return Response(serializer.data)
 
 
 class GTFSProviderViewSet(viewsets.ModelViewSet):
