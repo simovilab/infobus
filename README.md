@@ -217,6 +217,8 @@ Response shape:
   "departures": [
     {
       "route_id": "R1",
+      "route_short_name": "R1",
+      "route_long_name": "Ruta 1 - Centro",
       "trip_id": "T1",
       "stop_id": "STOP_123",
       "headsign": "Terminal Central",
