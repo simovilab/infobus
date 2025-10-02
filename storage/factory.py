@@ -27,5 +27,6 @@ def get_schedule_repository(*, use_cache: bool = True) -> ScheduleRepository:
 
     if use_cache:
         cache = RedisCacheProvider()
-        return CachedScheduleRepository(base_repo, cache)
+        ttl = getattr(settings, "SCHEDULE_CACHE_TTL_SECONDS", 60)
+        return CachedScheduleRepository(base_repo, cache, ttl_seconds=int(ttl))
     return base_repo
