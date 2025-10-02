@@ -234,6 +234,36 @@ Configuration flags (optional):
 - FUSEKI_ENABLED=false
 - FUSEKI_ENDPOINT=
 
+### Using the optional Fuseki (SPARQL) backend in development
+
+For development and tests, you can run an optional Apache Jena Fuseki server and point the app/tests at its SPARQL endpoint.
+
+1) Start Fuseki
+- docker-compose up -d fuseki
+- The dataset is defined by docker/fuseki/configuration/dataset.ttl as "dataset" with SPARQL and graph store endpoints.
+- Auth rules are controlled by docker/fuseki/shiro.ini (anon allowed for /dataset/sparql and /dataset/data in dev/tests).
+
+2) Verify readiness
+- GET: curl "http://localhost:3030/dataset/sparql?query=ASK%20%7B%7D"
+- POST: curl -X POST -H 'Content-Type: application/sparql-query' --data 'ASK {}' http://localhost:3030/dataset/sparql
+
+3) Admin UI
+- http://localhost:3030/#/
+- The mounted shiro.ini does not define users by default. Add users under [users] in that file if you need UI access, then recreate the container.
+
+4) Using Fuseki from the app (optional)
+- To have the app use Fuseki for reads instead of PostgreSQL, set these in .env.local:
+  - FUSEKI_ENABLED=true
+  - FUSEKI_ENDPOINT=http://fuseki:3030/dataset/sparql
+
+5) Reset state (optional)
+- The dataset persists in the fuseki_data Docker volume. To reset:
+  - docker-compose stop fuseki
+  - docker volume rm infobus_fuseki_data (name may vary)
+  - docker-compose up -d fuseki
+
+See also: docs/dev/fuseki.md for a deeper guide and troubleshooting.
+
 Caching (keys and TTLs):
 - Key pattern: schedule:next_departures:feed={FEED_ID}:stop={STOP_ID}:date={YYYY-MM-DD}:time={HHMMSS}:limit={N}:v1
 - Default TTL: 60 seconds
