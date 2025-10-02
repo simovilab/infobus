@@ -234,6 +234,11 @@ Configuration flags (optional):
 - FUSEKI_ENABLED=false
 - FUSEKI_ENDPOINT=
 
+Caching (keys and TTLs):
+- Key pattern: schedule:next_departures:feed={FEED_ID}:stop={STOP_ID}:date={YYYY-MM-DD}:time={HHMMSS}:limit={N}:v1
+- Default TTL: 60 seconds
+- Configure TTL via env: SCHEDULE_CACHE_TTL_SECONDS=60
+
 ### REST API Endpoints
 - **`/api/`** - Main API endpoints with DRF browsable interface
 - **`/api/gtfs/`** - GTFS Schedule and Realtime data

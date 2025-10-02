@@ -68,6 +68,12 @@ Implementaciones actuales:
 Endpoint nuevo (ejemplo):
 - GET /api/schedule/departures/?stop_id=STOP_123&limit=5
 
+### Capa de caché (Redis)
+- Claves (key):
+  - schedule:next_departures:feed={FEED_ID}:stop={STOP_ID}:date={YYYY-MM-DD}:time={HHMMSS}:limit={N}:v1
+- TTL por defecto: 60 segundos
+- Configuración por entorno: SCHEDULE_CACHE_TTL_SECONDS (entero)
+
 > Páginas de administación de información GTFS Schedule y GTFS Realtime.
 
 - `/gtfs/`:

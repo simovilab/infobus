@@ -134,6 +134,9 @@ REDIS_PORT = config("REDIS_PORT")
 FUSEKI_ENABLED = config("FUSEKI_ENABLED", cast=bool, default=False)
 FUSEKI_ENDPOINT = config("FUSEKI_ENDPOINT", default=None)
 
+# DAL caching configuration
+SCHEDULE_CACHE_TTL_SECONDS = config("SCHEDULE_CACHE_TTL_SECONDS", cast=int, default=60)
+
 # Celery settings
 
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
