@@ -31,6 +31,6 @@ urlpatterns = [
     path("route-stops/", views.RouteStopView.as_view(), name="route-stops"),
     path("schedule/departures/", views.ScheduleDeparturesView.as_view(), name="schedule-departures"),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
-    path("docs/schema/", views.get_schema, name="schema"),
+    path("docs/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularRedocView.as_view(url_name="schema"), name="api_docs"),
 ]
