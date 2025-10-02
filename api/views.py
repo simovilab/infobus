@@ -24,6 +24,7 @@ from .serializers import *
 from django.utils import timezone as dj_timezone
 from storage.factory import get_schedule_repository
 from gtfs.models import Feed, Stop
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 # from .serializers import InfoServiceSerializer, GTFSProviderSerializer, RouteSerializer, TripSerializer
 
@@ -41,16 +42,20 @@ class FilterMixin:
 
 
 class ScheduleDeparturesView(APIView):
-    """Simple endpoint backed by the DAL to get next scheduled departures at a stop.
+    """Simple endpoint backed by the DAL to get next scheduled departures at a stop."""
 
-    Query params:
-    - stop_id (required)
-    - feed_id (optional, defaults to current feed)
-    - date (optional, YYYY-MM-DD; defaults to today in settings.TIME_ZONE)
-    - time (optional, HH:MM or HH:MM:SS; defaults to now in settings.TIME_ZONE)
-    - limit (optional, integer; default 10)
-    """
-
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="stop_id", type=OpenApiTypes.STR, required=True, description="Stop identifier (must exist in Stop for the chosen feed)"),
+            OpenApiParameter(name="feed_id", type=OpenApiTypes.STR, required=False, description="Feed identifier (defaults to current feed)") ,
+            OpenApiParameter(name="date", type=OpenApiTypes.DATE, required=False, description="Service date (YYYY-MM-DD, defaults to today)"),
+            OpenApiParameter(name="time", type=OpenApiTypes.STR, required=False, description="Start time (HH:MM or HH:MM:SS, defaults to now)"),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, required=False, description="Number of results (default 10, max 100)"),
+        ],
+        responses={200: DalDeparturesResponseSerializer},
+        description="Return next scheduled departures at a stop using the DAL (PostgreSQL + Redis cache).",
+        tags=["schedule"],
+    )
     def get(self, request):
         stop_id = request.query_params.get("stop_id")
         if not stop_id:
