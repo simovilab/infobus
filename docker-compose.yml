@@ -29,6 +29,17 @@ services:
       timeout: 5s
       retries: 5
 
+  # Apache Jena Fuseki (optional)
+  fuseki:
+    image: stain/jena-fuseki:latest
+    ports:
+      - "3030:3030"
+    environment:
+      - FUSEKI_DATASET=dataset
+      - FUSEKI_ADMIN_PASSWORD=admin
+    volumes:
+      - fuseki_data:/fuseki
+
   # Django Web App (Daphne ASGI server)
   web:
     build:
@@ -51,6 +62,8 @@ services:
       # GDAL library path for ARM64 architecture
       - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
       - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+      - FUSEKI_ENDPOINT=http://fuseki:3030/dataset/sparql
+      - FUSEKI_ENDPOINT=http://fuseki:3030/dataset/sparql
     volumes:
       - .:/app # Mount current directory for live development
       - /app/.venv # Exclude .venv directory to prevent conflicts
@@ -129,6 +142,7 @@ services:
       # GDAL library path for ARM64 architecture
       - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
       - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+      - FUSEKI_ENDPOINT=http://fuseki:3030/dataset/sparql
     volumes:
       - .:/app # Mount source code for hot reload
       - /app/.venv # Exclude .venv directory to prevent conflicts
@@ -159,6 +173,7 @@ volumes:
   static_volume:
   media_volume:
   celery_beat_data:
+  fuseki_data:
 
 networks:
   default:
