@@ -63,7 +63,7 @@ Se define una capa de acceso a datos (DAL) con interfaces claras:
 Implementaciones actuales:
 - PostgresScheduleRepository (Django ORM)
 - CachedScheduleRepository (envoltorio con Redis)
-- FusekiScheduleRepository (stub opcional para desarrollo futuro)
+- FusekiScheduleRepository (backend opcional habilitable por entorno; utilizado en desarrollo y tests de integración)
 
 Endpoint nuevo (ejemplo):
 - GET /api/schedule/departures/?stop_id=STOP_123&limit=5

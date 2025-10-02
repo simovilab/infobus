@@ -39,6 +39,8 @@ services:
       - FUSEKI_ADMIN_PASSWORD=admin
     volumes:
       - fuseki_data:/fuseki
+      - ./docker/fuseki/configuration:/fuseki/configuration
+      - ./docker/fuseki/shiro.ini:/fuseki/shiro.ini:ro
 
   # Django Web App (Daphne ASGI server)
   web:
@@ -62,7 +64,6 @@ services:
       # GDAL library path for ARM64 architecture
       - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
       - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
-      - FUSEKI_ENDPOINT=http://fuseki:3030/dataset/sparql
       - FUSEKI_ENDPOINT=http://fuseki:3030/dataset/sparql
     volumes:
       - .:/app # Mount current directory for live development
