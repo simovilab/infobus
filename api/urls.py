@@ -21,6 +21,8 @@ router.register(r"fare-attributes", views.FareAttributeViewSet)
 router.register(r"fare-rules", views.FareRuleViewSet)
 router.register(r"feed-info", views.FeedInfoViewSet)
 router.register(r"alerts", views.ServiceAlertViewSet)
+router.register(r"feed-messages", views.FeedMessageViewSet)
+router.register(r"stop-time-updates", views.StopTimeUpdateViewSet)
 
 
 # Wire up our API using automatic URL routing.
