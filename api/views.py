@@ -25,6 +25,8 @@ from django.utils import timezone as dj_timezone
 from storage.factory import get_schedule_repository
 from gtfs.models import Feed, Stop
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+import requests
+import redis
 
 # from .serializers import InfoServiceSerializer, GTFSProviderSerializer, RouteSerializer, TripSerializer
 
@@ -135,6 +137,131 @@ class ScheduleDeparturesView(APIView):
         }
         serializer = DalDeparturesResponseSerializer(payload)
         return Response(serializer.data)
+
+
+class ArrivalsView(APIView):
+    """Arrivals/ETAs endpoint integrating with external Project 4 service if configured.
+
+    Query params:
+    - stop_id: required
+    - limit: optional, default 10 (1..100)
+    """
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="stop_id", type=OpenApiTypes.STR, required=True, description="Stop identifier"),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, required=False, description="Max results (default 10, max 100)"),
+        ],
+        responses={200: NextTripSerializer},
+        description="Return upcoming arrivals (ETAs). If ETAS_API_URL is configured, results are fetched from Project 4; otherwise a 501 is returned.",
+        tags=["realtime", "etas"],
+    )
+    def get(self, request):
+        stop_id = request.query_params.get("stop_id")
+        if not stop_id:
+            return Response({"error": "stop_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            limit = int(request.query_params.get("limit", 10))
+            if limit <= 0 or limit > 100:
+                return Response({"error": "limit must be between 1 and 100"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "limit must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not getattr(settings, "ETAS_API_URL", None):
+            return Response(
+                {"error": "ETAs service not configured", "hint": "Set ETAS_API_URL in environment to integrate with Project 4."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+
+        try:
+            resp = requests.get(
+                settings.ETAS_API_URL,
+                params={"stop_id": stop_id, "limit": limit},
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                return Response(
+                    {"error": "Failed to fetch ETAs from upstream", "status_code": resp.status_code},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            arrivals = resp.json()
+            if not isinstance(arrivals, list):
+                # Some services may wrap as {results: []}
+                arrivals = arrivals.get("results", []) if isinstance(arrivals, dict) else []
+        except Exception as e:
+            return Response({"error": f"Upstream ETAs call failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
+
+        payload = {
+            "stop_id": stop_id,
+            "timestamp": dj_timezone.now(),
+            "next_arrivals": arrivals,
+        }
+        serializer = NextTripSerializer(payload)
+        return Response(serializer.data)
+
+
+class StatusView(APIView):
+    """Simple health/status endpoint for core dependencies."""
+
+    @extend_schema(
+        responses={200: None},
+        description="Service status for core dependencies (database, Redis, Fuseki).",
+        tags=["status"],
+    )
+    def get(self, request):
+        checks = {
+            "database_ok": False,
+            "redis_ok": False,
+            "fuseki_ok": False,
+        }
+
+        # Database check
+        try:
+            _ = Feed.objects.exists()
+            checks["database_ok"] = True
+        except Exception:
+            checks["database_ok"] = False
+
+        # Redis check
+        try:
+            r = redis.Redis(host=settings.REDIS_HOST, port=int(settings.REDIS_PORT), db=0, socket_timeout=2)
+            checks["redis_ok"] = bool(r.ping())
+        except Exception:
+            checks["redis_ok"] = False
+
+        # Fuseki check
+        try:
+            if getattr(settings, "FUSEKI_ENABLED", False) and getattr(settings, "FUSEKI_ENDPOINT", None):
+                r = requests.post(
+                    settings.FUSEKI_ENDPOINT,
+                    data=b"ASK {}",
+                    headers={"Content-Type": "application/sparql-query"},
+                    timeout=3,
+                )
+                checks["fuseki_ok"] = (r.status_code == 200)
+            else:
+                checks["fuseki_ok"] = False
+        except Exception:
+            checks["fuseki_ok"] = False
+
+        current_feed_id = None
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+            current_feed_id = current_feed.feed_id
+        except Exception:
+            current_feed_id = None
+
+        overall = "ok" if all(checks.values()) else ("degraded" if checks["database_ok"] else "error")
+
+        return Response(
+            {
+                "status": overall,
+                **checks,
+                "current_feed_id": current_feed_id,
+                "time": dj_timezone.now(),
+            }
+        )
 
 
 class GTFSProviderViewSet(viewsets.ModelViewSet):

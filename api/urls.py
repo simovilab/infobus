@@ -20,6 +20,7 @@ router.register(r"stop-times", views.StopTimeViewSet)
 router.register(r"fare-attributes", views.FareAttributeViewSet)
 router.register(r"fare-rules", views.FareRuleViewSet)
 router.register(r"feed-info", views.FeedInfoViewSet)
+router.register(r"alerts", views.ServiceAlertViewSet)
 
 
 # Wire up our API using automatic URL routing.
@@ -30,6 +31,8 @@ urlpatterns = [
     path("next-stops/", views.NextStopView.as_view(), name="next-stops"),
     path("route-stops/", views.RouteStopView.as_view(), name="route-stops"),
     path("schedule/departures/", views.ScheduleDeparturesView.as_view(), name="schedule-departures"),
+    path("arrivals/", views.ArrivalsView.as_view(), name="arrivals"),
+    path("status/", views.StatusView.as_view(), name="status"),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("docs/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularRedocView.as_view(url_name="schema"), name="api_docs"),
