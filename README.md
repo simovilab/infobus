@@ -249,7 +249,7 @@ For development and tests, you can run an optional Apache Jena Fuseki server and
 
 3) Admin UI
 - http://localhost:3030/#/
-- The mounted shiro.ini does not define users by default. Add users under [users] in that file if you need UI access, then recreate the container.
+- The mounted shiro.ini defines an Admin user by default. Also you can add users under [users] in that file if you need UI access, then recreate the container.
 
 4) Using Fuseki from the app (optional)
 - To have the app use Fuseki for reads instead of PostgreSQL, set these in .env.local:
@@ -292,6 +292,7 @@ infobus/
 ├── 📁 gtfs/             # GTFS data processing (submodule)
 ├── 📁 feed/             # Data feed management
 ├── 📁 api/              # REST API endpoints
+├── 📁 storage/          # Data Access Layer (Postgres, Fuseki) and cache providers
 ├── 📦 docker-compose.yml              # Development environment
 ├── 📦 docker-compose.production.yml   # Production environment
 ├── 📄 Dockerfile         # Multi-stage container build
