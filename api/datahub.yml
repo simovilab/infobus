@@ -15,6 +15,35 @@ servers:
   - url: https://datahub.bucr.digital/api
 
 paths:
+  /status:
+    get:
+      summary: Estado del servicio
+      description: Estado básico de dependencias (base de datos, Redis y Fuseki si está habilitado).
+      tags:
+        - Status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  database_ok:
+                    type: boolean
+                  redis_ok:
+                    type: boolean
+                  fuseki_ok:
+                    type: boolean
+                  current_feed_id:
+                    type: string
+                    nullable: true
+                  time:
+                    type: string
+                    format: date-time
   /gtfs-providers:
     get:
       summary: Proveedores de datos GTFS
@@ -114,9 +143,20 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Stops'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Stops'
   /shapes:
     get:
       summary: Trayectorias de las rutas
@@ -208,9 +248,20 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Routes'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Routes'
   /trips:  
     get:
       summary: Datos de los viajes
@@ -254,9 +305,20 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Trips'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trips'
   /stop-times:
     get:
       summary: Horarios de llegada a las paradas
@@ -395,6 +457,35 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TripTimes'     
+  /arrivals:
+    get:
+      summary: Llegadas (ETAs)
+      description: Próximas llegadas estimadas en una parada. Integra con un servicio externo (Proyecto 4) cuando está configurado.
+      tags:
+        - Realtime
+      parameters:
+        - in: query
+          name: stop_id
+          required: true
+          schema:
+            type: string
+          description: Identificador de la parada
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Límite de resultados (por defecto 10)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NextTrips'
+        '501':
+          description: Servicio de ETAs no configurado
   /next-trips:
     get:
       summary: Próximos viajes
@@ -539,7 +630,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TripUpdates'
-  /service-alerts:
+  /alerts:
     get:
       summary: Alertas del servicio
       description: Obtiene alertas que modifican el servicio en tiempo real.
@@ -577,9 +668,20 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ServiceAlerts'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ServiceAlerts'
   /weather:
     get:
       summary: Datos meteorológicos
