@@ -740,7 +740,6 @@ class FeedInfoViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-@extend_schema(exclude=True)
 class FareAttributeViewSet(viewsets.ModelViewSet):
     """
     Atributos de tarifa de transporte público.
@@ -749,12 +748,16 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
     queryset = FareAttribute.objects.all()
     serializer_class = FareAttributeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "fare_id",
+        "agency_id",
+        "currency_type",
+        "payment_method",
+        "transfers",
+    ]
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
-@extend_schema(exclude=True)
 class FareRuleViewSet(viewsets.ModelViewSet):
     """
     Reglas de tarifa de transporte público.
@@ -763,9 +766,14 @@ class FareRuleViewSet(viewsets.ModelViewSet):
     queryset = FareRule.objects.all()
     serializer_class = FareRuleSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "fare_id",
+        "route_id",
+        "origin_id",
+        "destination_id",
+        "contains_id",
+    ]
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class ServiceAlertViewSet(viewsets.ModelViewSet):
@@ -810,18 +818,19 @@ class SocialViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-@extend_schema(exclude=True)
 class FeedMessageViewSet(viewsets.ModelViewSet):
     """
     Mensajes de alimentación.
     """
 
-    queryset = FeedMessage.objects.all()
+    queryset = FeedMessage.objects.all().order_by("-timestamp")
     serializer_class = FeedMessageSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "entity_type",
+        "provider",
+    ]
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class TripUpdateViewSet(viewsets.ModelViewSet):
@@ -841,7 +850,6 @@ class TripUpdateViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-@extend_schema(exclude=True)
 class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     """
     Actualizaciones de horario de parada.
@@ -850,10 +858,17 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     queryset = StopTimeUpdate.objects.all()
     serializer_class = StopTimeUpdateSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "stop_id",
+        "stop_sequence",
+        "arrival_time",
+        "departure_time",
+        "schedule_relationship",
+        "feed_message",
+        "trip_update",
+    ]
 
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class VehiclePositionViewSet(viewsets.ModelViewSet):
