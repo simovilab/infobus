@@ -157,6 +157,7 @@ class ArrivalsEndpointTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", resp.json())
 
+    @override_settings(ETAS_API_URL=None)
     def test_arrivals_returns_501_if_not_configured(self):
         # ETAS_API_URL not set; should return 501 when params are otherwise valid
         resp = self.client.get("/api/arrivals/?stop_id=S1&limit=2")
