@@ -740,6 +740,7 @@ class FeedInfoViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
+@extend_schema(exclude=True)
 class FareAttributeViewSet(viewsets.ModelViewSet):
     """
     Atributos de tarifa de transporte público.
@@ -753,6 +754,7 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
     # Esto no tiene path con query params ni response schema
 
 
+@extend_schema(exclude=True)
 class FareRuleViewSet(viewsets.ModelViewSet):
     """
     Reglas de tarifa de transporte público.
@@ -808,6 +810,7 @@ class SocialViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
+@extend_schema(exclude=True)
 class FeedMessageViewSet(viewsets.ModelViewSet):
     """
     Mensajes de alimentación.
@@ -838,6 +841,7 @@ class TripUpdateViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
+@extend_schema(exclude=True)
 class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     """
     Actualizaciones de horario de parada.
