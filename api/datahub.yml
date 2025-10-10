@@ -15,6 +15,154 @@ servers:
   - url: https://datahub.bucr.digital/api
 
 paths:
+  /fare-attributes:
+    get:
+      summary: Atributos de tarifa
+      description: Reglas de cálculo de tarifas (fare_attributes.txt).
+      tags:
+        - Schedule
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FareAttribute'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - fare_id: "F1"
+                    price: 350.00
+                    currency_type: "CRC"
+                    payment_method: 0
+                    transfers: 0
+                    agency_id: "bUCR"
+  /fare-rules:
+    get:
+      summary: Reglas de tarifa
+      description: Reglas que determinan qué tarifa aplicar (fare_rules.txt).
+      tags:
+        - Schedule
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FareRule'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - fare_id: "F1"
+                    route_id: "bUCR-L1"
+                    origin_id: "zone_a"
+                    destination_id: "zone_b"
+                    contains_id: null
+  /feed-messages:
+    get:
+      summary: Mensajes GTFS Realtime
+      description: Encabezados de mensajes GTFS Realtime recuperados (metadata de FeedMessage).
+      tags:
+        - Realtime
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeedMessage'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - feed_message_id: "fm-20240731-161225"
+                    provider: 1
+                    entity_type: "trip_update"
+                    timestamp: "2024-07-31T16:12:25-06:00"
+                    incrementality: "FULL_DATASET"
+                    gtfs_realtime_version: "2.0"
+  /stop-time-updates:
+    get:
+      summary: Actualizaciones de horarios de paradas (Realtime)
+      description: Tiempos en tiempo real de llegada/salida para paradas de un viaje (StopTimeUpdate).
+      tags:
+        - Realtime
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StopTimeUpdate'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - stop_sequence: 10
+                    stop_id: "bUCR-0-03"
+                    arrival_time: "2024-07-31T16:12:25-06:00"
+                    departure_time: "2024-07-31T16:13:40-06:00"
+                    schedule_relationship: "SCHEDULED"
+                    feed_message: "fm-20240731-161225"
+                    trip_update: 123
   /status:
     get:
       summary: Estado del servicio
@@ -1046,6 +1194,106 @@ paths:
 
 components:
   schemas:
+    FareAttribute:
+      type: object
+      properties:
+        fare_id:
+          type: string
+          example: "F1"
+        price:
+          type: number
+          format: float
+          example: 350.00
+        currency_type:
+          type: string
+          example: "CRC"
+        payment_method:
+          type: integer
+          enum: [0, 1]
+          example: 0
+        transfers:
+          type: integer
+          nullable: true
+          example: 0
+        agency_id:
+          type: string
+          nullable: true
+          example: "bUCR"
+        transfer_duration:
+          type: integer
+          nullable: true
+          example: 1800
+    FareRule:
+      type: object
+      properties:
+        fare_id:
+          type: string
+          example: "F1"
+        route_id:
+          type: string
+          example: "bUCR-L1"
+        origin_id:
+          type: string
+          nullable: true
+          example: "zone_a"
+        destination_id:
+          type: string
+          nullable: true
+          example: "zone_b"
+        contains_id:
+          type: string
+          nullable: true
+          example: null
+    FeedMessage:
+      type: object
+      properties:
+        feed_message_id:
+          type: string
+          example: "fm-20240731-161225"
+        provider:
+          type: integer
+          example: 1
+        entity_type:
+          type: string
+          enum: [trip_update, vehicle, alert]
+          example: trip_update
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-07-31T16:12:25-06:00"
+        incrementality:
+          type: string
+          example: FULL_DATASET
+        gtfs_realtime_version:
+          type: string
+          example: "2.0"
+    StopTimeUpdate:
+      type: object
+      properties:
+        stop_sequence:
+          type: integer
+          example: 10
+        stop_id:
+          type: string
+          example: "bUCR-0-03"
+        arrival_time:
+          type: string
+          format: date-time
+          example: "2024-07-31T16:12:25-06:00"
+        departure_time:
+          type: string
+          format: date-time
+          example: "2024-07-31T16:13:40-06:00"
+        schedule_relationship:
+          type: string
+          nullable: true
+          example: SCHEDULED
+        feed_message:
+          type: string
+          example: "fm-20240731-161225"
+        trip_update:
+          type: integer
+          example: 123
     GTFSProvider:
       type: object
       properties:
