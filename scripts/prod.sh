@@ -171,7 +171,7 @@ fi
 echo -e "${BLUE}🔧 Building production images...${NC}"
 
 # Use production configuration
-docker-compose -f docker-compose.production.yml --env-file .env.prod --profile production up --build -d
+docker compose -f docker-compose.production.yml --env-file .env.prod --profile production up --build -d
 
 echo ""
 echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
@@ -179,7 +179,7 @@ sleep 10
 
 # Check if services are running
 echo -e "${BLUE}🏥 Checking service status...${NC}"
-if docker-compose -f docker-compose.production.yml ps | grep -q "Up"; then
+if docker compose -f docker-compose.production.yml ps | grep -q "Up"; then
     echo -e "${GREEN}✅ Production environment started successfully!${NC}"
 else
     echo -e "${RED}⚠️  Some services may not be running properly. Check logs for details.${NC}"
@@ -187,11 +187,11 @@ fi
 
 # Apply database migrations if needed
 echo -e "${BLUE}💾 Applying database migrations...${NC}"
-docker-compose -f docker-compose.production.yml exec web uv run python manage.py migrate --noinput
+docker compose -f docker-compose.production.yml exec web uv run python manage.py migrate --noinput
 
 # Collect static files
 echo -e "${BLUE}📁 Collecting static files...${NC}"
-docker-compose -f docker-compose.production.yml exec web uv run python manage.py collectstatic --noinput
+docker compose -f docker-compose.production.yml exec web uv run python manage.py collectstatic --noinput
 
 # Check basic health
 echo -e "${BLUE}🏥 Testing application health...${NC}"
