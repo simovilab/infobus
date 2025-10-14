@@ -10,6 +10,77 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Ensure current user can access Docker (Ubuntu/Linux friendly)
+ensure_docker_access() {
+    set +e
+
+    if ! command -v docker >/dev/null 2>&1; then
+        echo -e "${RED}❌ Docker is not installed or not in PATH.${NC}"
+        echo "Please install Docker Engine and try again: https://docs.docker.com/engine/install/"
+        exit 1
+    fi
+
+    # If Docker is already accessible, we're good
+    if docker info >/dev/null 2>&1; then
+        set -e
+        return
+    fi
+
+    echo -e "${YELLOW}⚠️  Cannot access Docker daemon. Attempting to fix (may require sudo)...${NC}"
+
+    # Only attempt group modifications on Linux systems
+    if [ "$(uname -s)" != "Linux" ]; then
+        echo -e "${YELLOW}ℹ️  Non-Linux system detected. Ensure Docker Desktop is running and retry.${NC}"
+        if ! docker info >/dev/null 2>&1; then
+            exit 1
+        fi
+    fi
+
+    TARGET_USER="${SUDO_USER:-$USER}"
+
+    # Create docker group if it doesn't exist
+    if ! getent group docker >/dev/null 2>&1; then
+        sudo groupadd docker
+    fi
+
+    # Add the invoking user to the docker group if needed
+    if ! id -nG "$TARGET_USER" | grep -qw docker; then
+        sudo usermod -aG docker "$TARGET_USER"
+        ADDED_TO_GROUP=1
+        echo -e "${BLUE}🧩 Added ${TARGET_USER} to 'docker' group.${NC}"
+    fi
+
+    # Restart Docker daemon
+    if command -v systemctl >/dev/null 2>&1; then
+        sudo systemctl restart docker || true
+    else
+        sudo service docker restart || true
+    fi
+
+    # If we just added the user to the docker group, re-exec the script in that context
+    if [ "${ADDED_TO_GROUP:-0}" = "1" ]; then
+        if command -v sg >/dev/null 2>&1; then
+            echo -e "${YELLOW}🔁 Re-executing script with 'docker' group privileges...${NC}"
+            if [ -n "$SUDO_USER" ]; then
+                exec su - "$TARGET_USER" -c "sg docker -c '$0 $*'"
+            else
+                exec sg docker -c "$0 $*"
+            fi
+        else
+            echo -e "${YELLOW}ℹ️  'sg' not available. Please log out and back in, or run: 'newgrp docker' then rerun this script.${NC}"
+            exit 1
+        fi
+    fi
+
+    # Final check
+    if ! docker info >/dev/null 2>&1; then
+        echo -e "${RED}❌ Still cannot access Docker. Try running with sudo: 'sudo $0' or verify the Docker service status.${NC}"
+        exit 1
+    fi
+
+    set -e
+}
+
 echo -e "${GREEN}🏭 Starting Infobús in PRODUCTION mode...${NC}"
 echo "Features enabled:"
 echo "  - Nginx reverse proxy"
@@ -169,6 +240,9 @@ EOF
 fi
 
 echo -e "${BLUE}🔧 Building production images...${NC}"
+
+# Verify and ensure Docker access before running compose
+ensure_docker_access "$@"
 
 # Use production configuration
 docker compose -f docker-compose.production.yml --env-file .env.prod --profile production up --build -d
