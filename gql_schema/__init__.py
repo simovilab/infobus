@@ -1,0 +1,1 @@
+# GraphQL package for Infobús project

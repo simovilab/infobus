@@ -18,6 +18,8 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
+from strawberry.django.views import GraphQLView
+from gql_schema.schema import schema
 
 def health_check(request):
     """Simple health check endpoint for container health monitoring."""
@@ -31,4 +33,5 @@ urlpatterns = [
     path("gtfs/", include("gtfs.urls")),
     path("status/", include("feed.urls")),
     path("alertas/", include("alerts.urls")),
+    path("graphql/", GraphQLView.as_view(schema=schema)),
 ]
