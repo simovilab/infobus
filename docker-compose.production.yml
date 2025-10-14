@@ -36,6 +36,7 @@ services:
       target: production
     env_file:
       - .env.prod
+      - .env.local
     environment:
       # Docker-specific environment variables that override env_file values if needed
       - DB_HOST=db # Docker service name
@@ -55,6 +56,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
     entrypoint: ["/app/docker-entrypoint.sh"]
     command:
       [
@@ -76,6 +83,7 @@ services:
       target: production
     env_file:
       - .env.prod
+      - .env.local
     environment:
       # Docker-specific environment variables
       - DB_HOST=db # Docker service name
@@ -104,6 +112,7 @@ services:
       target: production
     env_file:
       - .env.prod
+      - .env.local
     environment:
       # Docker-specific environment variables
       - DB_HOST=db # Docker service name
@@ -136,22 +145,82 @@ services:
         "--scheduler=django_celery_beat.schedulers:DatabaseScheduler",
       ]
 
-  # Nginx (Production)
+  # Nginx (Production) - Updated with SSL support
   nginx:
     image: nginx:alpine
     ports:
       - "80:80"
-      - "443:443" # For future HTTPS support
+      - "443:443"
     volumes:
       - static_volume:/var/www/static:ro
       - media_volume:/var/www/media:ro
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
-      - ./nginx/ssl:/etc/nginx/ssl:ro # For future SSL certificates
+      # SSL certificates (shared with certbot)
+      - ssl_certs:/etc/nginx/ssl:ro
+      # Certbot webroot for domain validation
+      - certbot_webroot:/var/www/certbot
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     restart: unless-stopped
     profiles:
       - production
+
+  # Certbot service for SSL certificate management
+  certbot:
+    image: certbot/certbot:latest
+    profiles:
+      - production
+      - ssl
+    environment:
+      - SSL_DOMAIN=${SSL_DOMAIN:-infobus.bucr.digital}
+      - SSL_EMAIL=${SSL_EMAIL:-admin@infobus.bucr.digital}
+      - SSL_STAGING=${SSL_STAGING:-false}
+    volumes:
+      # Let's Encrypt certificates and configuration
+      - letsencrypt_data:/etc/letsencrypt
+      - letsencrypt_logs:/var/log/letsencrypt
+      # Webroot for domain validation (shared with nginx)
+      - certbot_webroot:/var/www/certbot
+      # SSL directory shared with nginx
+      - ssl_certs:/etc/nginx/ssl
+      # Renewal script
+      - ./certbot/renew.sh:/usr/local/bin/renew.sh:ro
+    command: /bin/sh -c "chmod +x /usr/local/bin/renew.sh && /usr/local/bin/renew.sh"
+    depends_on:
+      - nginx
+    restart: "no"  # Only run when explicitly started
+
+  # Certbot renewal cron service
+  certbot-cron:
+    image: certbot/certbot:latest
+    profiles:
+      - production
+      - ssl
+      - cron
+    environment:
+      - SSL_DOMAIN=${SSL_DOMAIN:-infobus.bucr.digital}
+      - SSL_EMAIL=${SSL_EMAIL:-admin@infobus.bucr.digital}
+      - SSL_STAGING=${SSL_STAGING:-false}
+    volumes:
+      # Let's Encrypt certificates and configuration
+      - letsencrypt_data:/etc/letsencrypt
+      - letsencrypt_logs:/var/log/letsencrypt
+      # Webroot for domain validation
+      - certbot_webroot:/var/www/certbot
+      # SSL directory shared with nginx
+      - ssl_certs:/etc/nginx/ssl
+      # Renewal script
+      - ./certbot/renew.sh:/usr/local/bin/renew.sh:ro
+    # Run certificate renewal check twice daily (recommended by Let's Encrypt)
+    command: /bin/sh -c "
+      echo '0 */12 * * * /usr/local/bin/renew.sh >> /var/log/cron.log 2>&1' | crontab - &&
+      chmod +x /usr/local/bin/renew.sh &&
+      echo 'Starting certbot cron daemon...' &&
+      crond -f -l 2"
+    depends_on:
+      - nginx
+    restart: unless-stopped
 
 volumes:
   postgres_data:
@@ -159,6 +228,15 @@ volumes:
   static_volume:
   media_volume:
   celery_beat_data:
+  # SSL-related volumes
+  letsencrypt_data:
+    driver: local
+  letsencrypt_logs:
+    driver: local
+  certbot_webroot:
+    driver: local
+  ssl_certs:
+    driver: local
 
 networks:
   default:
