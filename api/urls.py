@@ -28,6 +28,7 @@ router.register(r"stop-time-updates", views.StopTimeUpdateViewSet)
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [
+    path("", views.api_root, name='api-root'),
     path("", include(router.urls)),
     path("next-trips/", views.NextTripView.as_view(), name="next-trips"),
     path("next-stops/", views.NextStopView.as_view(), name="next-stops"),

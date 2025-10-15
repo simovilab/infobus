@@ -305,6 +305,117 @@ Arrivals smoke test (optional):
   python3 scripts/smoke_arrivals.py
   ```
 
+### New: Search and Health Endpoints
+
+#### Search API
+Intelligent search for stops and routes with relevance ranking and fuzzy matching.
+
+- **Endpoint**: GET /api/search/
+- **Query Parameters**:
+  - `q` (required): Search query string
+  - `type` (optional): Search type - `stops`, `routes`, or `all` (default)
+  - `limit` (optional): Max results (1-100, default 20)
+  - `feed_id` (optional): Specific feed ID (defaults to current feed)
+
+**Features**:
+- 🎯 **Smart Relevance Scoring**: Exact matches score highest, followed by prefix matches, contains matches, and fuzzy similarity
+- 🔍 **Multi-field Search**: Searches names, descriptions, and other relevant fields
+- 🌐 **Unicode Support**: Handles special characters and accented text (José, Ñandú, etc.)
+- ⚡ **PostgreSQL Trigram Similarity**: Advanced fuzzy matching with fallback to basic text search
+- 🎛️ **Configurable Search Types**: Search stops only, routes only, or everything
+
+```bash
+# Search for stops containing "Central"
+curl "http://localhost:8000/api/search/?q=Central&type=stops&limit=5"
+
+# Search routes by short name "R1"
+curl "http://localhost:8000/api/search/?q=R1&type=routes"
+
+# Search everything (stops and routes)
+curl "http://localhost:8000/api/search/?q=University"
+```
+
+**Example Response**:
+```json
+{
+  "query": "Central",
+  "results_type": "stops",
+  "total_results": 2,
+  "results": [
+    {
+      "stop_id": "STOP_001",
+      "stop_name": "Central Station",
+      "stop_desc": "Main central bus station",
+      "stop_lat": "9.928100",
+      "stop_lon": "-84.090700",
+      "location_type": 0,
+      "wheelchair_boarding": 1,
+      "feed_id": "current_feed",
+      "relevance_score": 1.0,
+      "result_type": "stop"
+    }
+  ]
+}
+```
+
+#### Health & Monitoring Endpoints
+Two complementary health check endpoints for monitoring and load balancer integration.
+
+**Simple Health Check**:
+- **Endpoint**: GET /api/health/
+- **Purpose**: Lightweight status check (always returns 200 OK if service is responding)
+- **Use Case**: Basic uptime monitoring, load balancer health checks
+
+```bash
+curl "http://localhost:8000/api/health/"
+# Returns: {"status": "ok", "timestamp": "2025-10-15T17:00:00Z"}
+```
+
+**Readiness Check**:
+- **Endpoint**: GET /api/ready/
+- **Purpose**: Comprehensive service readiness validation
+- **Returns**: 200 if ready to serve requests, 503 if not ready
+- **Use Case**: Kubernetes readiness probes, deployment validation
+
+```bash
+curl "http://localhost:8000/api/ready/"
+# Returns 200 when ready:
+# {
+#   "status": "ready",
+#   "database_ok": true,
+#   "current_feed_available": true,
+#   "current_feed_id": "current_feed",
+#   "timestamp": "2025-10-15T17:00:00Z"
+# }
+#
+# Returns 503 when not ready:
+# {
+#   "status": "not_ready",
+#   "database_ok": true,
+#   "current_feed_available": false,
+#   "current_feed_id": null,
+#   "timestamp": "2025-10-15T17:00:00Z"
+# }
+```
+
+**Health Check Integration**:
+```yaml
+# Docker Compose health check
+healthcheck:
+  test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+
+# Kubernetes readiness probe
+readinessProbe:
+  httpGet:
+    path: /api/ready/
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+```
+
 ### Additional Realtime Collections
 - Feed Messages (GTFS-RT metadata, paginated): GET /api/feed-messages/
 - Stop Time Updates (realtime stop arrivals/departures, paginated): GET /api/stop-time-updates/
