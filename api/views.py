@@ -13,6 +13,8 @@ from gtfs.models import (
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from rest_framework.reverse import reverse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from shapely import geometry
@@ -1215,3 +1217,46 @@ class ReadyView(APIView):
         # Return 503 if not ready
         status_code = status.HTTP_200_OK if is_ready else status.HTTP_503_SERVICE_UNAVAILABLE
         return Response(serializer.data, status=status_code)
+
+
+@api_view(['GET'])
+def api_root(request, format=None):
+    """Custom API root view that includes all available endpoints."""
+    return Response({
+        # GTFS Data Resources
+        'info-services': reverse('infoservice-list', request=request, format=format),
+        'gtfs-providers': reverse('gtfsprovider-list', request=request, format=format),
+        'agencies': reverse('agency-list', request=request, format=format),
+        'stops': reverse('stop-list', request=request, format=format),
+        'geo-stops': reverse('geo-stop-list', request=request, format=format),
+        'shapes': reverse('shape-list', request=request, format=format),
+        'geo-shapes': reverse('geoshape-list', request=request, format=format),
+        'routes': reverse('route-list', request=request, format=format),
+        'calendars': reverse('calendar-list', request=request, format=format),
+        'calendar-dates': reverse('calendardate-list', request=request, format=format),
+        'trips': reverse('trip-list', request=request, format=format),
+        'stop-times': reverse('stoptime-list', request=request, format=format),
+        'fare-attributes': reverse('fareattribute-list', request=request, format=format),
+        'fare-rules': reverse('farerule-list', request=request, format=format),
+        'feed-info': reverse('feedinfo-list', request=request, format=format),
+        'alerts': reverse('alert-list', request=request, format=format),
+        'feed-messages': reverse('feedmessage-list', request=request, format=format),
+        'stop-time-updates': reverse('stoptimeupdate-list', request=request, format=format),
+        
+        # Transit Information Services
+        'next-trips': reverse('next-trips', request=request, format=format),
+        'next-stops': reverse('next-stops', request=request, format=format),
+        'route-stops': reverse('route-stops', request=request, format=format),
+        'arrivals': reverse('arrivals', request=request, format=format),
+        'schedule-departures': reverse('schedule-departures', request=request, format=format),
+        'status': reverse('status', request=request, format=format),
+        
+        # New Search and Health Endpoints
+        'search': reverse('search', request=request, format=format),
+        'health': reverse('health', request=request, format=format),
+        'ready': reverse('ready', request=request, format=format),
+        
+        # API Documentation
+        'docs': reverse('api_docs', request=request, format=format),
+        'schema': reverse('schema', request=request, format=format),
+    })
