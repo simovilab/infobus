@@ -1,0 +1,17 @@
+@prefix ex: <http://example.org/gtfs#> .
+
+# Minimal sample data for Fuseki integration tests
+# One departure at stop S1 for feed TEST
+
+[] a ex:Departure ;
+   ex:feed_id "TEST" ;
+   ex:stop_id "S1" ;
+   ex:trip_id "T1" ;
+   ex:route_id "R1" ;
+   ex:route_short_name "R1" ;
+   ex:route_long_name "Ruta 1" ;
+   ex:headsign "Terminal" ;
+   ex:direction_id "0" ;
+   ex:service_date "2099-01-01" ;
+   ex:arrival_time "08:05:00" ;
+   ex:departure_time "08:06:00" .
