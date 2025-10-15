@@ -307,3 +307,69 @@ class SearchEndpointTests(APITestCase):
         
         self.assertEqual(data['total_results'], 0)
         self.assertEqual(data['results'], [])
+
+    def test_search_case_insensitive(self):
+        """Test that search is case insensitive."""
+        # Test uppercase
+        resp = self.client.get('/api/search/?q=CENTRAL&type=stops')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertGreater(data['total_results'], 0)
+        
+        # Test lowercase
+        resp = self.client.get('/api/search/?q=central&type=stops')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertGreater(data['total_results'], 0)
+        
+        # Test mixed case
+        resp = self.client.get('/api/search/?q=CeNtRaL&type=stops')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        self.assertGreater(data['total_results'], 0)
+
+    def test_search_with_special_characters(self):
+        """Test search handles special characters gracefully."""
+        # Create stop with special characters
+        Stop.objects.create(
+            feed=self.feed,
+            stop_id='stop_special',
+            stop_name='Parada San José',
+            stop_desc='Near José María Monument',
+            stop_lat=9.9200,
+            stop_lon=-84.0850,
+            location_type=0,
+            wheelchair_boarding=1
+        )
+        
+        # Search with accented characters
+        resp = self.client.get('/api/search/?q=José&type=stops')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.json()
+        
+        # Should find the stop with José in name or description
+        stop_ids = [result['stop_id'] for result in data['results']]
+        self.assertIn('stop_special', stop_ids)
+
+    def test_search_with_numbers_and_symbols(self):
+        """Test search with numbers and symbols in query."""
+        # Should not crash with numbers or symbols
+        test_queries = ['R1', '123', 'route-1', 'stop@test', 'bus#1']
+        
+        for query in test_queries:
+            resp = self.client.get(f'/api/search/?q={query}')
+            # Should not return server error, but might return no results
+            self.assertIn(resp.status_code, [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND])
+            
+    def test_search_with_very_long_query(self):
+        """Test search handles very long queries appropriately."""
+        long_query = 'a' * 1000  # Very long query
+        
+        resp = self.client.get(f'/api/search/?q={long_query}')
+        # Should handle gracefully without server error
+        self.assertIn(resp.status_code, [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND])
+        
+        if resp.status_code == status.HTTP_200_OK:
+            data = resp.json()
+            # Results should be empty or minimal
+            self.assertLessEqual(data['total_results'], 0)

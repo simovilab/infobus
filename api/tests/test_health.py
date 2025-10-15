@@ -237,3 +237,32 @@ class HealthEndpointIntegrationTests(APITestCase):
         self.assertGreater(len(ready_data.keys()), 2)
         self.assertIn('database_ok', ready_data)
         self.assertIn('current_feed_available', ready_data)
+
+    def test_ready_endpoint_multiple_current_feeds_latest_selection(self):
+        """Test that ready endpoint correctly selects the latest current feed when multiple exist."""
+        from django.utils import timezone
+        import datetime
+        
+        # Create multiple feeds marked as current
+        old_time = timezone.now() - datetime.timedelta(hours=2)
+        new_time = timezone.now()
+        
+        # Create feeds with explicit timestamps
+        Feed.objects.create(
+            feed_id='old_feed',
+            is_current=True,
+            retrieved_at=old_time
+        )
+        
+        Feed.objects.create(
+            feed_id='new_feed', 
+            is_current=True,
+            retrieved_at=new_time
+        )
+        
+        resp = self.client.get('/api/ready/')
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        
+        data = resp.json()
+        self.assertEqual(data['status'], 'ready')
+        self.assertEqual(data['current_feed_id'], 'new_feed')  # Should pick the latest one
