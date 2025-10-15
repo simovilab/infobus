@@ -19,7 +19,7 @@ from shapely import geometry
 from datetime import datetime, timedelta
 import pytz
 from django.conf import settings
-from django.db.models import Q, Case, When, IntegerField, Value
+from django.db.models import Q, Case, When, IntegerField, Value, FloatField
 from django.contrib.postgres.search import TrigramSimilarity
 
 from .serializers import *
@@ -1029,7 +1029,7 @@ class SearchView(APIView):
                     When(stop_name__icontains=query, then=Value(0.7)),
                     # Trigram similarity for fuzzy matches
                     default='name_similarity',
-                    output_field=models.FloatField()
+                    output_field=FloatField()
                 )
             ).filter(
                 Q(stop_name__icontains=query) |
@@ -1048,7 +1048,7 @@ class SearchView(APIView):
                     When(stop_name__icontains=query, then=Value(0.7)),
                     When(stop_desc__icontains=query, then=Value(0.5)),
                     default=Value(0.1),
-                    output_field=models.FloatField()
+                    output_field=FloatField()
                 )
             ).filter(
                 Q(stop_name__icontains=query) | Q(stop_desc__icontains=query)
@@ -1097,7 +1097,7 @@ class SearchView(APIView):
                     When(route_long_name__icontains=query, then=Value(0.75)),
                     # Trigram similarity for fuzzy matches
                     default='short_name_similarity',
-                    output_field=models.FloatField()
+                    output_field=FloatField()
                 )
             ).filter(
                 Q(route_short_name__icontains=query) |
@@ -1121,7 +1121,7 @@ class SearchView(APIView):
                     When(route_long_name__icontains=query, then=Value(0.75)),
                     When(route_desc__icontains=query, then=Value(0.5)),
                     default=Value(0.1),
-                    output_field=models.FloatField()
+                    output_field=FloatField()
                 )
             ).filter(
                 Q(route_short_name__icontains=query) |
