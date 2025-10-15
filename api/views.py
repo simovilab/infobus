@@ -19,6 +19,8 @@ from shapely import geometry
 from datetime import datetime, timedelta
 import pytz
 from django.conf import settings
+from django.db.models import Q, Case, When, IntegerField, Value
+from django.contrib.postgres.search import TrigramSimilarity
 
 from .serializers import *
 from django.utils import timezone as dj_timezone
@@ -933,3 +935,283 @@ def get_calendar(date, current_feed):
             service_id = calendar.service_id
 
     return service_id
+
+
+class SearchView(APIView):
+    """Search endpoint for stops and routes with ranking."""
+    
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="q", type=OpenApiTypes.STR, required=True, description="Search query"),
+            OpenApiParameter(name="type", type=OpenApiTypes.STR, required=False, description="Search type: 'stops', 'routes', or 'all' (default)"),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, required=False, description="Max results (default 20, max 100)"),
+            OpenApiParameter(name="feed_id", type=OpenApiTypes.STR, required=False, description="Feed identifier (defaults to current feed)"),
+        ],
+        responses={200: SearchResultsSerializer},
+        description="Search for stops and routes with relevance ranking. Supports partial text matching.",
+        tags=["search"],
+    )
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
+        if not query:
+            return Response({"error": "Query parameter 'q' is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        search_type = request.query_params.get('type', 'all').lower()
+        if search_type not in ['stops', 'routes', 'all']:
+            return Response({"error": "type must be 'stops', 'routes', or 'all'"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            limit = int(request.query_params.get('limit', 20))
+            if limit <= 0 or limit > 100:
+                return Response({"error": "limit must be between 1 and 100"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "limit must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Resolve feed_id
+        feed_id = request.query_params.get("feed_id")
+        if not feed_id:
+            try:
+                current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+                feed_id = current_feed.feed_id
+            except Feed.DoesNotExist:
+                return Response(
+                    {"error": "No GTFS feed configured as current (is_current=True)"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            if not Feed.objects.filter(feed_id=feed_id).exists():
+                return Response(
+                    {"error": f"feed_id '{feed_id}' not found"}, status=status.HTTP_404_NOT_FOUND
+                )
+        
+        all_results = []
+        
+        # Search stops
+        if search_type in ['stops', 'all']:
+            stop_results = self._search_stops(query, feed_id, limit if search_type == 'stops' else limit // 2)
+            all_results.extend(stop_results)
+        
+        # Search routes
+        if search_type in ['routes', 'all']:
+            route_results = self._search_routes(query, feed_id, limit if search_type == 'routes' else limit // 2)
+            all_results.extend(route_results)
+        
+        # Sort by relevance score and limit
+        all_results.sort(key=lambda x: x['relevance_score'], reverse=True)
+        all_results = all_results[:limit]
+        
+        response_data = {
+            "query": query,
+            "results_type": search_type,
+            "total_results": len(all_results),
+            "results": all_results
+        }
+        
+        serializer = SearchResultsSerializer(response_data)
+        return Response(serializer.data)
+    
+    def _search_stops(self, query, feed_id, limit):
+        """Search for stops with relevance scoring."""
+        # Use trigram similarity for fuzzy matching if available, otherwise use icontains
+        try:
+            stops = Stop.objects.filter(
+                feed__feed_id=feed_id
+            ).annotate(
+                name_similarity=TrigramSimilarity('stop_name', query),
+                desc_similarity=TrigramSimilarity('stop_desc', query)
+            ).annotate(
+                relevance_score=Case(
+                    # Exact name match gets highest score
+                    When(stop_name__iexact=query, then=Value(1.0)),
+                    # Starts with query gets high score
+                    When(stop_name__istartswith=query, then=Value(0.9)),
+                    # Contains query gets medium score  
+                    When(stop_name__icontains=query, then=Value(0.7)),
+                    # Trigram similarity for fuzzy matches
+                    default='name_similarity',
+                    output_field=models.FloatField()
+                )
+            ).filter(
+                Q(stop_name__icontains=query) |
+                Q(stop_desc__icontains=query) |
+                Q(name_similarity__gte=0.3) |
+                Q(desc_similarity__gte=0.3)
+            ).order_by('-relevance_score')[:limit]
+        except Exception:
+            # Fallback without trigram similarity
+            stops = Stop.objects.filter(
+                feed__feed_id=feed_id
+            ).annotate(
+                relevance_score=Case(
+                    When(stop_name__iexact=query, then=Value(1.0)),
+                    When(stop_name__istartswith=query, then=Value(0.9)),
+                    When(stop_name__icontains=query, then=Value(0.7)),
+                    When(stop_desc__icontains=query, then=Value(0.5)),
+                    default=Value(0.1),
+                    output_field=models.FloatField()
+                )
+            ).filter(
+                Q(stop_name__icontains=query) | Q(stop_desc__icontains=query)
+            ).order_by('-relevance_score')[:limit]
+        
+        results = []
+        for stop in stops:
+            results.append({
+                'stop_id': stop.stop_id,
+                'stop_name': stop.stop_name,
+                'stop_desc': stop.stop_desc,
+                'stop_lat': stop.stop_lat,
+                'stop_lon': stop.stop_lon,
+                'location_type': stop.location_type,
+                'wheelchair_boarding': stop.wheelchair_boarding,
+                'feed_id': feed_id,
+                'relevance_score': float(stop.relevance_score),
+                'result_type': 'stop'
+            })
+        
+        return results
+    
+    def _search_routes(self, query, feed_id, limit):
+        """Search for routes with relevance scoring."""
+        # Use trigram similarity for fuzzy matching if available, otherwise use icontains
+        try:
+            routes = Route.objects.filter(
+                feed__feed_id=feed_id
+            ).select_related('_agency').annotate(
+                short_name_similarity=TrigramSimilarity('route_short_name', query),
+                long_name_similarity=TrigramSimilarity('route_long_name', query),
+                desc_similarity=TrigramSimilarity('route_desc', query)
+            ).annotate(
+                relevance_score=Case(
+                    # Exact short name match gets highest score
+                    When(route_short_name__iexact=query, then=Value(1.0)),
+                    # Exact long name match gets high score
+                    When(route_long_name__iexact=query, then=Value(0.95)),
+                    # Starts with in short name
+                    When(route_short_name__istartswith=query, then=Value(0.9)),
+                    # Starts with in long name
+                    When(route_long_name__istartswith=query, then=Value(0.85)),
+                    # Contains in short name
+                    When(route_short_name__icontains=query, then=Value(0.8)),
+                    # Contains in long name
+                    When(route_long_name__icontains=query, then=Value(0.75)),
+                    # Trigram similarity for fuzzy matches
+                    default='short_name_similarity',
+                    output_field=models.FloatField()
+                )
+            ).filter(
+                Q(route_short_name__icontains=query) |
+                Q(route_long_name__icontains=query) |
+                Q(route_desc__icontains=query) |
+                Q(short_name_similarity__gte=0.3) |
+                Q(long_name_similarity__gte=0.3) |
+                Q(desc_similarity__gte=0.3)
+            ).order_by('-relevance_score')[:limit]
+        except Exception:
+            # Fallback without trigram similarity
+            routes = Route.objects.filter(
+                feed__feed_id=feed_id
+            ).select_related('_agency').annotate(
+                relevance_score=Case(
+                    When(route_short_name__iexact=query, then=Value(1.0)),
+                    When(route_long_name__iexact=query, then=Value(0.95)),
+                    When(route_short_name__istartswith=query, then=Value(0.9)),
+                    When(route_long_name__istartswith=query, then=Value(0.85)),
+                    When(route_short_name__icontains=query, then=Value(0.8)),
+                    When(route_long_name__icontains=query, then=Value(0.75)),
+                    When(route_desc__icontains=query, then=Value(0.5)),
+                    default=Value(0.1),
+                    output_field=models.FloatField()
+                )
+            ).filter(
+                Q(route_short_name__icontains=query) |
+                Q(route_long_name__icontains=query) |
+                Q(route_desc__icontains=query)
+            ).order_by('-relevance_score')[:limit]
+        
+        results = []
+        for route in routes:
+            results.append({
+                'route_id': route.route_id,
+                'route_short_name': route.route_short_name,
+                'route_long_name': route.route_long_name,
+                'route_desc': route.route_desc,
+                'route_type': route.route_type,
+                'route_color': route.route_color,
+                'route_text_color': route.route_text_color,
+                'agency_name': route._agency.agency_name if route._agency else None,
+                'feed_id': feed_id,
+                'relevance_score': float(route.relevance_score),
+                'result_type': 'route'
+            })
+        
+        return results
+
+
+class HealthView(APIView):
+    """Simple health check endpoint."""
+    
+    @extend_schema(
+        responses={200: HealthCheckSerializer},
+        description="Basic health check that returns service status.",
+        tags=["health"],
+    )
+    def get(self, request):
+        response_data = {
+            "status": "ok",
+            "timestamp": dj_timezone.now()
+        }
+        
+        serializer = HealthCheckSerializer(response_data)
+        return Response(serializer.data)
+
+
+class ReadyView(APIView):
+    """Readiness check endpoint."""
+    
+    @extend_schema(
+        responses={200: ReadinessCheckSerializer},
+        description="Readiness check that verifies the service is ready to serve requests.",
+        tags=["health"],
+    )
+    def get(self, request):
+        checks = {
+            "database_ok": False,
+            "current_feed_available": False,
+            "current_feed_id": None
+        }
+        
+        # Database check
+        try:
+            _ = Feed.objects.exists()
+            checks["database_ok"] = True
+        except Exception:
+            checks["database_ok"] = False
+        
+        # Current feed check
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+            checks["current_feed_available"] = True
+            checks["current_feed_id"] = current_feed.feed_id
+        except Feed.DoesNotExist:
+            checks["current_feed_available"] = False
+            checks["current_feed_id"] = None
+        except Exception:
+            checks["current_feed_available"] = False
+            checks["current_feed_id"] = None
+        
+        # Overall status
+        is_ready = checks["database_ok"] and checks["current_feed_available"]
+        overall_status = "ready" if is_ready else "not_ready"
+        
+        response_data = {
+            "status": overall_status,
+            **checks,
+            "timestamp": dj_timezone.now()
+        }
+        
+        serializer = ReadinessCheckSerializer(response_data)
+        
+        # Return 503 if not ready
+        status_code = status.HTTP_200_OK if is_ready else status.HTTP_503_SERVICE_UNAVAILABLE
+        return Response(serializer.data, status=status_code)

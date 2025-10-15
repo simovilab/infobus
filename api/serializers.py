@@ -304,3 +304,48 @@ class InfoServiceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = InfoService
         fields = "__all__"
+
+
+class SearchStopResultSerializer(serializers.Serializer):
+    stop_id = serializers.CharField()
+    stop_name = serializers.CharField()
+    stop_desc = serializers.CharField(allow_null=True, required=False)
+    stop_lat = serializers.DecimalField(max_digits=9, decimal_places=6, allow_null=True, required=False)
+    stop_lon = serializers.DecimalField(max_digits=9, decimal_places=6, allow_null=True, required=False)
+    location_type = serializers.IntegerField(allow_null=True, required=False)
+    wheelchair_boarding = serializers.IntegerField(allow_null=True, required=False)
+    feed_id = serializers.CharField()
+    relevance_score = serializers.FloatField()
+
+
+class SearchRouteResultSerializer(serializers.Serializer):
+    route_id = serializers.CharField()
+    route_short_name = serializers.CharField(allow_null=True, required=False)
+    route_long_name = serializers.CharField(allow_null=True, required=False)
+    route_desc = serializers.CharField(allow_null=True, required=False)
+    route_type = serializers.IntegerField()
+    route_color = serializers.CharField(allow_null=True, required=False)
+    route_text_color = serializers.CharField(allow_null=True, required=False)
+    agency_name = serializers.CharField(allow_null=True, required=False)
+    feed_id = serializers.CharField()
+    relevance_score = serializers.FloatField()
+
+
+class SearchResultsSerializer(serializers.Serializer):
+    query = serializers.CharField()
+    results_type = serializers.CharField()
+    total_results = serializers.IntegerField()
+    results = serializers.ListField()
+
+
+class HealthCheckSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    timestamp = serializers.DateTimeField()
+
+
+class ReadinessCheckSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    database_ok = serializers.BooleanField()
+    current_feed_available = serializers.BooleanField()
+    current_feed_id = serializers.CharField(allow_null=True, required=False)
+    timestamp = serializers.DateTimeField()
