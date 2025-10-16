@@ -190,6 +190,85 @@ docker compose down
 
 ## 📚 API Documentation
 
+### New: Schedule Departures (Data Access Layer)
+An HTTP endpoint backed by the new DAL returns scheduled departures at a stop. It uses PostgreSQL as the source of truth and Redis for caching (read-through) by default.
+
+- Endpoint: GET /api/schedule/departures/
+- Query params:
+  - stop_id (required)
+  - feed_id (optional; defaults to current feed)
+  - date (optional; YYYY-MM-DD; defaults to today)
+  - time (optional; HH:MM or HH:MM:SS; defaults to now)
+  - limit (optional; default 10; max 100)
+
+Example:
+```bash
+curl "http://localhost:8000/api/schedule/departures/?stop_id=STOP_123&limit=5"
+```
+
+Response shape:
+```json
+{
+  "feed_id": "FEED_1",
+  "stop_id": "STOP_123",
+  "service_date": "2025-09-28",
+  "from_time": "08:00:00",
+  "limit": 5,
+  "departures": [
+    {
+      "route_id": "R1",
+      "route_short_name": "R1",
+      "route_long_name": "Ruta 1 - Centro",
+      "trip_id": "T1",
+      "stop_id": "STOP_123",
+      "headsign": "Terminal Central",
+      "direction_id": 0,
+      "arrival_time": "08:05:00",
+      "departure_time": "08:06:00"
+    }
+  ]
+}
+```
+
+Configuration flags (optional):
+- FUSEKI_ENABLED=false
+- FUSEKI_ENDPOINT=
+
+### Using the optional Fuseki (SPARQL) backend in development
+
+For development and tests, you can run an optional Apache Jena Fuseki server and point the app/tests at its SPARQL endpoint.
+
+1) Start Fuseki
+- docker-compose up -d fuseki
+- The dataset is defined by docker/fuseki/configuration/dataset.ttl as "dataset" with SPARQL and graph store endpoints.
+- Auth rules are controlled by docker/fuseki/shiro.ini (anon allowed for /dataset/sparql and /dataset/data in dev/tests).
+
+2) Verify readiness
+- GET: curl "http://localhost:3030/dataset/sparql?query=ASK%20%7B%7D"
+- POST: curl -X POST -H 'Content-Type: application/sparql-query' --data 'ASK {}' http://localhost:3030/dataset/sparql
+
+3) Admin UI
+- http://localhost:3030/#/
+- The mounted shiro.ini defines an Admin user by default. Also you can add users under [users] in that file if you need UI access, then recreate the container.
+
+4) Using Fuseki from the app (optional)
+- To have the app use Fuseki for reads instead of PostgreSQL, set these in .env.local:
+  - FUSEKI_ENABLED=true
+  - FUSEKI_ENDPOINT=http://fuseki:3030/dataset/sparql
+
+5) Reset state (optional)
+- The dataset persists in the fuseki_data Docker volume. To reset:
+  - docker-compose stop fuseki
+  - docker volume rm infobus_fuseki_data (name may vary)
+  - docker-compose up -d fuseki
+
+See also: docs/dev/fuseki.md for a deeper guide and troubleshooting.
+
+Caching (keys and TTLs):
+- Key pattern: schedule:next_departures:feed={FEED_ID}:stop={STOP_ID}:date={YYYY-MM-DD}:time={HHMMSS}:limit={N}:v1
+- Default TTL: 60 seconds
+- Configure TTL via env: SCHEDULE_CACHE_TTL_SECONDS=60
+
 ### REST API Endpoints
 - **`/api/`** - Main API endpoints with DRF browsable interface
 - **`/api/gtfs/`** - GTFS Schedule and Realtime data
@@ -213,6 +292,7 @@ infobus/
 ├── 📁 gtfs/             # GTFS data processing (submodule)
 ├── 📁 feed/             # Data feed management
 ├── 📁 api/              # REST API endpoints
+├── 📁 storage/          # Data Access Layer (Postgres, Fuseki) and cache providers
 ├── 📦 docker-compose.yml              # Development environment
 ├── 📦 docker-compose.production.yml   # Production environment
 ├── 📄 Dockerfile         # Multi-stage container build
