@@ -20,16 +20,26 @@ router.register(r"stop-times", views.StopTimeViewSet)
 router.register(r"fare-attributes", views.FareAttributeViewSet)
 router.register(r"fare-rules", views.FareRuleViewSet)
 router.register(r"feed-info", views.FeedInfoViewSet)
+router.register(r"alerts", views.ServiceAlertViewSet)
+router.register(r"feed-messages", views.FeedMessageViewSet)
+router.register(r"stop-time-updates", views.StopTimeUpdateViewSet)
 
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
 urlpatterns = [
+    path("", views.api_root, name='api-root'),
     path("", include(router.urls)),
     path("next-trips/", views.NextTripView.as_view(), name="next-trips"),
     path("next-stops/", views.NextStopView.as_view(), name="next-stops"),
     path("route-stops/", views.RouteStopView.as_view(), name="route-stops"),
+    path("schedule/departures/", views.ScheduleDeparturesView.as_view(), name="schedule-departures"),
+    path("arrivals/", views.ArrivalsView.as_view(), name="arrivals"),
+    path("status/", views.StatusView.as_view(), name="status"),
+    path("search/", views.SearchView.as_view(), name="search"),
+    path("health/", views.HealthView.as_view(), name="health"),
+    path("ready/", views.ReadyView.as_view(), name="ready"),
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
-    path("docs/schema/", views.get_schema, name="schema"),
+    path("docs/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularRedocView.as_view(url_name="schema"), name="api_docs"),
 ]
