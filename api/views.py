@@ -29,6 +29,7 @@ from django.utils import timezone as dj_timezone
 from storage.factory import get_schedule_repository
 from gtfs.models import Feed, Stop
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+from django_ratelimit.decorators import ratelimit
 import requests
 import redis
 
@@ -64,6 +65,15 @@ class ScheduleDeparturesView(APIView):
         tags=["schedule"],
     )
     def get(self, request):
+        # Apply rate limiting if enabled
+        if getattr(settings, 'RATELIMIT_ENABLE', True):
+            from django_ratelimit.core import is_ratelimited
+            from .rate_limiting import get_rate_limit
+            rate = get_rate_limit('public_medium')
+            if is_ratelimited(request=request, group='schedule', fn=None, key='ip', rate=rate, method=['GET'], increment=True):
+                from .rate_limiting import rate_limit_error_response
+                return rate_limit_error_response()
+            
         stop_id = request.query_params.get("stop_id")
         if not stop_id:
             return Response({"error": "stop_id is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -163,6 +173,15 @@ class ArrivalsView(APIView):
         tags=["realtime", "etas"],
     )
     def get(self, request):
+        # Apply rate limiting if enabled
+        if getattr(settings, 'RATELIMIT_ENABLE', True):
+            from django_ratelimit.core import is_ratelimited
+            from .rate_limiting import get_rate_limit
+            rate = get_rate_limit('public_medium')
+            if is_ratelimited(request=request, group='arrivals', fn=None, key='ip', rate=rate, method=['GET'], increment=True):
+                from .rate_limiting import rate_limit_error_response
+                return rate_limit_error_response()
+            
         stop_id = request.query_params.get("stop_id")
         if not stop_id:
             return Response({"error": "stop_id is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -217,6 +236,15 @@ class StatusView(APIView):
         tags=["status"],
     )
     def get(self, request):
+        # Apply rate limiting if enabled
+        if getattr(settings, 'RATELIMIT_ENABLE', True):
+            from django_ratelimit.core import is_ratelimited
+            from .rate_limiting import get_rate_limit
+            rate = get_rate_limit('status')
+            if is_ratelimited(request=request, group='status', fn=None, key='ip', rate=rate, method=['GET'], increment=True):
+                from .rate_limiting import rate_limit_error_response
+                return rate_limit_error_response()
+            
         checks = {
             "database_ok": False,
             "redis_ok": False,
@@ -964,6 +992,15 @@ class SearchView(APIView):
         tags=["search"],
     )
     def get(self, request):
+        # Apply rate limiting if enabled
+        if getattr(settings, 'RATELIMIT_ENABLE', True):
+            from django_ratelimit.core import is_ratelimited
+            from .rate_limiting import get_rate_limit
+            rate = get_rate_limit('public_heavy')
+            if is_ratelimited(request=request, group='search', fn=None, key='ip', rate=rate, method=['GET'], increment=True):
+                from .rate_limiting import rate_limit_error_response
+                return rate_limit_error_response()
+            
         query = request.query_params.get('q', '').strip()
         if not query:
             return Response({"error": "Query parameter 'q' is required"}, status=status.HTTP_400_BAD_REQUEST)
@@ -1170,6 +1207,15 @@ class HealthView(APIView):
         tags=["health"],
     )
     def get(self, request):
+        # Apply rate limiting if enabled
+        if getattr(settings, 'RATELIMIT_ENABLE', True):
+            from django_ratelimit.core import is_ratelimited
+            from .rate_limiting import get_rate_limit
+            rate = get_rate_limit('public_light')
+            if is_ratelimited(request=request, group='health', fn=None, key='ip', rate=rate, method=['GET'], increment=True):
+                from .rate_limiting import rate_limit_error_response
+                return rate_limit_error_response()
+            
         response_data = {
             "status": "ok",
             "timestamp": dj_timezone.now()
@@ -1189,6 +1235,15 @@ class ReadyView(APIView):
         tags=["health"],
     )
     def get(self, request):
+        # Apply rate limiting if enabled
+        if getattr(settings, 'RATELIMIT_ENABLE', True):
+            from django_ratelimit.core import is_ratelimited
+            from .rate_limiting import get_rate_limit
+            rate = get_rate_limit('public_light')
+            if is_ratelimited(request=request, group='ready', fn=None, key='ip', rate=rate, method=['GET'], increment=True):
+                from .rate_limiting import rate_limit_error_response
+                return rate_limit_error_response()
+            
         checks = {
             "database_ok": False,
             "current_feed_available": False,

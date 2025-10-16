@@ -238,3 +238,23 @@ SIMPLE_JWT = {
     "SLIDING_TOKEN_OBTAIN_SERIALIZER": "rest_framework_simplejwt.serializers.TokenObtainSlidingSerializer",
     "SLIDING_TOKEN_REFRESH_SERIALIZER": "rest_framework_simplejwt.serializers.TokenRefreshSlidingSerializer",
 }
+
+# Rate Limiting Configuration
+RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", cast=bool, default=True)
+RATELIMIT_USE_CACHE = 'default'
+
+# Rate limits for different endpoint categories (requests per minute)
+RATE_LIMITS = {
+    # Public endpoints - more restrictive
+    'public_heavy': '30/m',      # Heavy queries like search
+    'public_medium': '60/m',     # Medium load endpoints like arrivals
+    'public_light': '100/m',     # Light endpoints like health checks
+    
+    # Authentication endpoints
+    'auth_sensitive': '5/m',     # Login attempts
+    'auth_register': '3/m',      # Registration attempts  
+    'auth_general': '20/m',      # Other auth endpoints
+    
+    # Authenticated endpoints - more generous
+    'authenticated': '200/m',    # For authenticated users
+}
