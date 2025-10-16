@@ -15,6 +15,7 @@ from django_ratelimit.core import is_ratelimited
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
+import time
 
 
 # =============================================================================
@@ -184,6 +185,99 @@ def get_client_ip(request):
     else:
         ip = request.META.get('REMOTE_ADDR')
     return ip
+
+
+def get_client_from_request(request):
+    """
+    Extract client from JWT token or return None for anonymous requests
+    """
+    # Check for JWT token in Authorization header
+    auth_header = request.META.get('HTTP_AUTHORIZATION')
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return None
+        
+    try:
+        # Import here to avoid circular imports
+        from .models import Client
+        import jwt
+        
+        token = auth_header.split(' ')[1]
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
+        client_id = payload.get('client_id')
+        
+        if client_id:
+            return Client.objects.get(id=client_id, status='active')
+    except (jwt.InvalidTokenError, Client.DoesNotExist, IndexError, KeyError):
+        pass
+    
+    return None
+
+
+def capture_api_usage(request, endpoint, response, start_time=None):
+    """
+    Capture API usage metrics for authenticated clients
+    
+    Args:
+        request: Django request object
+        endpoint: API endpoint that was accessed
+        response: Django response object
+        start_time: When the request started (for response time calculation)
+    """
+    try:
+        # Import here to avoid circular imports
+        from .models import ClientUsage
+        
+        client = get_client_from_request(request)
+        if not client:
+            return  # Don't track anonymous requests
+        
+        # Calculate response time
+        response_time_ms = None
+        if start_time:
+            response_time_ms = int((time.time() - start_time) * 1000)
+        
+        # Extract request details
+        method = request.method
+        status_code = response.status_code if hasattr(response, 'status_code') else 200
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:500]  # Truncate long user agents
+        ip_address = get_client_ip(request)
+        
+        # Get request/response sizes
+        request_size = len(request.body) if hasattr(request, 'body') and request.body else None
+        response_size = None
+        if hasattr(response, 'content'):
+            response_size = len(response.content)
+        elif hasattr(response, 'data'):
+            response_size = len(str(response.data))
+        
+        # Capture error message for failed requests
+        error_message = ''
+        if status_code >= 400 and hasattr(response, 'data') and isinstance(response.data, dict):
+            error_message = str(response.data.get('error', ''))[:500]
+        
+        # Create usage record
+        ClientUsage.objects.create(
+            client=client,
+            endpoint=endpoint,
+            method=method,
+            status_code=status_code,
+            response_time_ms=response_time_ms,
+            user_agent=user_agent,
+            ip_address=ip_address,
+            request_size_bytes=request_size,
+            response_size_bytes=response_size,
+            error_message=error_message
+        )
+        
+        # Update client's last_used_at timestamp
+        client.last_used_at = timezone.now()
+        client.save(update_fields=['last_used_at'])
+        
+    except Exception as e:
+        # Don't let usage tracking break the API
+        # In production, you might want to log this error
+        print(f"Failed to capture API usage: {e}")
+        pass
 
 
 # =============================================================================
