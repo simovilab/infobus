@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from rest_framework import serializers
+from django.conf import settings
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -64,6 +65,15 @@ class ErrorResponseSerializer(serializers.Serializer):
 @permission_classes([AllowAny])
 def register(request):
     """Register a new user and return JWT tokens"""
+    # Apply rate limiting if enabled
+    if getattr(settings, 'RATELIMIT_ENABLE', True):
+        from django_ratelimit.core import is_ratelimited
+        from .rate_limiting import get_rate_limit
+        rate = get_rate_limit('auth_register')
+        if is_ratelimited(request=request, group='auth_register', fn=None, key='ip', rate=rate, method=['POST'], increment=True):
+            from .rate_limiting import rate_limit_error_response
+            return rate_limit_error_response()
+        
     serializer = UserRegistrationSerializer(data=request.data)
     if serializer.is_valid():
         user = serializer.save()
@@ -84,6 +94,9 @@ def register(request):
 class CustomTokenObtainPairView(TokenObtainPairView):
     """Custom token obtain view with user information"""
     
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+    
     @extend_schema(
         responses={
             200: OpenApiResponse(TokenResponseSerializer, description="Login successful"),
@@ -93,6 +106,15 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         tags=["auth"],
     )
     def post(self, request, *args, **kwargs):
+        # Apply rate limiting if enabled
+        if getattr(settings, 'RATELIMIT_ENABLE', True):
+            from django_ratelimit.core import is_ratelimited
+            from .rate_limiting import get_rate_limit
+            rate = get_rate_limit('auth_sensitive')
+            if is_ratelimited(request=request, group='auth_login', fn=None, key='ip', rate=rate, method=['POST'], increment=True):
+                from .rate_limiting import rate_limit_error_response
+                return rate_limit_error_response()
+            
         response = super().post(request, *args, **kwargs)
         if response.status_code == 200:
             username = request.data.get('username')
@@ -109,6 +131,9 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 class CustomTokenRefreshView(TokenRefreshView):
     """Custom token refresh view with error handling"""
     
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+    
     @extend_schema(
         responses={
             200: OpenApiResponse(description="Token refreshed successfully"),
@@ -118,6 +143,15 @@ class CustomTokenRefreshView(TokenRefreshView):
         tags=["auth"],
     )
     def post(self, request, *args, **kwargs):
+        # Apply rate limiting if enabled
+        if getattr(settings, 'RATELIMIT_ENABLE', True):
+            from django_ratelimit.core import is_ratelimited
+            from .rate_limiting import get_rate_limit
+            rate = get_rate_limit('auth_refresh')
+            if is_ratelimited(request=request, group='auth_refresh', fn=None, key='ip', rate=rate, method=['POST'], increment=True):
+                from .rate_limiting import rate_limit_error_response
+                return rate_limit_error_response()
+            
         response = super().post(request, *args, **kwargs)
         if response.status_code != 200:
             response.data = {
@@ -138,6 +172,15 @@ class CustomTokenRefreshView(TokenRefreshView):
 @api_view(['GET'])
 def profile(request):
     """Get current user profile"""
+    # Apply rate limiting if enabled
+    if getattr(settings, 'RATELIMIT_ENABLE', True):
+        from django_ratelimit.core import is_ratelimited
+        from .rate_limiting import get_rate_limit
+        rate = get_rate_limit('auth_general')
+        if is_ratelimited(request=request, group='auth_profile', fn=None, key='user' if request.user.is_authenticated else 'ip', rate=rate, method=['GET'], increment=True):
+            from .rate_limiting import rate_limit_error_response
+            return rate_limit_error_response()
+        
     if not request.user.is_authenticated:
         return Response({
             'error': 'Authentication required',
