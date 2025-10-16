@@ -3,6 +3,7 @@ from rest_framework import routers
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
 
 from . import views
+from .auth_views import CustomTokenObtainPairView, CustomTokenRefreshView, register, profile
 
 router = routers.DefaultRouter()
 router.register(r"info-services", views.InfoServiceViewSet)
@@ -30,6 +31,14 @@ router.register(r"stop-time-updates", views.StopTimeUpdateViewSet)
 urlpatterns = [
     path("", views.api_root, name='api-root'),
     path("", include(router.urls)),
+    
+    # Authentication endpoints
+    path("auth/register/", register, name="auth-register"),
+    path("auth/login/", CustomTokenObtainPairView.as_view(), name="auth-login"),
+    path("auth/refresh/", CustomTokenRefreshView.as_view(), name="auth-refresh"),
+    path("auth/profile/", profile, name="auth-profile"),
+    
+    # API endpoints
     path("next-trips/", views.NextTripView.as_view(), name="next-trips"),
     path("next-stops/", views.NextStopView.as_view(), name="next-stops"),
     path("route-stops/", views.RouteStopView.as_view(), name="route-stops"),
@@ -39,6 +48,8 @@ urlpatterns = [
     path("search/", views.SearchView.as_view(), name="search"),
     path("health/", views.HealthView.as_view(), name="health"),
     path("ready/", views.ReadyView.as_view(), name="ready"),
+    
+    # Framework endpoints
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("docs/schema/", SpectacularAPIView.as_view(), name="schema"),
     path("docs/", SpectacularRedocView.as_view(url_name="schema"), name="api_docs"),

@@ -49,6 +49,7 @@ class FilterMixin:
 
 class ScheduleDeparturesView(APIView):
     """Simple endpoint backed by the DAL to get next scheduled departures at a stop."""
+    permission_classes = [permissions.AllowAny]
 
     @extend_schema(
         parameters=[
@@ -150,6 +151,7 @@ class ArrivalsView(APIView):
     - stop_id: required
     - limit: optional, default 10 (1..100)
     """
+    permission_classes = [permissions.AllowAny]
 
     @extend_schema(
         parameters=[
@@ -207,6 +209,7 @@ class ArrivalsView(APIView):
 
 class StatusView(APIView):
     """Simple health/status endpoint for core dependencies."""
+    permission_classes = [permissions.AllowAny]
 
     @extend_schema(
         responses={200: None},
@@ -277,10 +280,12 @@ class GTFSProviderViewSet(viewsets.ModelViewSet):
     serializer_class = GTFSProviderSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["code", "name"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class NextTripView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
     def get(self, request):
 
         timezone = pytz.timezone(settings.TIME_ZONE)
@@ -445,6 +450,8 @@ class NextTripView(APIView):
 
 
 class NextStopView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
     def get(self, request):
 
         # Get query parameters
@@ -511,6 +518,8 @@ class NextStopView(APIView):
 
 
 class RouteStopView(APIView):
+    permission_classes = [permissions.AllowAny]
+    
     def get(self, request):
 
         # Get and validate query parameters
@@ -594,7 +603,7 @@ class AgencyViewSet(viewsets.ModelViewSet):
     serializer_class = AgencySerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["agency_id", "agency_name"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class StopViewSet(viewsets.ModelViewSet):
@@ -613,7 +622,7 @@ class StopViewSet(viewsets.ModelViewSet):
         "stop_lon",
         "stop_url",
     ]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class GeoStopViewSet(viewsets.ModelViewSet):
@@ -631,7 +640,7 @@ class GeoStopViewSet(viewsets.ModelViewSet):
         "parent_station",
         "wheelchair_boarding",
     ]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class RouteViewSet(viewsets.ModelViewSet):
@@ -651,7 +660,7 @@ class RouteViewSet(viewsets.ModelViewSet):
     #        queryset = queryset.filter(route_id=route_id)
     #    return queryset
 
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class CalendarViewSet(viewsets.ModelViewSet):
@@ -663,7 +672,7 @@ class CalendarViewSet(viewsets.ModelViewSet):
     serializer_class = CalendarSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["service_id"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class CalendarDateViewSet(viewsets.ModelViewSet):
@@ -675,7 +684,7 @@ class CalendarDateViewSet(viewsets.ModelViewSet):
     serializer_class = CalendarDateSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["service_id"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class ShapeViewSet(viewsets.ModelViewSet):
@@ -687,7 +696,7 @@ class ShapeViewSet(viewsets.ModelViewSet):
     serializer_class = ShapeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["shape_id"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class GeoShapeViewSet(viewsets.ModelViewSet):
@@ -699,7 +708,7 @@ class GeoShapeViewSet(viewsets.ModelViewSet):
     serializer_class = GeoShapeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["shape_id"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class TripViewSet(viewsets.ModelViewSet):
@@ -717,7 +726,7 @@ class TripViewSet(viewsets.ModelViewSet):
     # def get_queryset(self):
     #    return self.get_filtered_queryset(self.allowed_query_parameters)
 
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class StopTimeViewSet(viewsets.ModelViewSet):
@@ -729,7 +738,7 @@ class StopTimeViewSet(viewsets.ModelViewSet):
     serializer_class = StopTimeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["trip_id", "stop_id"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class FeedInfoViewSet(viewsets.ModelViewSet):
@@ -741,7 +750,7 @@ class FeedInfoViewSet(viewsets.ModelViewSet):
     serializer_class = FeedInfoSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["feed_publisher_name"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class FareAttributeViewSet(viewsets.ModelViewSet):
@@ -759,7 +768,7 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
         "payment_method",
         "transfers",
     ]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class FareRuleViewSet(viewsets.ModelViewSet):
@@ -777,7 +786,7 @@ class FareRuleViewSet(viewsets.ModelViewSet):
         "destination_id",
         "contains_id",
     ]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class ServiceAlertViewSet(viewsets.ModelViewSet):
@@ -795,7 +804,7 @@ class ServiceAlertViewSet(viewsets.ModelViewSet):
         "service_start_time",
         "service_date",
     ]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class WeatherViewSet(viewsets.ModelViewSet):
@@ -807,7 +816,7 @@ class WeatherViewSet(viewsets.ModelViewSet):
     serializer_class = WeatherSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["weather_location", "weather_condition"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class SocialViewSet(viewsets.ModelViewSet):
@@ -819,7 +828,7 @@ class SocialViewSet(viewsets.ModelViewSet):
     serializer_class = SocialSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["social_media", "social_content", "social_location"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class FeedMessageViewSet(viewsets.ModelViewSet):
@@ -834,7 +843,7 @@ class FeedMessageViewSet(viewsets.ModelViewSet):
         "entity_type",
         "provider",
     ]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class TripUpdateViewSet(viewsets.ModelViewSet):
@@ -851,7 +860,7 @@ class TripUpdateViewSet(viewsets.ModelViewSet):
         "trip_start_time",
         "vehicle_id",
     ]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class StopTimeUpdateViewSet(viewsets.ModelViewSet):
@@ -872,7 +881,7 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
         "trip_update",
     ]
 
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class VehiclePositionViewSet(viewsets.ModelViewSet):
@@ -890,7 +899,7 @@ class VehiclePositionViewSet(viewsets.ModelViewSet):
         "vehicle_trip_schedule_relationship",
     ]
 
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 class InfoServiceViewSet(viewsets.ModelViewSet):
@@ -902,7 +911,7 @@ class InfoServiceViewSet(viewsets.ModelViewSet):
     serializer_class = InfoServiceSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["type", "name"]
-    # permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
 
 def get_schema(request):
@@ -941,6 +950,7 @@ def get_calendar(date, current_feed):
 
 class SearchView(APIView):
     """Search endpoint for stops and routes with ranking."""
+    permission_classes = [permissions.AllowAny]
     
     @extend_schema(
         parameters=[
@@ -1152,6 +1162,7 @@ class SearchView(APIView):
 
 class HealthView(APIView):
     """Simple health check endpoint."""
+    permission_classes = [permissions.AllowAny]
     
     @extend_schema(
         responses={200: HealthCheckSerializer},
@@ -1170,6 +1181,7 @@ class HealthView(APIView):
 
 class ReadyView(APIView):
     """Readiness check endpoint."""
+    permission_classes = [permissions.AllowAny]
     
     @extend_schema(
         responses={200: ReadinessCheckSerializer},
