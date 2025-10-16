@@ -74,8 +74,9 @@ Infobús is a production-ready, containerized platform that transforms raw GTFS 
 - **GTFS Realtime**: Transit data processing bindings
 
 ### 🔒 **Security & Monitoring**
+- **JWT Authentication**: Secure token-based authentication for API access
+- **Rate Limiting**: Comprehensive API protection with tiered limits
 - **Environment-based Config**: Secure secrets management
-- **Rate Limiting**: API and admin protection
 - **Security Headers**: OWASP recommended protections
 - **Health Checks**: Application and service monitoring
 
@@ -189,6 +190,115 @@ docker-compose down
 - **`api`**: RESTful API endpoints with DRF integration
 
 ## 📚 API Documentation
+
+### 🔐 Authentication
+
+Infobús provides secure JWT-based authentication for API access:
+
+#### User Registration
+- **Endpoint**: POST /api/auth/register/
+- **Purpose**: Create new user accounts with JWT token response
+- **Required Fields**: username, email, password, password_confirm
+- **Optional Fields**: first_name, last_name
+
+```bash
+curl -X POST "http://localhost:8000/api/auth/register/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "newuser",
+    "email": "user@example.com",
+    "password": "securepassword123",
+    "password_confirm": "securepassword123"
+  }'
+```
+
+#### User Login
+- **Endpoint**: POST /api/auth/login/
+- **Purpose**: Authenticate users and receive JWT access/refresh token pair
+- **Returns**: Access token (1 hour), refresh token (7 days), user data
+
+```bash
+curl -X POST "http://localhost:8000/api/auth/login/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "newuser",
+    "password": "securepassword123"
+  }'
+```
+
+**Example Response**:
+```json
+{
+  "access": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "user": {
+    "id": 1,
+    "username": "newuser",
+    "email": "user@example.com",
+    "first_name": "",
+    "last_name": "",
+    "date_joined": "2025-10-16T16:53:40.123456Z"
+  }
+}
+```
+
+#### Token Refresh
+- **Endpoint**: POST /api/auth/refresh/
+- **Purpose**: Refresh expired access tokens using valid refresh token
+
+```bash
+curl -X POST "http://localhost:8000/api/auth/refresh/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+  }'
+```
+
+#### Protected Endpoints
+- **Endpoint**: GET /api/auth/profile/
+- **Purpose**: Access current user profile (requires authentication)
+- **Authorization**: Include JWT token in Authorization header
+
+```bash
+curl "http://localhost:8000/api/auth/profile/" \
+  -H "Authorization: Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+```
+
+#### JWT Token Configuration
+- **Access Token Lifetime**: 1 hour
+- **Refresh Token Lifetime**: 7 days
+- **Token Rotation**: Enabled (new refresh token issued on refresh)
+- **Blacklisting**: Enabled (tokens invalidated after rotation)
+
+### 🛡️ Rate Limiting
+
+Comprehensive rate limiting protects all API endpoints with intelligent tiered limits:
+
+#### Rate Limit Tiers
+- **Public Light** (health, ready): 100 requests/minute
+- **Public Medium** (arrivals, schedule): 60 requests/minute
+- **Public Heavy** (search): 30 requests/minute
+- **Auth Sensitive** (login): 5 requests/minute
+- **Auth Registration**: 3 requests/minute
+- **Auth General** (profile): 20 requests/minute
+
+#### Rate Limit Headers & Responses
+When rate limited, endpoints return HTTP 429 with detailed error information:
+
+```json
+{
+  "error": "Rate limit exceeded",
+  "details": "Too many requests. Please try again later.",
+  "retry_after": 60,
+  "limit_type": "requests_per_minute",
+  "timestamp": "2025-10-16T16:53:40.123456Z"
+}
+```
+
+#### Rate Limiting Configuration
+- **Enable/Disable**: Set `RATELIMIT_ENABLE=true/false` in environment
+- **Custom Limits**: Configure limits in `RATE_LIMITS` environment variable
+- **IP-Based**: Rate limits applied per client IP address
 
 ### New: OpenAPI & Interactive Docs
 - Redoc: http://localhost:8000/api/docs/
@@ -466,6 +576,8 @@ Key variables:
 - ETAS_API_URL: URL of the external Arrivals/ETAs service (Project 4). Required for /api/arrivals/.
   - If not set, the endpoint returns 501 Not Implemented.
 - SCHEDULE_CACHE_TTL_SECONDS: TTL (seconds) for DAL schedule departures caching (default: 60).
+- RATELIMIT_ENABLE: Enable/disable rate limiting (default: true).
+- SECRET_KEY: Django secret key used for JWT token signing (required in production).
 
 ### Contributing
 1. Fork the repository
@@ -511,6 +623,9 @@ python3 scripts/smoke_arrivals.py
 - [ ] Update database passwords
 - [ ] Configure domain names in `ALLOWED_HOSTS`
 - [ ] Set up SSL certificates
+- [ ] Configure JWT token settings (`SIMPLE_JWT` in settings)
+- [ ] Review rate limiting configuration (`RATE_LIMITS` in environment)
+- [ ] Test authentication endpoints (/api/auth/*)
 - [ ] Configure backup strategy
 - [ ] Set up monitoring and logging
 - [ ] Test health check endpoints
