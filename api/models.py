@@ -30,6 +30,7 @@ class Client(models.Model):
     )
     description = models.TextField(
         blank=True,
+        default='',
         help_text="Description of the client application and its use case"
     )
     contact_email = models.EmailField(
