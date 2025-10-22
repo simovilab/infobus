@@ -270,6 +270,172 @@ curl "http://localhost:8000/api/auth/profile/" \
 - **Token Rotation**: Enabled (new refresh token issued on refresh)
 - **Blacklisting**: Enabled (tokens invalidated after rotation)
 
+### 🔑 NEW: API Client Management
+
+Infobús provides comprehensive API client management with key registration, usage tracking, and lifecycle management:
+
+#### Client Registration & Keys
+
+Manage API clients through Django management commands or the admin interface:
+
+**Create a new client**:
+```bash
+docker-compose exec web uv run python manage.py manage_clients create \
+  --name "Mobile App Client" \
+  --email "mobile@example.com" \
+  --tier premium \
+  --daily-quota 10000 \
+  --monthly-quota 300000 \
+  --rate-limit 120 \
+  --description "API client for iOS and Android mobile applications"
+```
+
+**List all clients**:
+```bash
+docker-compose exec web uv run python manage.py manage_clients list
+```
+
+**View client usage statistics**:
+```bash
+docker-compose exec web uv run python manage.py manage_clients usage --client-id 1
+```
+
+#### API Key Rotation
+
+Rotate API keys for security or when keys are compromised:
+
+```bash
+# Rotate key for specific client
+docker-compose exec web uv run python manage.py manage_clients rotate-key --client-id 1
+
+# Or by client name
+docker-compose exec web uv run python manage.py manage_clients rotate-key --client-name "Mobile App Client"
+```
+
+Key rotation features:
+- Generates new secure 64-character API keys
+- Updates key prefix for easy identification
+- Records rotation timestamp
+- Supports bulk rotation via Django admin
+
+#### Client Status Management
+
+Control client access through status changes:
+
+```bash
+# Suspend a client (temporarily disable access)
+docker-compose exec web uv run python manage.py manage_clients suspend --client-id 1
+
+# Reactivate a suspended client
+docker-compose exec web uv run python manage.py manage_clients activate --client-id 1
+
+# Permanently revoke a client
+docker-compose exec web uv run python manage.py manage_clients revoke --client-id 1
+```
+
+Client statuses:
+- **Active**: Client can make API requests
+- **Inactive**: Client temporarily disabled
+- **Suspended**: Client access suspended (reversible)
+- **Revoked**: Client permanently disabled
+
+#### Client Tiers & Quotas
+
+Clients are organized into tiers with different quota limits:
+
+| Tier | Daily Quota | Monthly Quota | Rate Limit/Min | Use Case |
+|------|-------------|---------------|----------------|----------|
+| Free | 1,000 | 30,000 | 60 | Personal projects, testing |
+| Basic | 5,000 | 150,000 | 100 | Small applications |
+| Premium | 10,000 | 300,000 | 120 | Production apps |
+| Enterprise | Custom | Custom | Custom | Large-scale deployments |
+
+#### Usage Metrics Tracking
+
+Automatic usage tracking captures comprehensive metrics for every API request:
+
+**Tracked Metrics**:
+- Request endpoint and HTTP method
+- Response status code and time (ms)
+- Client IP address and user agent
+- Request/response body sizes
+- Error messages (for failed requests)
+- Timestamp of each request
+
+**View Usage in Django Admin**:
+1. Access admin panel: http://localhost:8000/admin
+2. Navigate to "API Clients" or "Client Usage Records"
+3. View detailed statistics, charts, and recent activity
+
+**Admin Features**:
+- Real-time usage dashboard with today/month summaries
+- Bulk API key regeneration
+- Bulk status management (activate/suspend/revoke)
+- Color-coded status indicators
+- Response time performance metrics
+- Filterable usage logs by date, client, endpoint, status code
+
+#### Usage Data Cleanup
+
+Maintain database performance by cleaning old usage records:
+
+```bash
+# Dry run - see what would be deleted
+docker-compose exec web uv run python manage.py cleanup_usage --days 90 --dry-run
+
+# Delete records older than 90 days
+docker-compose exec web uv run python manage.py cleanup_usage --days 90
+
+# Custom retention period and batch size
+docker-compose exec web uv run python manage.py cleanup_usage --days 30 --batch-size 500
+```
+
+#### Making Authenticated API Requests
+
+Use API keys in requests with the `X-API-Key` header:
+
+```bash
+# Make authenticated request
+curl -H "X-API-Key: your-api-key-here" "http://localhost:8000/api/arrivals/?stop_id=S1"
+```
+
+**API Key Features**:
+- Secure 64-character keys with mix of letters and numbers
+- 8-character prefix for easy identification
+- Optional expiration dates
+- IP address restrictions (configurable)
+- Endpoint restrictions (configurable)
+
+#### Client Model Fields
+
+**Basic Information**:
+- `name`: Client application or organization name
+- `description`: Purpose and use case description
+- `contact_email`: Primary contact for the client
+
+**Security & Access**:
+- `api_key`: Unique 64-character API key
+- `key_prefix`: First 8 characters for identification
+- `status`: Current client status (active/inactive/suspended/revoked)
+- `key_expires_at`: Optional key expiration date
+
+**Quotas & Limits**:
+- `tier`: Client tier (free/basic/premium/enterprise)
+- `daily_quota`: Daily request limit
+- `monthly_quota`: Monthly request limit
+- `rate_limit_per_minute`: Rate limit per minute
+
+**Access Control**:
+- `allowed_endpoints`: List of permitted API endpoints (empty = all allowed)
+- `allowed_ips`: List of permitted IP addresses (empty = no restrictions)
+
+**Metadata**:
+- `created_at`: Client registration date
+- `updated_at`: Last modification date
+- `last_used_at`: Last API request timestamp
+- `key_created_at`: Current key generation date
+- `created_by`: Django user who created the client
+
 ### 🛡️ Rate Limiting
 
 Comprehensive rate limiting protects all API endpoints with intelligent tiered limits:
