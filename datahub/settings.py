@@ -67,7 +67,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "api.cache_middleware.ETagCacheMiddleware",
+    "django.middleware.http.ConditionalGetMiddleware",
     "api.middleware.APIUsageTrackingMiddleware",
 ]
 
@@ -299,23 +299,6 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken",
     "x-requested-with",
 ]
-
-# Cache Configuration for Django
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"redis://{REDIS_HOST}:{REDIS_PORT}/1",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-        "KEY_PREFIX": "infobus",
-        "TIMEOUT": 300,  # 5 minutes default
-    }
-}
-
-# HTTP Caching Headers Configuration
-CACHE_MIDDLEWARE_SECONDS = 60  # Cache for 60 seconds
-CACHE_MIDDLEWARE_KEY_PREFIX = "infobus_view"
 
 # Query and Result Limits
 MAX_PAGE_SIZE = 1000  # Maximum items per page request
