@@ -44,7 +44,7 @@ class CORSConfigurationTest(APITestCase):
         self.assertIn(response.status_code, [status.HTTP_200_OK, status.HTTP_204_NO_CONTENT])
 
 
-class ETAgCachingTest(APITestCase):
+class ETagCachingTest(APITestCase):
     """Test ETag and HTTP caching headers."""
     
     def setUp(self):
