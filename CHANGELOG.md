@@ -7,6 +7,199 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 📊 Admin Panel Prototype - 2025-10-25
+
+#### Added
+- **API Metrics Dashboard**
+  - Comprehensive admin dashboard at `/admin/api/metrics/` for monitoring API usage and performance
+  - **KPI Overview Section**:
+    - Total traffic summary (request count)
+    - Average response latency (in milliseconds)
+    - Error rate percentage (4xx/5xx responses)
+    - Total active API clients count
+  - **Interactive Visualizations**:
+    - Traffic trends over time (line chart with hourly grouping)
+    - Response time distribution histogram (0-100ms, 100-500ms, 500-1000ms, 1000ms+)
+    - Status code breakdown (pie chart: 2xx success, 4xx client errors, 5xx server errors)
+  - **Top Endpoints Analytics**:
+    - Most active endpoints ranked by request volume
+    - Request counts and average response times per endpoint
+    - Clickable links to detailed endpoint drill-down views
+  - **Client Usage Breakdown**:
+    - Per-client request statistics
+    - Top API clients by traffic volume
+    - Color-coded status indicators
+  - **Recent Errors View**:
+    - Latest 4xx and 5xx errors with full details
+    - Error messages, timestamps, and affected endpoints
+    - User agent and IP address tracking
+  - **Time-based Filtering**:
+    - Flexible time range filters (1h, 6h, 24h, 7d)
+    - Default 24-hour view with URL parameter support (`?hours=N`)
+    - Consistent filtering across all dashboard sections
+
+- **Endpoint Detail Views**
+  - **URL Pattern**: `/admin/api/metrics/endpoint/{endpoint_path}/`
+  - **Request Analytics**:
+    - Request volume breakdown by HTTP method (GET, POST, PUT, DELETE)
+    - Total requests and average response time for the endpoint
+  - **Status Code Distribution**:
+    - Visual breakdown of response status codes
+    - Success rate and error rate percentages
+  - **Response Time Trends**:
+    - Hourly response time trends over the filtered period
+    - Performance degradation identification
+  - **Client Usage for Endpoint**:
+    - Which clients are using this specific endpoint
+    - Request counts per client
+  - **Recent Errors for Endpoint**:
+    - Endpoint-specific error log
+    - Filtered to show only errors for the current endpoint
+
+- **Admin Integration**
+  - Custom link on Django admin homepage for easy access
+  - Staff/admin authentication required (uses Django's permission system)
+  - Breadcrumb navigation for better UX
+  - Responsive design with Bootstrap-based layout
+
+- **Traffic Generation Script**
+  - **Location**: `scripts/generate_traffic.sh`
+  - **Purpose**: Generate realistic API traffic for dashboard testing and demos
+  - **Features**:
+    - Makes ~30 API requests to various endpoints
+    - Simulates different HTTP status codes (200, 401, 404, 503)
+    - Tests public endpoints: `/api/health/`, `/api/ready/`, `/api/search/`, `/api/autocomplete/`, `/api/docs/`
+    - Attempts authenticated endpoints to generate 401 responses
+    - Tries non-existent endpoints to generate 404 responses
+    - Creates realistic usage patterns with delays between requests
+  - **Output**: Color-coded console output with emoji indicators
+  - **Usage**: `./scripts/generate_traffic.sh`
+  - **Dashboard Link**: Script displays dashboard URL on completion
+
+#### Technical Implementation
+- **Dashboard Views** (`api/admin_views.py`):
+  - `metrics_dashboard()`: Main dashboard view with aggregated KPIs and charts
+  - `endpoint_detail()`: Detailed analytics for specific endpoints
+  - Custom URL routing in `api/urls.py` under `/admin/api/metrics/`
+  - Django ORM aggregations with annotations for performance
+  - Efficient database queries with proper indexing utilization
+
+- **Data Aggregation**:
+  - Time-based filtering with `timezone.now()` for accurate time ranges
+  - Aggregation functions: `Count()`, `Avg()`, `Max()`, `Min()`
+  - Status code categorization (success: 200-299, client errors: 400-499, server errors: 500-599)
+  - Response time bucketing for histogram visualization
+  - Hourly grouping with `TruncHour` for time-series charts
+
+- **Chart Data Preparation**:
+  - Structured JSON data for Chart.js library integration
+  - Labels and datasets formatted for immediate rendering
+  - Color schemes for visual consistency (blue for traffic, green for success, red for errors)
+  - Responsive chart configurations
+
+- **Admin Integration** (`api/admin.py`):
+  - Custom `AdminSite.index()` override to add dashboard link
+  - Dashboard link displayed prominently on admin homepage
+  - Icon-based UI for better visual hierarchy
+
+- **Template System** (`api/templates/admin/`):
+  - `metrics_dashboard.html`: Main dashboard template with KPIs and charts
+  - `endpoint_detail.html`: Endpoint-specific analytics template
+  - Bootstrap 5 for responsive layout
+  - Chart.js for interactive data visualizations
+  - Django template inheritance for consistency
+
+- **URL Routing**:
+  - Dashboard: `/admin/api/metrics/`
+  - Endpoint detail: `/admin/api/metrics/endpoint/<path:endpoint_path>/`
+  - URL patterns registered in `api/urls.py` with `admin_patterns` prefix
+  - Staff authentication decorator (`@staff_member_required`) on all views
+
+#### Data Source
+- **ClientUsage Model**: Dashboard relies on the `ClientUsage` model populated by `APIUsageTrackingMiddleware`
+- **Automatic Capture**: All `/api/*` requests automatically tracked
+- **No Manual Instrumentation**: Metrics collection is transparent to endpoint code
+- **Historical Data**: Time-series data available based on usage record retention
+
+#### Dependencies
+- **No New Dependencies**: Uses existing Django, DRF, and Bootstrap stack
+- **Chart.js**: Loaded via CDN for visualization (no build step required)
+- **Django ORM**: All aggregations use native Django database functions
+
+#### Documentation
+- **README.md Updates**:
+  - Admin Metrics Dashboard section in API Client Management
+  - Dashboard URL and authentication requirements
+  - Feature list with KPIs, charts, filtering, and drill-down capabilities
+  - Endpoint detail view documentation
+  - Traffic generation script usage instructions
+  - Integration with ClientUsage model explanation
+
+- **scripts/README.md Updates**:
+  - New `generate_traffic.sh` section
+  - Script purpose and usage instructions
+  - Output explanation and dashboard access info
+  - Use cases: testing, demos, validation, rate limiting
+
+- **CHANGELOG.md**: This comprehensive feature documentation entry
+
+#### Security & Access Control
+- **Authentication Required**: `@staff_member_required` decorator on all admin views
+- **Admin-Only Access**: Dashboard accessible only to staff/superuser accounts
+- **No Sensitive Data Exposure**: API keys and client secrets not displayed in metrics
+- **IP Address Tracking**: Client IP addresses logged for audit purposes
+- **CSRF Protection**: Django's CSRF middleware protects all admin views
+
+#### Performance Considerations
+- **Efficient Queries**: Database aggregations use indexes on `timestamp` and `client_id`
+- **Time-Range Limiting**: Queries filtered by time range to prevent full table scans
+- **Pagination Ready**: Endpoint lists and error logs can be paginated if needed
+- **No Real-Time Updates**: Dashboard shows cached/aggregated data (refresh required)
+- **Dashboard Load Time**: Typical load time <500ms for 24h of data (thousands of records)
+
+#### Use Cases
+- **API Monitoring**: Track API health, performance, and error rates in real-time
+- **Client Management**: Identify top API consumers and usage patterns
+- **Performance Debugging**: Investigate slow endpoints and response time issues
+- **Capacity Planning**: Analyze traffic trends for infrastructure scaling decisions
+- **SLA Compliance**: Monitor error rates and latency against service agreements
+- **Demo & Testing**: Use traffic generation script to create realistic metrics data
+
+#### Future Enhancements (Not in This Release)
+- Real-time dashboard updates with WebSocket integration
+- Custom date range picker (currently limited to preset ranges)
+- Export metrics data to CSV/JSON
+- Alert configuration for threshold breaches
+- Comparison views (day-over-day, week-over-week)
+- Geographic distribution of API requests
+- API key usage heat maps
+
+#### Files Modified
+- `api/admin_views.py` - New dashboard and endpoint detail views
+- `api/urls.py` - Dashboard URL routing
+- `api/admin.py` - Admin homepage integration
+- `api/templates/admin/metrics_dashboard.html` - Main dashboard template
+- `api/templates/admin/endpoint_detail.html` - Endpoint detail template
+- `scripts/generate_traffic.sh` - Moved from project root
+- `README.md` - Admin dashboard documentation
+- `scripts/README.md` - Traffic generation script documentation
+- `CHANGELOG.md` - This feature entry
+
+#### Migration Path
+1. No database migrations required (uses existing `ClientUsage` model)
+2. Generate test traffic: `./scripts/generate_traffic.sh`
+3. Access dashboard: http://localhost:8000/admin/api/metrics/
+4. Login with staff/admin credentials
+5. Explore KPIs, charts, and drill-down views
+
+#### Testing
+- Manual testing with traffic generation script
+- Dashboard renders correctly with various data volumes
+- Time filtering works across all dashboard sections
+- Endpoint detail views display correct aggregations
+- Authentication properly restricts access to staff users
+- No errors in logs during dashboard usage
+
 ### 🔒 Security & Performance Best Practices - 2025-10-23
 
 #### Added

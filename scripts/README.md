@@ -4,6 +4,34 @@ This directory contains convenience scripts to manage the Infobus application in
 
 ## Scripts
 
+### `generate_traffic.sh` - API Traffic Generator
+
+Generates realistic API traffic for testing the admin metrics dashboard.
+
+**Usage:**
+```bash
+./scripts/generate_traffic.sh
+```
+
+**What it does:**
+- Makes ~30 API requests to various endpoints
+- Simulates different HTTP status codes (200, 401, 404, 503)
+- Tests public endpoints (health, ready, search, autocomplete, docs)
+- Attempts authenticated endpoints to generate 401 responses
+- Tries non-existent endpoints to generate 404 responses
+- Creates realistic usage patterns for dashboard testing
+
+**After running:**
+- View metrics at http://localhost:8000/admin/api/metrics/
+- Login with admin credentials (admin/admin)
+- Review KPIs, charts, and endpoint statistics
+
+**Use cases:**
+- Testing the admin metrics dashboard
+- Generating sample data for demos
+- Validating usage tracking middleware
+- Testing rate limiting behavior
+
 ### `dev.sh` - Development Environment
 
 Starts the Infobus application in development mode with:

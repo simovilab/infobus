@@ -158,6 +158,9 @@ docker-compose exec web uv run python manage.py shell
 # Run tests
 docker-compose exec web uv run python manage.py test
 
+# Generate test API traffic (for metrics testing)
+./scripts/generate_traffic.sh
+
 # Stop all services
 docker-compose down
 ```
@@ -366,13 +369,51 @@ Automatic usage tracking captures comprehensive metrics for every API request:
 1. Access admin panel: http://localhost:8000/admin
 2. Navigate to "API Clients" or "Client Usage Records"
 3. View detailed statistics, charts, and recent activity
-
-**Admin Features**:
+#### Admin Features:
 - Real-time usage dashboard with today/month summaries
 - Bulk API key regeneration
 - Bulk status management (activate/suspend/revoke)
 - Color-coded status indicators
 - Response time performance metrics
+- Filterable usage logs by date, client, endpoint, status code
+
+#### API Metrics Dashboard (Admin)
+
+Comprehensive admin dashboard for monitoring API usage and performance:
+
+**Dashboard URL**: http://localhost:8000/admin/api/metrics/
+
+**Features**:
+- **KPI Overview**: Traffic summary, average latency, error rate, total clients
+- **Interactive Charts**: Traffic trends, response time distribution, status code breakdown
+- **Top Endpoints**: Most active endpoints by request volume
+- **Client Usage Breakdown**: Per-client request statistics
+- **Recent Errors**: Latest 4xx/5xx errors with details
+- **Time-based Filtering**: Filter by hours (24h default, 1h/6h/24h/7d options)
+- **Drill-down Views**: Click endpoints for detailed per-endpoint analytics
+
+**Endpoint Detail Views**:
+- **URL**: http://localhost:8000/admin/api/metrics/endpoint/{endpoint_path}/
+- Request volume by HTTP method
+- Status code distribution charts
+- Response time trends over time
+- Client usage breakdown for the endpoint
+- Recent error logs
+
+**Dashboard Link**:
+- Available from Django admin homepage (custom link in admin index)
+- Requires staff/admin authentication
+
+**Generate Test Traffic**:
+```bash
+# Generate realistic API traffic for dashboard testing
+./scripts/generate_traffic.sh
+
+# View generated metrics in dashboard
+open http://localhost:8000/admin/api/metrics/
+```
+
+The dashboard automatically aggregates data from the `ClientUsage` model populated by the API usage tracking middleware.
 - Filterable usage logs by date, client, endpoint, status code
 
 #### Usage Data Cleanup
