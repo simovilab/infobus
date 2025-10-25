@@ -7,6 +7,11 @@ from django.utils import timezone
 from datetime import timedelta
 from .models import Client, ClientUsage
 
+# Customize admin site
+admin.site.site_header = "Infobús API Administration"
+admin.site.site_title = "Infobús API Admin"
+admin.site.index_title = "Welcome to Infobús API Administration"
+
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
