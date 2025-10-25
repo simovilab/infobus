@@ -20,6 +20,7 @@ from django.urls import path, include
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("admin/api/", include("api.admin_urls")),  # Custom admin dashboard
     path("", include("website.urls")),
     path("api/", include("api.urls")),
     path("gtfs/", include("gtfs.urls")),

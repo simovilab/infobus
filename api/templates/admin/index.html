@@ -1,0 +1,75 @@
+{% extends "admin/index.html" %}
+{% load i18n static %}
+
+{% block content %}
+<!-- Metrics Dashboard Quick Access -->
+<div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            border-radius: 8px; 
+            padding: 30px; 
+            margin-bottom: 30px; 
+            color: white; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    <h2 style="margin: 0 0 15px 0; font-size: 24px;">
+        📊 API Metrics Dashboard
+    </h2>
+    <p style="margin: 0 0 20px 0; opacity: 0.9;">
+        Monitor API traffic, latency, errors, and client usage in real-time
+    </p>
+    <a href="{% url 'admin_metrics_dashboard' %}" 
+       style="background: white; 
+              color: #667eea; 
+              padding: 12px 24px; 
+              border-radius: 6px; 
+              text-decoration: none; 
+              font-weight: bold; 
+              display: inline-block;
+              transition: transform 0.2s;">
+        View Metrics Dashboard →
+    </a>
+</div>
+
+<!-- Quick Stats Cards -->
+<div style="display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            margin-bottom: 30px;">
+    <div style="background: #f8f9fa; 
+                border-left: 4px solid #28a745; 
+                padding: 15px; 
+                border-radius: 4px;">
+        <div style="color: #666; font-size: 12px; text-transform: uppercase; margin-bottom: 5px;">
+            Quick Links
+        </div>
+        <div style="margin-top: 10px;">
+            <a href="{% url 'admin:api_client_changelist' %}" style="display: block; margin: 5px 0;">
+                → Manage API Clients
+            </a>
+            <a href="{% url 'admin:api_clientusage_changelist' %}" style="display: block; margin: 5px 0;">
+                → View Usage Logs
+            </a>
+            <a href="{% url 'admin_metrics_dashboard' %}" style="display: block; margin: 5px 0;">
+                → Metrics Dashboard
+            </a>
+        </div>
+    </div>
+    
+    <div style="background: #f8f9fa; 
+                border-left: 4px solid #007bff; 
+                padding: 15px; 
+                border-radius: 4px;">
+        <div style="color: #666; font-size: 12px; text-transform: uppercase; margin-bottom: 5px;">
+            Documentation
+        </div>
+        <div style="margin-top: 10px;">
+            <a href="/api/docs/" target="_blank" style="display: block; margin: 5px 0;">
+                → API Documentation
+            </a>
+            <a href="/api/docs/schema/" target="_blank" style="display: block; margin: 5px 0;">
+                → OpenAPI Schema
+            </a>
+        </div>
+    </div>
+</div>
+
+{{ block.super }}
+{% endblock %}
