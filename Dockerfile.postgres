@@ -1,0 +1,13 @@
+FROM postgis/postgis:16-3.4
+
+# Ensure we run as root to install packages
+USER root
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends postgresql-contrib \
+    && rm -rf /var/lib/apt/lists/*
+
+# Switch back to default user (if any) from base image
+USER postgres
+
+CMD ["postgres"]
