@@ -8,6 +8,7 @@ from gtfs.models import (
     Trip,
     FeedMessage,
     TripUpdate,
+    StopTime,
     StopTimeUpdate,
 )
 from rest_framework import viewsets, permissions
@@ -51,7 +52,6 @@ class GTFSProviderViewSet(viewsets.ModelViewSet):
 
 class NextTripView(APIView):
     def get(self, request):
-
         timezone = pytz.timezone(settings.TIME_ZONE)
 
         # Query parameters
@@ -97,14 +97,20 @@ class NextTripView(APIView):
         # Trips in progress
         # -----------------
 
-        latest_feed_message = FeedMessage.objects.filter(
-            entity_type="trip_update"
-        ).latest("timestamp")
-        # TODO: check TTL (time to live)
-        stop_time_updates = StopTimeUpdate.objects.filter(
-            feed_message=latest_feed_message, stop_id=stop_id
+        latest_feed_message = (
+            FeedMessage.objects.filter(entity_type="trip_update")
+            .order_by("-timestamp")
+            .first()
         )
-        print(f"stop_time_updates: {stop_time_updates}")
+        # TODO: check TTL (time to live)
+        if latest_feed_message is None:
+            # No realtime messages available; keep trips_in_progress empty
+            stop_time_updates = StopTimeUpdate.objects.none()
+        else:
+            stop_time_updates = StopTimeUpdate.objects.filter(
+                feed_message=latest_feed_message, stop_id=stop_id
+            )
+        print("Checkpoint 1")
 
         trips_in_progress = []
 
@@ -133,7 +139,7 @@ class NextTripView(APIView):
             location = vehicle_position.vehicle_position_point
             location = geometry.Point(location.x, location.y)
             position_in_shape = geo_shape.project(location) / geo_shape.length
- 
+
             next_arrivals.append(
                 {
                     "trip_id": trip.trip_id,
@@ -164,8 +170,12 @@ class NextTripView(APIView):
             feed=current_feed,
             stop_id=stop_id,
             arrival_time__gte=timestamp.time(),
-            _trip__service_id=service_id,
+            # _trip__service_id=service_id,
         ).order_by("arrival_time")
+
+        print(
+            f"Checkpoint 2: {stop_times} {stop_id} {current_feed} {service_id} {timestamp.time()}"
+        )
 
         # Build the response for scheduled trips
         for stop_time in stop_times:
@@ -215,7 +225,6 @@ class NextTripView(APIView):
 
 class NextStopView(APIView):
     def get(self, request):
-
         # Get query parameters
         trip_id = request.query_params.get("trip_id")
         start_date = request.query_params.get("start_date")
@@ -281,7 +290,6 @@ class NextStopView(APIView):
 
 class RouteStopView(APIView):
     def get(self, request):
-
         # Get and validate query parameters
         if request.query_params.get("route_id") and request.query_params.get(
             "shape_id"
