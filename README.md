@@ -190,11 +190,136 @@ docker compose down
 
 ## 📚 API Documentation
 
-### REST API Endpoints
-- **`/api/`** - Main API endpoints with DRF browsable interface
-- **`/api/gtfs/`** - GTFS Schedule and Realtime data
-- **`/api/alerts/`** - Screen management and alert systems
-- **`/api/weather/`** - Weather information for display locations
+### New: OpenAPI & Interactive Docs
+- Redoc: http://localhost:8000/api/docs/
+- OpenAPI schema (JSON): http://localhost:8000/api/docs/schema/
+
+Examples have been added for the main read endpoints (paginated) and realtime helpers.
+
+### Core Read Endpoints
+- Stops (paginated): GET /api/stops/
+- Routes (paginated): GET /api/routes/
+- Trips (paginated): GET /api/trips/
+- Alerts (paginated): GET /api/alerts/
+- Arrivals/ETAs: GET /api/arrivals/?stop_id=...&limit=...
+  - Requires ETAS_API_URL configured; returns 501 if not set
+- Status: GET /api/status
+  - Reports database_ok, redis_ok, fuseki_ok, current_feed_id, time
+- Scheduled Departures (DAL-backed): GET /api/schedule/departures/
+
+#### Curl examples
+```bash
+# Arrivals / ETAs (requires ETAS_API_URL)
+curl "http://localhost:8000/api/arrivals/?stop_id=S1&limit=2"
+
+# Service status
+curl "http://localhost:8000/api/status/"
+```
+
+Pagination: enabled globally with LimitOffsetPagination (default page size 50).
+Use `?limit=` and `?offset=` on list endpoints. Responses include
+`{count, next, previous, results}`.
+
+### New: Schedule Departures (Data Access Layer)
+An HTTP endpoint backed by the new DAL returns scheduled departures at a stop. It uses PostgreSQL as the source of truth and Redis for caching (read-through) by default.
+
+- Endpoint: GET /api/schedule/departures/
+- Query params:
+  - stop_id (required)
+  - feed_id (optional; defaults to current feed)
+  - date (optional; YYYY-MM-DD; defaults to today)
+  - time (optional; HH:MM or HH:MM:SS; defaults to now)
+  - limit (optional; default 10; max 100)
+
+Example:
+```bash
+curl "http://localhost:8000/api/schedule/departures/?stop_id=STOP_123&limit=5"
+```
+
+Response shape:
+```json
+{
+  "feed_id": "FEED_1",
+  "stop_id": "STOP_123",
+  "service_date": "2025-09-28",
+  "from_time": "08:00:00",
+  "limit": 5,
+  "departures": [
+    {
+      "route_id": "R1",
+      "route_short_name": "R1",
+      "route_long_name": "Ruta 1 - Centro",
+      "trip_id": "T1",
+      "stop_id": "STOP_123",
+      "headsign": "Terminal Central",
+      "direction_id": 0,
+      "arrival_time": "08:05:00",
+      "departure_time": "08:06:00"
+    }
+  ]
+}
+```
+
+Configuration flags (optional):
+- FUSEKI_ENABLED=false
+- FUSEKI_ENDPOINT=
+
+### Using the optional Fuseki (SPARQL) backend in development
+
+For development and tests, you can run an optional Apache Jena Fuseki server and point the app/tests at its SPARQL endpoint.
+
+1) Start Fuseki
+- docker-compose up -d fuseki
+- The dataset is defined by docker/fuseki/configuration/dataset.ttl as "dataset" with SPARQL and graph store endpoints.
+- Auth rules are controlled by docker/fuseki/shiro.ini (anon allowed for /dataset/sparql and /dataset/data in dev/tests).
+
+2) Verify readiness
+- GET: curl "http://localhost:3030/dataset/sparql?query=ASK%20%7B%7D"
+- POST: curl -X POST -H 'Content-Type: application/sparql-query' --data 'ASK {}' http://localhost:3030/dataset/sparql
+
+3) Admin UI
+- http://localhost:3030/#/
+- The mounted shiro.ini defines an Admin user by default. Also you can add users under [users] in that file if you need UI access, then recreate the container.
+
+4) Using Fuseki from the app (optional)
+- To have the app use Fuseki for reads instead of PostgreSQL, set these in .env.local:
+  - FUSEKI_ENABLED=true
+  - FUSEKI_ENDPOINT=http://fuseki:3030/dataset/sparql
+
+5) Reset state (optional)
+- The dataset persists in the fuseki_data Docker volume. To reset:
+  - docker-compose stop fuseki
+  - docker volume rm infobus_fuseki_data (name may vary)
+  - docker-compose up -d fuseki
+
+See also: docs/dev/fuseki.md for a deeper guide and troubleshooting.
+
+Caching (keys and TTLs):
+- Key pattern: schedule:next_departures:feed={FEED_ID}:stop={STOP_ID}:date={YYYY-MM-DD}:time={HHMMSS}:limit={N}:v1
+- Default TTL: 60 seconds
+- Configure TTL via env: SCHEDULE_CACHE_TTL_SECONDS=60
+
+Arrivals smoke test (optional):
+- A local script can mock the upstream ETAs service and call /api/arrivals/ end-to-end:
+  ```bash
+  python3 scripts/smoke_arrivals.py
+  ```
+
+### Additional Realtime Collections
+- Feed Messages (GTFS-RT metadata, paginated): GET /api/feed-messages/
+- Stop Time Updates (realtime stop arrivals/departures, paginated): GET /api/stop-time-updates/
+
+#### Curl examples
+```bash
+# Feed messages (paginated)
+curl "http://localhost:8000/api/feed-messages/?limit=1"
+
+# Stop time updates (paginated)
+curl "http://localhost:8000/api/stop-time-updates/?limit=1"
+```
+
+### REST API Root
+- **`/api/`** - Lists all registered endpoints with the DRF browsable interface
 
 ### WebSocket Endpoints
 - **`/ws/alerts/`** - Real-time screen updates
@@ -213,6 +338,7 @@ infobus/
 ├── 📁 gtfs/             # GTFS data processing (submodule)
 ├── 📁 feed/             # Data feed management
 ├── 📁 api/              # REST API endpoints
+├── 📁 storage/          # Data Access Layer (Postgres, Fuseki) and cache providers
 ├── 📦 docker-compose.yml              # Development environment
 ├── 📦 docker-compose.production.yml   # Production environment
 ├── 📄 Dockerfile         # Multi-stage container build
@@ -225,6 +351,11 @@ infobus/
 - **`.env.prod`** - Production template (committed, no secrets)
 - **`.env.local`** - Local secrets (git-ignored)
 
+Key variables:
+- ETAS_API_URL: URL of the external Arrivals/ETAs service (Project 4). Required for /api/arrivals/.
+  - If not set, the endpoint returns 501 Not Implemented.
+- SCHEDULE_CACHE_TTL_SECONDS: TTL (seconds) for DAL schedule departures caching (default: 60).
+
 ### Contributing
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/amazing-feature`
@@ -233,6 +364,28 @@ infobus/
 5. Commit your changes: `git commit -m 'Add amazing feature'`
 6. Push to the branch: `git push origin feature/amazing-feature`
 7. Open a Pull Request
+
+## 🧪 Testing
+
+Run all tests (inside the web container):
+```bash
+docker-compose exec web uv run python manage.py test
+```
+
+Run only API tests (verbose):
+```bash
+docker-compose exec web uv run python manage.py test api --noinput --verbosity 2
+```
+
+Run only arrivals tests (these mock the upstream ETAs via requests.get, no external service required):
+```bash
+docker-compose exec web uv run python manage.py test api.tests.test_arrivals --noinput --verbosity 2
+```
+
+Optional local smoke test for arrivals (spins up a tiny local mock server and hits /api/arrivals):
+```bash
+python3 scripts/smoke_arrivals.py
+```
 
 ## 🏢 Production Deployment
 

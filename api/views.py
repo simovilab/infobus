@@ -22,6 +22,12 @@ import pytz
 from django.conf import settings
 
 from .serializers import *
+from django.utils import timezone as dj_timezone
+from storage.factory import get_schedule_repository
+from gtfs.models import Feed, Stop
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+import requests
+import redis
 
 # from .serializers import InfoServiceSerializer, GTFSProviderSerializer, RouteSerializer, TripSerializer
 
@@ -36,6 +42,227 @@ class FilterMixin:
             if param in allowed_query_params and value is not None
         }
         return queryset.filter(**filter_args)
+
+
+class ScheduleDeparturesView(APIView):
+    """Simple endpoint backed by the DAL to get next scheduled departures at a stop."""
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="stop_id", type=OpenApiTypes.STR, required=True, description="Stop identifier (must exist in Stop for the chosen feed)"),
+            OpenApiParameter(name="feed_id", type=OpenApiTypes.STR, required=False, description="Feed identifier (defaults to current feed)") ,
+            OpenApiParameter(name="date", type=OpenApiTypes.DATE, required=False, description="Service date (YYYY-MM-DD, defaults to today)"),
+            OpenApiParameter(name="time", type=OpenApiTypes.STR, required=False, description="Start time (HH:MM or HH:MM:SS, defaults to now)"),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, required=False, description="Number of results (default 10, max 100)"),
+        ],
+        responses={200: DalDeparturesResponseSerializer},
+        description="Return next scheduled departures at a stop using the DAL (PostgreSQL + Redis cache).",
+        tags=["schedule"],
+    )
+    def get(self, request):
+        stop_id = request.query_params.get("stop_id")
+        if not stop_id:
+            return Response({"error": "stop_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve feed_id
+        feed_id = request.query_params.get("feed_id")
+        if not feed_id:
+            try:
+                current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+            except Feed.DoesNotExist:
+                return Response(
+                    {"error": "No GTFS feed configured as current (is_current=True). Load GTFS fixtures or import a feed and set one as current."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            feed_id = current_feed.feed_id
+        else:
+            if not Feed.objects.filter(feed_id=feed_id).exists():
+                return Response(
+                    {"error": f"feed_id '{feed_id}' not found"}, status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Validate stop exists for the chosen feed
+        if not Stop.objects.filter(feed__feed_id=feed_id, stop_id=stop_id).exists():
+            return Response(
+                {"error": f"stop_id '{stop_id}' not found for feed '{feed_id}'"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Parse date/time with TZ defaults
+        try:
+            date_str = request.query_params.get("date")
+            if date_str:
+                service_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            else:
+                service_date = dj_timezone.localdate()
+        except Exception:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            time_str = request.query_params.get("time")
+            if time_str:
+                fmt = "%H:%M:%S" if len(time_str.split(":")) == 3 else "%H:%M"
+                from_time = datetime.strptime(time_str, fmt).time()
+            else:
+                from_time = dj_timezone.localtime().time()
+        except Exception:
+            return Response({"error": "Invalid time format. Use HH:MM or HH:MM:SS"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            limit = int(request.query_params.get("limit", 10))
+            if limit <= 0 or limit > 100:
+                return Response({"error": "limit must be between 1 and 100"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "limit must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Build response using DAL
+        repo = get_schedule_repository(use_cache=True)
+        departures = repo.get_next_departures(
+            feed_id=feed_id,
+            stop_id=stop_id,
+            service_date=service_date,
+            from_time=from_time,
+            limit=limit,
+        )
+
+        # Format from_time as HH:MM:SS for a cleaner API response
+        from_time_str = from_time.strftime("%H:%M:%S")
+
+        payload = {
+            "feed_id": feed_id,
+            "stop_id": stop_id,
+            "service_date": service_date,
+            "from_time": from_time_str,
+            "limit": limit,
+            "departures": departures,
+        }
+        serializer = DalDeparturesResponseSerializer(payload)
+        return Response(serializer.data)
+
+
+class ArrivalsView(APIView):
+    """Arrivals/ETAs endpoint integrating with external Project 4 service if configured.
+
+    Query params:
+    - stop_id: required
+    - limit: optional, default 10 (1..100)
+    """
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="stop_id", type=OpenApiTypes.STR, required=True, description="Stop identifier"),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, required=False, description="Max results (default 10, max 100)"),
+        ],
+        responses={200: NextTripSerializer},
+        description="Return upcoming arrivals (ETAs). If ETAS_API_URL is configured, results are fetched from Project 4; otherwise a 501 is returned.",
+        tags=["realtime", "etas"],
+    )
+    def get(self, request):
+        stop_id = request.query_params.get("stop_id")
+        if not stop_id:
+            return Response({"error": "stop_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            limit = int(request.query_params.get("limit", 10))
+            if limit <= 0 or limit > 100:
+                return Response({"error": "limit must be between 1 and 100"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "limit must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not getattr(settings, "ETAS_API_URL", None):
+            return Response(
+                {"error": "ETAs service not configured", "hint": "Set ETAS_API_URL in environment to integrate with Project 4."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+
+        try:
+            resp = requests.get(
+                settings.ETAS_API_URL,
+                params={"stop_id": stop_id, "limit": limit},
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                return Response(
+                    {"error": "Failed to fetch ETAs from upstream", "status_code": resp.status_code},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            arrivals = resp.json()
+            if not isinstance(arrivals, list):
+                # Some services may wrap as {results: []}
+                arrivals = arrivals.get("results", []) if isinstance(arrivals, dict) else []
+        except Exception as e:
+            return Response({"error": f"Upstream ETAs call failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
+
+        payload = {
+            "stop_id": stop_id,
+            "timestamp": dj_timezone.now(),
+            "next_arrivals": arrivals,
+        }
+        serializer = NextTripSerializer(payload)
+        return Response(serializer.data)
+
+
+class StatusView(APIView):
+    """Simple health/status endpoint for core dependencies."""
+
+    @extend_schema(
+        responses={200: None},
+        description="Service status for core dependencies (database, Redis, Fuseki).",
+        tags=["status"],
+    )
+    def get(self, request):
+        checks = {
+            "database_ok": False,
+            "redis_ok": False,
+            "fuseki_ok": False,
+        }
+
+        # Database check
+        try:
+            _ = Feed.objects.exists()
+            checks["database_ok"] = True
+        except Exception:
+            checks["database_ok"] = False
+
+        # Redis check
+        try:
+            r = redis.Redis(host=settings.REDIS_HOST, port=int(settings.REDIS_PORT), db=0, socket_timeout=2)
+            checks["redis_ok"] = bool(r.ping())
+        except Exception:
+            checks["redis_ok"] = False
+
+        # Fuseki check
+        try:
+            if getattr(settings, "FUSEKI_ENABLED", False) and getattr(settings, "FUSEKI_ENDPOINT", None):
+                r = requests.post(
+                    settings.FUSEKI_ENDPOINT,
+                    data=b"ASK {}",
+                    headers={"Content-Type": "application/sparql-query"},
+                    timeout=3,
+                )
+                checks["fuseki_ok"] = (r.status_code == 200)
+            else:
+                checks["fuseki_ok"] = False
+        except Exception:
+            checks["fuseki_ok"] = False
+
+        current_feed_id = None
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+            current_feed_id = current_feed.feed_id
+        except Exception:
+            current_feed_id = None
+
+        overall = "ok" if all(checks.values()) else ("degraded" if checks["database_ok"] else "error")
+
+        return Response(
+            {
+                "status": overall,
+                **checks,
+                "current_feed_id": current_feed_id,
+                "time": dj_timezone.now(),
+            }
+        )
 
 
 class GTFSProviderViewSet(viewsets.ModelViewSet):
@@ -529,9 +756,14 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
     queryset = FareAttribute.objects.all()
     serializer_class = FareAttributeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "fare_id",
+        "agency_id",
+        "currency_type",
+        "payment_method",
+        "transfers",
+    ]
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class FareRuleViewSet(viewsets.ModelViewSet):
@@ -542,9 +774,14 @@ class FareRuleViewSet(viewsets.ModelViewSet):
     queryset = FareRule.objects.all()
     serializer_class = FareRuleSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "fare_id",
+        "route_id",
+        "origin_id",
+        "destination_id",
+        "contains_id",
+    ]
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class ServiceAlertViewSet(viewsets.ModelViewSet):
@@ -594,12 +831,14 @@ class FeedMessageViewSet(viewsets.ModelViewSet):
     Mensajes de alimentación.
     """
 
-    queryset = FeedMessage.objects.all()
+    queryset = FeedMessage.objects.all().order_by("-timestamp")
     serializer_class = FeedMessageSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "entity_type",
+        "provider",
+    ]
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class TripUpdateViewSet(viewsets.ModelViewSet):
@@ -627,10 +866,17 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     queryset = StopTimeUpdate.objects.all()
     serializer_class = StopTimeUpdateSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "stop_id",
+        "stop_sequence",
+        "arrival_time",
+        "departure_time",
+        "schedule_relationship",
+        "feed_message",
+        "trip_update",
+    ]
 
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class VehiclePositionViewSet(viewsets.ModelViewSet):

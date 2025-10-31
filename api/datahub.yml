@@ -15,6 +15,190 @@ servers:
   - url: https://datahub.bucr.digital/api
 
 paths:
+  /fare-attributes:
+    get:
+      summary: Atributos de tarifa
+      description: Reglas de cálculo de tarifas (fare_attributes.txt).
+      tags:
+        - Schedule
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FareAttribute'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - fare_id: "F1"
+                    price: 350.00
+                    currency_type: "CRC"
+                    payment_method: 0
+                    transfers: 0
+                    agency_id: "bUCR"
+  /fare-rules:
+    get:
+      summary: Reglas de tarifa
+      description: Reglas que determinan qué tarifa aplicar (fare_rules.txt).
+      tags:
+        - Schedule
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FareRule'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - fare_id: "F1"
+                    route_id: "bUCR-L1"
+                    origin_id: "zone_a"
+                    destination_id: "zone_b"
+                    contains_id: null
+  /feed-messages:
+    get:
+      summary: Mensajes GTFS Realtime
+      description: Encabezados de mensajes GTFS Realtime recuperados (metadata de FeedMessage).
+      tags:
+        - Realtime
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeedMessage'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - feed_message_id: "fm-20240731-161225"
+                    provider: 1
+                    entity_type: "trip_update"
+                    timestamp: "2024-07-31T16:12:25-06:00"
+                    incrementality: "FULL_DATASET"
+                    gtfs_realtime_version: "2.0"
+  /stop-time-updates:
+    get:
+      summary: Actualizaciones de horarios de paradas (Realtime)
+      description: Tiempos en tiempo real de llegada/salida para paradas de un viaje (StopTimeUpdate).
+      tags:
+        - Realtime
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StopTimeUpdate'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - stop_sequence: 10
+                    stop_id: "bUCR-0-03"
+                    arrival_time: "2024-07-31T16:12:25-06:00"
+                    departure_time: "2024-07-31T16:13:40-06:00"
+                    schedule_relationship: "SCHEDULED"
+                    feed_message: "fm-20240731-161225"
+                    trip_update: 123
+  /status:
+    get:
+      summary: Estado del servicio
+      description: Estado básico de dependencias (base de datos, Redis y Fuseki si está habilitado).
+      tags:
+        - Status
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  database_ok:
+                    type: boolean
+                  redis_ok:
+                    type: boolean
+                  fuseki_ok:
+                    type: boolean
+                  current_feed_id:
+                    type: string
+                    nullable: true
+                  time:
+                    type: string
+                    format: date-time
+              example:
+                status: ok
+                database_ok: true
+                redis_ok: true
+                fuseki_ok: false
+                current_feed_id: "bUCR-2024-05"
+                time: "2024-07-31T16:12:25-06:00"
   /gtfs-providers:
     get:
       summary: Proveedores de datos GTFS
@@ -38,7 +222,35 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GTFSProvider'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GTFSProvider'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - code: "MBTA"
+                    name: "Massachusetts Bay Transportation Authority"
+                    description: "La agencia de transporte público de Boston."
+                    website: "https://www.mbta.com/"
+                    schedule_url: "https://cdn.mbta.com/MBTA_GTFS.zip"
+                    trip_updates_url: "https://cdn.mbta.com/realtime/TripUpdates.pb"
+                    vehicle_positions_url: "https://cdn.mbta.com/realtime/VehiclePositions.pb"
+                    service_alerts_url: "https://cdn.mbta.com/realtime/Alerts.pb"
+                    timezone: "America/New_York"
+                    is_active: true
   /agencies:
     get:
       summary: Agencias operadoras del servicio
@@ -62,7 +274,33 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Agency'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Agency'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - agency_id: "bUCR"
+                    agency_name: "bUCR"
+                    agency_url: "https://bucr.digital"
+                    agency_timezone: "America/Costa_Rica"
+                    agency_lang: "es"
+                    agency_phone: "+506 2511-0000"
+                    agency_fare_url: "https://bucr.digital/tarifas"
+                    agency_email: "bus@ucr.ac.cr"
   /stops:
     get:
       summary: Datos sobre las paradas
@@ -114,9 +352,33 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Stops'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Stops'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - stop_id: "bUCR-0-03"
+                    stop_name: "Facultad de Ingeniería"
+                    stop_desc: "Facultad de Ingeniería en la Ciudad de la Investigación de la Universidad de Costa Rica"
+                    stop_lat: 9.937
+                    stop_lon: -84.051
+                    stop_url: "https://bucr.digital/paradas/bUCR-0-03"
+                    location_type: 0
+                    wheelchair_boarding: 1
   /shapes:
     get:
       summary: Trayectorias de las rutas
@@ -158,9 +420,35 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Calendar'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Calendar'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - service_id: "entresemana"
+                    monday: 1
+                    tuesday: 1
+                    wednesday: 1
+                    thursday: 1
+                    friday: 1
+                    saturday: 0
+                    sunday: 0
+                    start_date: "2024-05-03"
+                    end_date: "2024-12-31"
   /calendar-dates:
     get:
       summary: Excepciones de operación de las rutas
@@ -180,9 +468,29 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CalendarDates'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CalendarDates'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - service_id: "entresemana"
+                    date: "2024-08-15"
+                    exception_type: 1
+                    holiday_name: "Día de la Madre"
   /routes:
     get:
       summary: Datos de las rutas
@@ -208,9 +516,30 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Routes'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Routes'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - route_id: "bUCR-L1"
+                    route_short_name: "L1"
+                    route_long_name: "Línea 1"
+                    route_type: 3
+                    route_url: "https://bucr.digital/rutas/L1"
   /trips:  
     get:
       summary: Datos de los viajes
@@ -254,9 +583,29 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Trips'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Trips'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - trip_id: "JFH367"
+                    route_id: "bUCR-L1"
+                    direction_id: 0
+                    trip_headsign: "Facultad de Ingeniería"
   /stop-times:
     get:
       summary: Horarios de llegada a las paradas
@@ -282,9 +631,34 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/StopTimes'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StopTimes'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - trip_id: "JFH367"
+                    arrival_time: "07:15:00"
+                    departure_time: "07:15:00"
+                    stop_id: "bUCR-0-03"
+                    stop_sequence: 15
+                    stop_headsign: "Facultad de Ingeniería"
+                    pickup_type: 0
+                    drop_off_type: 0
+                    shape_dist_traveled: 0.5
   /frequencies:
     get:
       summary: Frecuencias de los viajes
@@ -326,9 +700,31 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/FeedInfo'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FeedInfo'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - feed_publisher_name: "bUCR"
+                    feed_publisher_url: "https://bucr.digital"
+                    feed_lang: "es"
+                    feed_start_date: "2024-05-03"
+                    feed_end_date: "2024-12-31"
+                    feed_version: "1.0.0"
   /route-stops:
     get:
       summary: Paradas de las rutas
@@ -395,6 +791,49 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TripTimes'     
+  /arrivals:
+    get:
+      summary: Llegadas (ETAs)
+      description: Próximas llegadas estimadas en una parada. Integra con un servicio externo (Proyecto 4) cuando está configurado.
+      tags:
+        - Realtime
+      parameters:
+        - in: query
+          name: stop_id
+          required: true
+          schema:
+            type: string
+          description: Identificador de la parada
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Límite de resultados (por defecto 10)
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NextTrips'
+              example:
+                stop_id: "bUCR-0-03"
+                timestamp: "2024-07-31T16:12:25-06:00"
+                next_arrivals:
+                  - trip_id: "T1"
+                    route_id: "R1"
+                    route_short_name: "R1"
+                    route_long_name: "Ruta 1"
+                    trip_headsign: "Terminal"
+                    wheelchair_accessible: "UNKNOWN"
+                    arrival_time: "08:05:00"
+                    departure_time: "08:06:00"
+                    in_progress: false
+                    progression: null
+        '501':
+          description: Servicio de ETAs no configurado
   /next-trips:
     get:
       summary: Próximos viajes
@@ -539,7 +978,7 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TripUpdates'
-  /service-alerts:
+  /alerts:
     get:
       summary: Alertas del servicio
       description: Obtiene alertas que modifican el servicio en tiempo real.
@@ -577,9 +1016,29 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ServiceAlerts'
+                type: object
+                properties:
+                  count:
+                    type: integer
+                  next:
+                    type: string
+                    nullable: true
+                  previous:
+                    type: string
+                    nullable: true
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ServiceAlerts'
+              example:
+                count: 1
+                next: null
+                previous: null
+                results:
+                  - alert_id: "bUCR-001"
+                    alert_header: "Cierre de vías"
+                    alert_description: "Cierre de vías en la Ciudad de la Investigación"
+                    alert_url: "https://bucr.digital/alertas/bUCR-001"
   /weather:
     get:
       summary: Datos meteorológicos
@@ -735,6 +1194,106 @@ paths:
 
 components:
   schemas:
+    FareAttribute:
+      type: object
+      properties:
+        fare_id:
+          type: string
+          example: "F1"
+        price:
+          type: number
+          format: float
+          example: 350.00
+        currency_type:
+          type: string
+          example: "CRC"
+        payment_method:
+          type: integer
+          enum: [0, 1]
+          example: 0
+        transfers:
+          type: integer
+          nullable: true
+          example: 0
+        agency_id:
+          type: string
+          nullable: true
+          example: "bUCR"
+        transfer_duration:
+          type: integer
+          nullable: true
+          example: 1800
+    FareRule:
+      type: object
+      properties:
+        fare_id:
+          type: string
+          example: "F1"
+        route_id:
+          type: string
+          example: "bUCR-L1"
+        origin_id:
+          type: string
+          nullable: true
+          example: "zone_a"
+        destination_id:
+          type: string
+          nullable: true
+          example: "zone_b"
+        contains_id:
+          type: string
+          nullable: true
+          example: null
+    FeedMessage:
+      type: object
+      properties:
+        feed_message_id:
+          type: string
+          example: "fm-20240731-161225"
+        provider:
+          type: integer
+          example: 1
+        entity_type:
+          type: string
+          enum: [trip_update, vehicle, alert]
+          example: trip_update
+        timestamp:
+          type: string
+          format: date-time
+          example: "2024-07-31T16:12:25-06:00"
+        incrementality:
+          type: string
+          example: FULL_DATASET
+        gtfs_realtime_version:
+          type: string
+          example: "2.0"
+    StopTimeUpdate:
+      type: object
+      properties:
+        stop_sequence:
+          type: integer
+          example: 10
+        stop_id:
+          type: string
+          example: "bUCR-0-03"
+        arrival_time:
+          type: string
+          format: date-time
+          example: "2024-07-31T16:12:25-06:00"
+        departure_time:
+          type: string
+          format: date-time
+          example: "2024-07-31T16:13:40-06:00"
+        schedule_relationship:
+          type: string
+          nullable: true
+          example: SCHEDULED
+        feed_message:
+          type: string
+          example: "fm-20240731-161225"
+        trip_update:
+          type: integer
+          example: 123
     GTFSProvider:
       type: object
       properties:
