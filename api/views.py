@@ -14,14 +14,24 @@ from gtfs.models import (
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view
+from rest_framework.reverse import reverse
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from shapely import geometry
 from datetime import datetime, timedelta
 import pytz
 from django.conf import settings
+from django.db.models import Q, Case, When, IntegerField, Value, FloatField
+from django.contrib.postgres.search import TrigramSimilarity
 
 from .serializers import *
+from django.utils import timezone as dj_timezone
+from storage.factory import get_schedule_repository
+from gtfs.models import Feed, Stop
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
+import requests
+import redis
 
 # from .serializers import InfoServiceSerializer, GTFSProviderSerializer, RouteSerializer, TripSerializer
 
@@ -36,6 +46,227 @@ class FilterMixin:
             if param in allowed_query_params and value is not None
         }
         return queryset.filter(**filter_args)
+
+
+class ScheduleDeparturesView(APIView):
+    """Simple endpoint backed by the DAL to get next scheduled departures at a stop."""
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="stop_id", type=OpenApiTypes.STR, required=True, description="Stop identifier (must exist in Stop for the chosen feed)"),
+            OpenApiParameter(name="feed_id", type=OpenApiTypes.STR, required=False, description="Feed identifier (defaults to current feed)") ,
+            OpenApiParameter(name="date", type=OpenApiTypes.DATE, required=False, description="Service date (YYYY-MM-DD, defaults to today)"),
+            OpenApiParameter(name="time", type=OpenApiTypes.STR, required=False, description="Start time (HH:MM or HH:MM:SS, defaults to now)"),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, required=False, description="Number of results (default 10, max 100)"),
+        ],
+        responses={200: DalDeparturesResponseSerializer},
+        description="Return next scheduled departures at a stop using the DAL (PostgreSQL + Redis cache).",
+        tags=["schedule"],
+    )
+    def get(self, request):
+        stop_id = request.query_params.get("stop_id")
+        if not stop_id:
+            return Response({"error": "stop_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Resolve feed_id
+        feed_id = request.query_params.get("feed_id")
+        if not feed_id:
+            try:
+                current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+            except Feed.DoesNotExist:
+                return Response(
+                    {"error": "No GTFS feed configured as current (is_current=True). Load GTFS fixtures or import a feed and set one as current."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            feed_id = current_feed.feed_id
+        else:
+            if not Feed.objects.filter(feed_id=feed_id).exists():
+                return Response(
+                    {"error": f"feed_id '{feed_id}' not found"}, status=status.HTTP_404_NOT_FOUND
+                )
+
+        # Validate stop exists for the chosen feed
+        if not Stop.objects.filter(feed__feed_id=feed_id, stop_id=stop_id).exists():
+            return Response(
+                {"error": f"stop_id '{stop_id}' not found for feed '{feed_id}'"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Parse date/time with TZ defaults
+        try:
+            date_str = request.query_params.get("date")
+            if date_str:
+                service_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            else:
+                service_date = dj_timezone.localdate()
+        except Exception:
+            return Response({"error": "Invalid date format. Use YYYY-MM-DD"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            time_str = request.query_params.get("time")
+            if time_str:
+                fmt = "%H:%M:%S" if len(time_str.split(":")) == 3 else "%H:%M"
+                from_time = datetime.strptime(time_str, fmt).time()
+            else:
+                from_time = dj_timezone.localtime().time()
+        except Exception:
+            return Response({"error": "Invalid time format. Use HH:MM or HH:MM:SS"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            limit = int(request.query_params.get("limit", 10))
+            if limit <= 0 or limit > 100:
+                return Response({"error": "limit must be between 1 and 100"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "limit must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Build response using DAL
+        repo = get_schedule_repository(use_cache=True)
+        departures = repo.get_next_departures(
+            feed_id=feed_id,
+            stop_id=stop_id,
+            service_date=service_date,
+            from_time=from_time,
+            limit=limit,
+        )
+
+        # Format from_time as HH:MM:SS for a cleaner API response
+        from_time_str = from_time.strftime("%H:%M:%S")
+
+        payload = {
+            "feed_id": feed_id,
+            "stop_id": stop_id,
+            "service_date": service_date,
+            "from_time": from_time_str,
+            "limit": limit,
+            "departures": departures,
+        }
+        serializer = DalDeparturesResponseSerializer(payload)
+        return Response(serializer.data)
+
+
+class ArrivalsView(APIView):
+    """Arrivals/ETAs endpoint integrating with external Project 4 service if configured.
+
+    Query params:
+    - stop_id: required
+    - limit: optional, default 10 (1..100)
+    """
+
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="stop_id", type=OpenApiTypes.STR, required=True, description="Stop identifier"),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, required=False, description="Max results (default 10, max 100)"),
+        ],
+        responses={200: NextTripSerializer},
+        description="Return upcoming arrivals (ETAs). If ETAS_API_URL is configured, results are fetched from Project 4; otherwise a 501 is returned.",
+        tags=["realtime", "etas"],
+    )
+    def get(self, request):
+        stop_id = request.query_params.get("stop_id")
+        if not stop_id:
+            return Response({"error": "stop_id is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            limit = int(request.query_params.get("limit", 10))
+            if limit <= 0 or limit > 100:
+                return Response({"error": "limit must be between 1 and 100"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "limit must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not getattr(settings, "ETAS_API_URL", None):
+            return Response(
+                {"error": "ETAs service not configured", "hint": "Set ETAS_API_URL in environment to integrate with Project 4."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+
+        try:
+            resp = requests.get(
+                settings.ETAS_API_URL,
+                params={"stop_id": stop_id, "limit": limit},
+                timeout=5,
+            )
+            if resp.status_code != 200:
+                return Response(
+                    {"error": "Failed to fetch ETAs from upstream", "status_code": resp.status_code},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            arrivals = resp.json()
+            if not isinstance(arrivals, list):
+                # Some services may wrap as {results: []}
+                arrivals = arrivals.get("results", []) if isinstance(arrivals, dict) else []
+        except Exception as e:
+            return Response({"error": f"Upstream ETAs call failed: {e}"}, status=status.HTTP_502_BAD_GATEWAY)
+
+        payload = {
+            "stop_id": stop_id,
+            "timestamp": dj_timezone.now(),
+            "next_arrivals": arrivals,
+        }
+        serializer = NextTripSerializer(payload)
+        return Response(serializer.data)
+
+
+class StatusView(APIView):
+    """Simple health/status endpoint for core dependencies."""
+
+    @extend_schema(
+        responses={200: None},
+        description="Service status for core dependencies (database, Redis, Fuseki).",
+        tags=["status"],
+    )
+    def get(self, request):
+        checks = {
+            "database_ok": False,
+            "redis_ok": False,
+            "fuseki_ok": False,
+        }
+
+        # Database check
+        try:
+            _ = Feed.objects.exists()
+            checks["database_ok"] = True
+        except Exception:
+            checks["database_ok"] = False
+
+        # Redis check
+        try:
+            r = redis.Redis(host=settings.REDIS_HOST, port=int(settings.REDIS_PORT), db=0, socket_timeout=2)
+            checks["redis_ok"] = bool(r.ping())
+        except Exception:
+            checks["redis_ok"] = False
+
+        # Fuseki check
+        try:
+            if getattr(settings, "FUSEKI_ENABLED", False) and getattr(settings, "FUSEKI_ENDPOINT", None):
+                r = requests.post(
+                    settings.FUSEKI_ENDPOINT,
+                    data=b"ASK {}",
+                    headers={"Content-Type": "application/sparql-query"},
+                    timeout=3,
+                )
+                checks["fuseki_ok"] = (r.status_code == 200)
+            else:
+                checks["fuseki_ok"] = False
+        except Exception:
+            checks["fuseki_ok"] = False
+
+        current_feed_id = None
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+            current_feed_id = current_feed.feed_id
+        except Exception:
+            current_feed_id = None
+
+        overall = "ok" if all(checks.values()) else ("degraded" if checks["database_ok"] else "error")
+
+        return Response(
+            {
+                "status": overall,
+                **checks,
+                "current_feed_id": current_feed_id,
+                "time": dj_timezone.now(),
+            }
+        )
 
 
 class GTFSProviderViewSet(viewsets.ModelViewSet):
@@ -529,9 +760,14 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
     queryset = FareAttribute.objects.all()
     serializer_class = FareAttributeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "fare_id",
+        "agency_id",
+        "currency_type",
+        "payment_method",
+        "transfers",
+    ]
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class FareRuleViewSet(viewsets.ModelViewSet):
@@ -542,9 +778,14 @@ class FareRuleViewSet(viewsets.ModelViewSet):
     queryset = FareRule.objects.all()
     serializer_class = FareRuleSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "fare_id",
+        "route_id",
+        "origin_id",
+        "destination_id",
+        "contains_id",
+    ]
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class ServiceAlertViewSet(viewsets.ModelViewSet):
@@ -594,12 +835,14 @@ class FeedMessageViewSet(viewsets.ModelViewSet):
     Mensajes de alimentación.
     """
 
-    queryset = FeedMessage.objects.all()
+    queryset = FeedMessage.objects.all().order_by("-timestamp")
     serializer_class = FeedMessageSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "entity_type",
+        "provider",
+    ]
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class TripUpdateViewSet(viewsets.ModelViewSet):
@@ -627,10 +870,17 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     queryset = StopTimeUpdate.objects.all()
     serializer_class = StopTimeUpdateSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = [
+        "stop_id",
+        "stop_sequence",
+        "arrival_time",
+        "departure_time",
+        "schedule_relationship",
+        "feed_message",
+        "trip_update",
+    ]
 
     # permission_classes = [permissions.IsAuthenticated]
-    # Esto no tiene path con query params ni response schema
 
 
 class VehiclePositionViewSet(viewsets.ModelViewSet):
@@ -695,3 +945,326 @@ def get_calendar(date, current_feed):
             service_id = calendar.service_id
 
     return service_id
+
+
+class SearchView(APIView):
+    """Search endpoint for stops and routes with ranking."""
+    
+    @extend_schema(
+        parameters=[
+            OpenApiParameter(name="q", type=OpenApiTypes.STR, required=True, description="Search query"),
+            OpenApiParameter(name="type", type=OpenApiTypes.STR, required=False, description="Search type: 'stops', 'routes', or 'all' (default)"),
+            OpenApiParameter(name="limit", type=OpenApiTypes.INT, required=False, description="Max results (default 20, max 100)"),
+            OpenApiParameter(name="feed_id", type=OpenApiTypes.STR, required=False, description="Feed identifier (defaults to current feed)"),
+        ],
+        responses={200: SearchResultsSerializer},
+        description="Search for stops and routes with relevance ranking. Supports partial text matching.",
+        tags=["search"],
+    )
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
+        if not query:
+            return Response({"error": "Query parameter 'q' is required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        search_type = request.query_params.get('type', 'all').lower()
+        if search_type not in ['stops', 'routes', 'all']:
+            return Response({"error": "type must be 'stops', 'routes', or 'all'"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            limit = int(request.query_params.get('limit', 20))
+            if limit <= 0 or limit > 100:
+                return Response({"error": "limit must be between 1 and 100"}, status=status.HTTP_400_BAD_REQUEST)
+        except ValueError:
+            return Response({"error": "limit must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Resolve feed_id
+        feed_id = request.query_params.get("feed_id")
+        if not feed_id:
+            try:
+                current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+                feed_id = current_feed.feed_id
+            except Feed.DoesNotExist:
+                return Response(
+                    {"error": "No GTFS feed configured as current (is_current=True)"},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+        else:
+            if not Feed.objects.filter(feed_id=feed_id).exists():
+                return Response(
+                    {"error": f"feed_id '{feed_id}' not found"}, status=status.HTTP_404_NOT_FOUND
+                )
+        
+        all_results = []
+        
+        # Search stops
+        if search_type in ['stops', 'all']:
+            stop_results = self._search_stops(query, feed_id, limit if search_type == 'stops' else limit // 2)
+            all_results.extend(stop_results)
+        
+        # Search routes
+        if search_type in ['routes', 'all']:
+            route_results = self._search_routes(query, feed_id, limit if search_type == 'routes' else limit // 2)
+            all_results.extend(route_results)
+        
+        # Sort by relevance score and limit
+        all_results.sort(key=lambda x: x['relevance_score'], reverse=True)
+        all_results = all_results[:limit]
+        
+        response_data = {
+            "query": query,
+            "results_type": search_type,
+            "total_results": len(all_results),
+            "results": all_results
+        }
+        
+        serializer = SearchResultsSerializer(response_data)
+        return Response(serializer.data)
+    
+    def _search_stops(self, query, feed_id, limit):
+        """Search for stops with relevance scoring."""
+        # Use trigram similarity for fuzzy matching if available, otherwise use icontains
+        try:
+            stops = Stop.objects.filter(
+                feed__feed_id=feed_id
+            ).annotate(
+                name_similarity=TrigramSimilarity('stop_name', query),
+                desc_similarity=TrigramSimilarity('stop_desc', query)
+            ).annotate(
+                relevance_score=Case(
+                    # Exact name match gets highest score
+                    When(stop_name__iexact=query, then=Value(1.0)),
+                    # Starts with query gets high score
+                    When(stop_name__istartswith=query, then=Value(0.9)),
+                    # Contains query gets medium score  
+                    When(stop_name__icontains=query, then=Value(0.7)),
+                    # Trigram similarity for fuzzy matches
+                    default='name_similarity',
+                    output_field=FloatField()
+                )
+            ).filter(
+                Q(stop_name__icontains=query) |
+                Q(stop_desc__icontains=query) |
+                Q(name_similarity__gte=0.3) |
+                Q(desc_similarity__gte=0.3)
+            ).order_by('-relevance_score')[:limit]
+        except Exception:
+            # Fallback without trigram similarity
+            stops = Stop.objects.filter(
+                feed__feed_id=feed_id
+            ).annotate(
+                relevance_score=Case(
+                    When(stop_name__iexact=query, then=Value(1.0)),
+                    When(stop_name__istartswith=query, then=Value(0.9)),
+                    When(stop_name__icontains=query, then=Value(0.7)),
+                    When(stop_desc__icontains=query, then=Value(0.5)),
+                    default=Value(0.1),
+                    output_field=FloatField()
+                )
+            ).filter(
+                Q(stop_name__icontains=query) | Q(stop_desc__icontains=query)
+            ).order_by('-relevance_score')[:limit]
+        
+        results = []
+        for stop in stops:
+            results.append({
+                'stop_id': stop.stop_id,
+                'stop_name': stop.stop_name,
+                'stop_desc': stop.stop_desc,
+                'stop_lat': stop.stop_lat,
+                'stop_lon': stop.stop_lon,
+                'location_type': stop.location_type,
+                'wheelchair_boarding': stop.wheelchair_boarding,
+                'feed_id': feed_id,
+                'relevance_score': float(stop.relevance_score),
+                'result_type': 'stop'
+            })
+        
+        return results
+    
+    def _search_routes(self, query, feed_id, limit):
+        """Search for routes with relevance scoring."""
+        # Use trigram similarity for fuzzy matching if available, otherwise use icontains
+        try:
+            routes = Route.objects.filter(
+                feed__feed_id=feed_id
+            ).select_related('_agency').annotate(
+                short_name_similarity=TrigramSimilarity('route_short_name', query),
+                long_name_similarity=TrigramSimilarity('route_long_name', query),
+                desc_similarity=TrigramSimilarity('route_desc', query)
+            ).annotate(
+                relevance_score=Case(
+                    # Exact short name match gets highest score
+                    When(route_short_name__iexact=query, then=Value(1.0)),
+                    # Exact long name match gets high score
+                    When(route_long_name__iexact=query, then=Value(0.95)),
+                    # Starts with in short name
+                    When(route_short_name__istartswith=query, then=Value(0.9)),
+                    # Starts with in long name
+                    When(route_long_name__istartswith=query, then=Value(0.85)),
+                    # Contains in short name
+                    When(route_short_name__icontains=query, then=Value(0.8)),
+                    # Contains in long name
+                    When(route_long_name__icontains=query, then=Value(0.75)),
+                    # Trigram similarity for fuzzy matches
+                    default='short_name_similarity',
+                    output_field=FloatField()
+                )
+            ).filter(
+                Q(route_short_name__icontains=query) |
+                Q(route_long_name__icontains=query) |
+                Q(route_desc__icontains=query) |
+                Q(short_name_similarity__gte=0.3) |
+                Q(long_name_similarity__gte=0.3) |
+                Q(desc_similarity__gte=0.3)
+            ).order_by('-relevance_score')[:limit]
+        except Exception:
+            # Fallback without trigram similarity
+            routes = Route.objects.filter(
+                feed__feed_id=feed_id
+            ).select_related('_agency').annotate(
+                relevance_score=Case(
+                    When(route_short_name__iexact=query, then=Value(1.0)),
+                    When(route_long_name__iexact=query, then=Value(0.95)),
+                    When(route_short_name__istartswith=query, then=Value(0.9)),
+                    When(route_long_name__istartswith=query, then=Value(0.85)),
+                    When(route_short_name__icontains=query, then=Value(0.8)),
+                    When(route_long_name__icontains=query, then=Value(0.75)),
+                    When(route_desc__icontains=query, then=Value(0.5)),
+                    default=Value(0.1),
+                    output_field=FloatField()
+                )
+            ).filter(
+                Q(route_short_name__icontains=query) |
+                Q(route_long_name__icontains=query) |
+                Q(route_desc__icontains=query)
+            ).order_by('-relevance_score')[:limit]
+        
+        results = []
+        for route in routes:
+            results.append({
+                'route_id': route.route_id,
+                'route_short_name': route.route_short_name,
+                'route_long_name': route.route_long_name,
+                'route_desc': route.route_desc,
+                'route_type': route.route_type,
+                'route_color': route.route_color,
+                'route_text_color': route.route_text_color,
+                'agency_name': route._agency.agency_name if route._agency else None,
+                'feed_id': feed_id,
+                'relevance_score': float(route.relevance_score),
+                'result_type': 'route'
+            })
+        
+        return results
+
+
+class HealthView(APIView):
+    """Simple health check endpoint."""
+    
+    @extend_schema(
+        responses={200: HealthCheckSerializer},
+        description="Basic health check that returns service status.",
+        tags=["health"],
+    )
+    def get(self, request):
+        response_data = {
+            "status": "ok",
+            "timestamp": dj_timezone.now()
+        }
+        
+        serializer = HealthCheckSerializer(response_data)
+        return Response(serializer.data)
+
+
+class ReadyView(APIView):
+    """Readiness check endpoint."""
+    
+    @extend_schema(
+        responses={200: ReadinessCheckSerializer},
+        description="Readiness check that verifies the service is ready to serve requests.",
+        tags=["health"],
+    )
+    def get(self, request):
+        checks = {
+            "database_ok": False,
+            "current_feed_available": False,
+            "current_feed_id": None
+        }
+        
+        # Database check
+        try:
+            _ = Feed.objects.exists()
+            checks["database_ok"] = True
+        except Exception:
+            checks["database_ok"] = False
+        
+        # Current feed check
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+            checks["current_feed_available"] = True
+            checks["current_feed_id"] = current_feed.feed_id
+        except Feed.DoesNotExist:
+            checks["current_feed_available"] = False
+            checks["current_feed_id"] = None
+        except Exception:
+            checks["current_feed_available"] = False
+            checks["current_feed_id"] = None
+        
+        # Overall status
+        is_ready = checks["database_ok"] and checks["current_feed_available"]
+        overall_status = "ready" if is_ready else "not_ready"
+        
+        response_data = {
+            "status": overall_status,
+            **checks,
+            "timestamp": dj_timezone.now()
+        }
+        
+        serializer = ReadinessCheckSerializer(response_data)
+        
+        # Return 503 if not ready
+        status_code = status.HTTP_200_OK if is_ready else status.HTTP_503_SERVICE_UNAVAILABLE
+        return Response(serializer.data, status=status_code)
+
+
+@api_view(['GET'])
+def api_root(request, format=None):
+    """Custom API root view that includes all available endpoints."""
+    return Response({
+        # GTFS Data Resources
+        'info-services': reverse('infoservice-list', request=request, format=format),
+        'gtfs-providers': reverse('gtfsprovider-list', request=request, format=format),
+        'agencies': reverse('agency-list', request=request, format=format),
+        'stops': reverse('stop-list', request=request, format=format),
+        'geo-stops': reverse('geo-stop-list', request=request, format=format),
+        'shapes': reverse('shape-list', request=request, format=format),
+        'geo-shapes': reverse('geoshape-list', request=request, format=format),
+        'routes': reverse('route-list', request=request, format=format),
+        'calendars': reverse('calendar-list', request=request, format=format),
+        'calendar-dates': reverse('calendardate-list', request=request, format=format),
+        'trips': reverse('trip-list', request=request, format=format),
+        'stop-times': reverse('stoptime-list', request=request, format=format),
+        'fare-attributes': reverse('fareattribute-list', request=request, format=format),
+        'fare-rules': reverse('farerule-list', request=request, format=format),
+        'feed-info': reverse('feedinfo-list', request=request, format=format),
+        'alerts': reverse('alert-list', request=request, format=format),
+        'feed-messages': reverse('feedmessage-list', request=request, format=format),
+        'stop-time-updates': reverse('stoptimeupdate-list', request=request, format=format),
+        
+        # Transit Information Services
+        'next-trips': reverse('next-trips', request=request, format=format),
+        'next-stops': reverse('next-stops', request=request, format=format),
+        'route-stops': reverse('route-stops', request=request, format=format),
+        'arrivals': reverse('arrivals', request=request, format=format),
+        'schedule-departures': reverse('schedule-departures', request=request, format=format),
+        'status': reverse('status', request=request, format=format),
+        
+        # New Search and Health Endpoints
+        'search': reverse('search', request=request, format=format),
+        'health': reverse('health', request=request, format=format),
+        'ready': reverse('ready', request=request, format=format),
+        
+        # API Documentation
+        'docs': reverse('api_docs', request=request, format=format),
+        'schema': reverse('schema', request=request, format=format),
+    })
