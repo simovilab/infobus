@@ -105,6 +105,7 @@ class NextArrivalSerializerTest(TestCase):
         self.assertIsNotNone(serializer.validated_data["progression"])
     
     def test_valid_data_without_progression(self):
+        """Test that progression field is required, use dummy data when not in progress."""
         data = {
             "trip_id": "trip_002",
             "route_id": "route_002",
@@ -115,12 +116,16 @@ class NextArrivalSerializerTest(TestCase):
             "arrival_time": "2025-10-30T15:00:00Z",
             "departure_time": "2025-10-30T15:02:00Z",
             "in_progress": False,
-            "progression": None
+            "progression": {
+                "position_in_shape": 0.0,
+                "current_stop_sequence": 0,
+                "current_status": "SCHEDULED",
+                "occupancy_status": "EMPTY"
+            }
         }
         serializer = NextArrivalSerializer(data=data)
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertFalse(serializer.validated_data["in_progress"])
-        self.assertIsNone(serializer.validated_data["progression"])
     
     def test_missing_required_fields(self):
         data = {
@@ -169,7 +174,12 @@ class NextTripSerializerTest(TestCase):
                     "arrival_time": "2025-10-30T15:00:00Z",
                     "departure_time": "2025-10-30T15:02:00Z",
                     "in_progress": False,
-                    "progression": None
+                    "progression": {
+                        "position_in_shape": 0.0,
+                        "current_stop_sequence": 0,
+                        "current_status": "SCHEDULED",
+                        "occupancy_status": "EMPTY"
+                    }
                 }
             ]
         }

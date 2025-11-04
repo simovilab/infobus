@@ -60,7 +60,7 @@ class OpenAPIContractTest(APITestCase):
         self.route = Route.objects.create(
             feed=self.feed,
             route_id="ROUTE_CONTRACT",
-            agency=self.agency,
+            agency_id=self.agency.agency_id,
             route_short_name="CT1",
             route_long_name="Contract Test Line",
             route_type=3,
@@ -85,9 +85,12 @@ class OpenAPIContractTest(APITestCase):
         self.trip = Trip.objects.create(
             feed=self.feed,
             trip_id="TRIP_CONTRACT",
-            route=self.route,
+            route_id=self.route.route_id,
             service_id=self.calendar.service_id,
-            trip_headsign="Test"
+            trip_headsign="Test",
+            direction_id=0,
+            wheelchair_accessible=0,
+            bikes_allowed=0
         )
         
         StopTime.objects.bulk_create([

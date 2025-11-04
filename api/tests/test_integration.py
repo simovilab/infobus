@@ -56,7 +56,7 @@ class DatabaseIntegrationTest(APITestCase):
         self.route = Route.objects.create(
             feed=self.feed,
             route_id="ROUTE_001",
-            agency=self.agency,
+            agency_id=self.agency.agency_id,
             route_short_name="101",
             route_long_name="Downtown Express",
             route_desc="Express service to downtown",
@@ -82,11 +82,12 @@ class DatabaseIntegrationTest(APITestCase):
         self.trip = Trip.objects.create(
             feed=self.feed,
             trip_id="TRIP_001",
-            route=self.route,
+            route_id=self.route.route_id,
             service_id=self.calendar.service_id,
             trip_headsign="Downtown",
             direction_id=0,
-            wheelchair_accessible=1
+            wheelchair_accessible=1,
+            bikes_allowed=0
         )
         
         # Create stop times using bulk_create to avoid model validation
@@ -230,11 +231,11 @@ class DatabaseIntegrationTest(APITestCase):
         """Test that model relationships are correctly persisted."""
         # Verify route is linked to agency
         route = Route.objects.get(route_id=self.route.route_id)
-        self.assertEqual(route.agency.agency_id, self.agency.agency_id)
+        self.assertEqual(route._agency.agency_id, self.agency.agency_id)
         
         # Verify trip is linked to route
         trip = Trip.objects.get(trip_id=self.trip.trip_id)
-        self.assertEqual(trip.route.route_id, self.route.route_id)
+        self.assertEqual(trip._route.route_id, self.route.route_id)
         
         # Verify stop times are linked to correct feed and stop
         stop_times = StopTime.objects.filter(
@@ -266,7 +267,7 @@ class RedisIntegrationTest(TestCase):
             stop_point=Point(-84.0435, 9.9356)
         )
     
-    @patch('storage.factory.get_schedule_repository')
+    @patch('api.views.get_schedule_repository')
     def test_schedule_repository_caching(self, mock_get_repo):
         """Test that schedule repository uses caching when enabled."""
         # Create a mock repository
@@ -342,7 +343,7 @@ class EndToEndIntegrationTest(APITestCase):
         self.route = Route.objects.create(
             feed=self.feed,
             route_id="E2E_ROUTE",
-            agency=self.agency,
+            agency_id=self.agency.agency_id,
             route_short_name="E2E",
             route_long_name="End to End Line",
             route_type=3
@@ -365,9 +366,12 @@ class EndToEndIntegrationTest(APITestCase):
         self.trip = Trip.objects.create(
             feed=self.feed,
             trip_id="E2E_TRIP",
-            route=self.route,
+            route_id=self.route.route_id,
             service_id=self.calendar.service_id,
-            trip_headsign="Test Route"
+            trip_headsign="Test Route",
+            direction_id=0,
+            wheelchair_accessible=0,
+            bikes_allowed=0
         )
     
     def test_full_search_and_schedule_workflow(self):
