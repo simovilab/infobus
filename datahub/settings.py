@@ -216,6 +216,9 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Custom test runner to ensure PostgreSQL extensions are installed
+TEST_RUNNER = "datahub.test_runner.InfobusTestRunner"
+
 # JWT Settings
 from datetime import timedelta
 
@@ -254,7 +257,9 @@ SIMPLE_JWT = {
 }
 
 # Rate Limiting Configuration
-RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", cast=bool, default=True)
+# Disable rate limiting during tests
+import sys
+RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", cast=bool, default=True) and 'test' not in sys.argv
 RATELIMIT_USE_CACHE = 'default'
 
 # Rate limits for different endpoint categories (requests per minute)
