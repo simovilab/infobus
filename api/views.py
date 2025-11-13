@@ -1021,29 +1021,30 @@ class SearchView(APIView):
         return Response(serializer.data)
     
     def _search_stops(self, query, feed_id, limit):
-        """Search for stops with relevance scoring."""
-        # Use trigram similarity for fuzzy matching if available, otherwise use icontains
+        """Search for stops with relevance scoring and accent-insensitive matching."""
+        # Use trigram similarity with unaccent for multilingual fuzzy matching
         try:
             stops = Stop.objects.filter(
                 feed__feed_id=feed_id
             ).annotate(
-                name_similarity=TrigramSimilarity('stop_name', query),
-                desc_similarity=TrigramSimilarity('stop_desc', query)
+                # Trigram similarity on unaccented fields for multilingual fuzzy matching
+                name_similarity=TrigramSimilarity('stop_name__unaccent', query),
+                desc_similarity=TrigramSimilarity('stop_desc__unaccent', query)
             ).annotate(
                 relevance_score=Case(
-                    # Exact name match gets highest score
-                    When(stop_name__iexact=query, then=Value(1.0)),
-                    # Starts with query gets high score
-                    When(stop_name__istartswith=query, then=Value(0.9)),
-                    # Contains query gets medium score  
-                    When(stop_name__icontains=query, then=Value(0.7)),
+                    # Exact name match gets highest score (accent-insensitive)
+                    When(stop_name__unaccent__iexact=query, then=Value(1.0)),
+                    # Starts with query gets high score (accent-insensitive)
+                    When(stop_name__unaccent__istartswith=query, then=Value(0.9)),
+                    # Contains query gets medium score (accent-insensitive)
+                    When(stop_name__unaccent__icontains=query, then=Value(0.7)),
                     # Trigram similarity for fuzzy matches
                     default='name_similarity',
                     output_field=FloatField()
                 )
             ).filter(
-                Q(stop_name__icontains=query) |
-                Q(stop_desc__icontains=query) |
+                Q(stop_name__unaccent__icontains=query) |
+                Q(stop_desc__unaccent__icontains=query) |
                 Q(name_similarity__gte=0.3) |
                 Q(desc_similarity__gte=0.3)
             ).order_by('-relevance_score')[:limit]
@@ -1082,37 +1083,38 @@ class SearchView(APIView):
         return results
     
     def _search_routes(self, query, feed_id, limit):
-        """Search for routes with relevance scoring."""
-        # Use trigram similarity for fuzzy matching if available, otherwise use icontains
+        """Search for routes with relevance scoring and accent-insensitive matching."""
+        # Use trigram similarity with unaccent for multilingual fuzzy matching
         try:
             routes = Route.objects.filter(
                 feed__feed_id=feed_id
             ).select_related('_agency').annotate(
-                short_name_similarity=TrigramSimilarity('route_short_name', query),
-                long_name_similarity=TrigramSimilarity('route_long_name', query),
-                desc_similarity=TrigramSimilarity('route_desc', query)
+                # Trigram similarity on unaccented fields for multilingual fuzzy matching
+                short_name_similarity=TrigramSimilarity('route_short_name__unaccent', query),
+                long_name_similarity=TrigramSimilarity('route_long_name__unaccent', query),
+                desc_similarity=TrigramSimilarity('route_desc__unaccent', query)
             ).annotate(
                 relevance_score=Case(
-                    # Exact short name match gets highest score
-                    When(route_short_name__iexact=query, then=Value(1.0)),
-                    # Exact long name match gets high score
-                    When(route_long_name__iexact=query, then=Value(0.95)),
-                    # Starts with in short name
-                    When(route_short_name__istartswith=query, then=Value(0.9)),
-                    # Starts with in long name
-                    When(route_long_name__istartswith=query, then=Value(0.85)),
-                    # Contains in short name
-                    When(route_short_name__icontains=query, then=Value(0.8)),
-                    # Contains in long name
-                    When(route_long_name__icontains=query, then=Value(0.75)),
+                    # Exact short name match gets highest score (accent-insensitive)
+                    When(route_short_name__unaccent__iexact=query, then=Value(1.0)),
+                    # Exact long name match gets high score (accent-insensitive)
+                    When(route_long_name__unaccent__iexact=query, then=Value(0.95)),
+                    # Starts with in short name (accent-insensitive)
+                    When(route_short_name__unaccent__istartswith=query, then=Value(0.9)),
+                    # Starts with in long name (accent-insensitive)
+                    When(route_long_name__unaccent__istartswith=query, then=Value(0.85)),
+                    # Contains in short name (accent-insensitive)
+                    When(route_short_name__unaccent__icontains=query, then=Value(0.8)),
+                    # Contains in long name (accent-insensitive)
+                    When(route_long_name__unaccent__icontains=query, then=Value(0.75)),
                     # Trigram similarity for fuzzy matches
                     default='short_name_similarity',
                     output_field=FloatField()
                 )
             ).filter(
-                Q(route_short_name__icontains=query) |
-                Q(route_long_name__icontains=query) |
-                Q(route_desc__icontains=query) |
+                Q(route_short_name__unaccent__icontains=query) |
+                Q(route_long_name__unaccent__icontains=query) |
+                Q(route_desc__unaccent__icontains=query) |
                 Q(short_name_similarity__gte=0.3) |
                 Q(long_name_similarity__gte=0.3) |
                 Q(desc_similarity__gte=0.3)
