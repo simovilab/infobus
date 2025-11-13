@@ -36,6 +36,7 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv())
 INSTALLED_APPS = [
     "daphne",
     "channels",
+    "corsheaders",
     "website.apps.WebsiteConfig",
     "gtfs.apps.GtfsConfig",
     "feed.apps.FeedConfig",
@@ -60,7 +61,9 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.http.ConditionalGetMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -153,11 +156,20 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/minute",
+        "user": "200/minute",
+    },
     # Documentation (drf-spectacular) schema generation
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    # Pagination for read endpoints
+    # Pagination for read endpoints with limits
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 50,
+    "MAX_PAGINATE_BY": 1000,  # Maximum items per page
 }
 
 SPECTACULAR_SETTINGS = {
@@ -261,6 +273,38 @@ RATE_LIMITS = {
     # Authenticated endpoints - more generous
     'authenticated': '200/m',    # For authenticated users
 }
+
+# CORS Configuration (per environment)
+from decouple import Csv
+CORS_ALLOWED_ORIGINS = config(
+    "CORS_ALLOWED_ORIGINS",
+    cast=Csv(),
+    default="http://localhost:3000,http://localhost:8000"
+)
+CORS_ALLOW_CREDENTIALS = config("CORS_ALLOW_CREDENTIALS", cast=bool, default=True)
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+CORS_ALLOW_HEADERS = [
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
+# Query and Result Limits
+MAX_PAGE_SIZE = 1000  # Maximum items per page request
+MAX_LIMIT_OFFSET = 10000  # Maximum offset to prevent deep pagination attacks
 
 # HTTPS Security Settings for Production
 # These are read from environment variables set in .env.prod and .env.local
