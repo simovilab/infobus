@@ -16,7 +16,14 @@ from datetime import time
 
 
 class ScheduleDeparturesTests(APITestCase):
+    """Test suite for the /api/schedule/departures/ endpoint.
+    
+    This endpoint uses the Data Access Layer (DAL) to retrieve scheduled
+    departures from PostgreSQL with Redis caching.
+    """
+
     def setUp(self):
+        """Set up minimal test data: feed, stop, and stop_time records."""
         # Minimal dataset for the endpoint
         self.feed = Feed.objects.create(
             feed_id="TEST",
@@ -45,12 +52,18 @@ class ScheduleDeparturesTests(APITestCase):
         )
 
     def test_returns_404_when_stop_missing(self):
+        """Verify endpoint returns 404 when querying a non-existent stop_id."""
         url = "/api/schedule/departures/?stop_id=THIS_DOES_NOT_EXIST&limit=1"
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
         self.assertIn("error", resp.json())
 
     def test_returns_departures_with_expected_shape(self):
+        """Verify endpoint returns departures with expected JSON structure.
+        
+        Validates that all required fields are present in the response and
+        time fields are formatted correctly (HH:MM:SS).
+        """
         feed = Feed.objects.filter(is_current=True).first() or Feed.objects.first()
         self.assertIsNotNone(feed, "Expected fixture to provide at least one feed")
 
