@@ -4,7 +4,9 @@ Tests for GraphQL functionality in Infobús project.
 import json
 from django.test import TestCase, Client
 from django.urls import reverse
-from gtfs.models import GTFSProvider, Feed, Agency, Stop
+from gtfs.models import (
+    GTFSProvider, Feed, Agency, Stop, Route, Trip, StopTime, Calendar
+)
 
 
 class GraphQLTestCase(TestCase):
@@ -41,6 +43,52 @@ class GraphQLTestCase(TestCase):
             stop_name="Test Stop",
             stop_lat=9.9281,
             stop_lon=-84.0907
+        )
+        
+        # Create additional test data for new models
+        self.route = Route.objects.create(
+            feed=self.feed,
+            route_id="test_route",
+            agency_id="test_agency",
+            route_short_name="R001",
+            route_long_name="Test Route 001",
+            route_type=3  # Bus
+        )
+        
+        self.calendar = Calendar.objects.create(
+            feed=self.feed,
+            service_id="test_service",
+            monday=True,
+            tuesday=True,
+            wednesday=True,
+            thursday=True,
+            friday=True,
+            saturday=False,
+            sunday=False,
+            start_date="2024-01-01",
+            end_date="2024-12-31"
+        )
+        
+        self.trip = Trip.objects.create(
+            feed=self.feed,
+            route_id="test_route",
+            service_id="test_service",
+            trip_id="test_trip",
+            trip_headsign="Downtown",
+            direction_id=0,
+            wheelchair_accessible=1,
+            bikes_allowed=1
+        )
+        
+        self.stop_time = StopTime.objects.create(
+            feed=self.feed,
+            trip_id="test_trip",
+            stop_id="test_stop",
+            arrival_time="08:30:00",
+            departure_time="08:30:00",
+            stop_sequence=1,
+            pickup_type=0,
+            drop_off_type=0
         )
     
     def _graphql_query(self, query, variables=None):
