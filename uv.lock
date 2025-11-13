@@ -563,6 +563,15 @@ wheels = [
 ]
 
 [[package]]
+name = "graphql-core"
+version = "3.2.7"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ac/9b/037a640a2983b09aed4a823f9cf1729e6d780b0671f854efa4727a7affbe/graphql_core-3.2.7.tar.gz", hash = "sha256:27b6904bdd3b43f2a0556dad5d579bdfdeab1f38e8e8788e555bdcb586a6f62c", size = 513484, upload-time = "2025-11-01T22:30:40.436Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/14/933037032608787fb92e365883ad6a741c235e0ff992865ec5d904a38f1e/graphql_core-3.2.7-py3-none-any.whl", hash = "sha256:17fc8f3ca4a42913d8e24d9ac9f08deddf0a0b2483076575757f6c412ead2ec0", size = 207262, upload-time = "2025-11-01T22:30:38.912Z" },
+]
+
+[[package]]
 name = "gtfs-realtime-bindings"
 version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -664,6 +673,7 @@ dependencies = [
     { name = "pytz" },
     { name = "redis" },
     { name = "requests" },
+    { name = "strawberry-graphql-django" },
     { name = "whitenoise" },
 ]
 
@@ -700,6 +710,7 @@ requires-dist = [
     { name = "pytz", specifier = ">=2025.2" },
     { name = "redis", specifier = ">=5.2.1" },
     { name = "requests", specifier = ">=2.32.5" },
+    { name = "strawberry-graphql-django", specifier = ">=0.49.0" },
     { name = "whitenoise", specifier = ">=6.9.0" },
 ]
 
@@ -776,6 +787,18 @@ wheels = [
 [package.optional-dependencies]
 redis = [
     { name = "redis" },
+]
+
+[[package]]
+name = "lia-web"
+version = "0.2.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1e/4e/847404ca9d36e3f5468c9e460aed565a02cbca0fdf81247da9f87fabc1b8/lia_web-0.2.3.tar.gz", hash = "sha256:ccc9d24cdc200806ea96a20b22fb68f4759e6becdb901bd36024df7921e848d7", size = 156761, upload-time = "2025-08-11T10:23:21.003Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/00/f2/c68a97c727c795119f1056ad2b7e716c23f26f004292517c435accf90b5c/lia_web-0.2.3-py3-none-any.whl", hash = "sha256:237c779c943cd4341527fc0adfcc3d8068f992ee051f4ef059b8474ee087f641", size = 13965, upload-time = "2025-08-11T10:23:20.215Z" },
 ]
 
 [[package]]
@@ -1677,6 +1700,36 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e5/40/edede8dd6977b0d3da179a342c198ed100dd2aba4be081861ee5911e4da4/sqlparse-0.5.3.tar.gz", hash = "sha256:09f67787f56a0b16ecdbde1bfc7f5d9c3371ca683cfeaa8e6ff60b4807ec9272", size = 84999, upload-time = "2024-12-10T12:05:30.728Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a9/5c/bfd6bd0bf979426d405cc6e71eceb8701b148b16c21d2dc3c261efc61c7b/sqlparse-0.5.3-py3-none-any.whl", hash = "sha256:cf2196ed3418f3ba5de6af7e82c694a9fbdbfecccdfc72e281548517081f16ca", size = 44415, upload-time = "2024-12-10T12:05:27.824Z" },
+]
+
+[[package]]
+name = "strawberry-graphql"
+version = "0.285.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "graphql-core" },
+    { name = "lia-web" },
+    { name = "packaging" },
+    { name = "python-dateutil" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b9/45/2cd56179d081b5e64637cbb52464428b9a37942e5443562903e3e4fe68a8/strawberry_graphql-0.285.0.tar.gz", hash = "sha256:461e32cd98f2b92e1ef02cf409f36a630a6a265c020d676bdaaf4d5398b371fe", size = 211315, upload-time = "2025-11-10T22:32:07.696Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ad/a1/66010a35e9c9bb317599b1bceefb5bb8d854eb2a47985a3070502d0a5d2d/strawberry_graphql-0.285.0-py3-none-any.whl", hash = "sha256:1db1ebf62e97daf5181beb8d42907e2fe926412d5da68c920b89d49dceb16680", size = 308232, upload-time = "2025-11-10T22:32:06.562Z" },
+]
+
+[[package]]
+name = "strawberry-graphql-django"
+version = "0.67.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asgiref" },
+    { name = "django" },
+    { name = "strawberry-graphql" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/24/d2/f366b197042065dc1a0ea40352ea653fda8d2d7646a48e94ea79523c04ca/strawberry_graphql_django-0.67.0.tar.gz", hash = "sha256:3cbb9a9eab80224b093365394002e1ffb76849316953b3395359ee856f2c0024", size = 85368, upload-time = "2025-10-18T11:30:41.697Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/24/95/29814ce6eeea95b85a9d9d4cf9d7678d41d6146b4b562465dc5753b98175/strawberry_graphql_django-0.67.0-py3-none-any.whl", hash = "sha256:9916ba9e00f141f5f3a649f6740ec5a38a7501d3f7cd49a39f37624c0c489132", size = 106755, upload-time = "2025-10-18T11:30:40.391Z" },
 ]
 
 [[package]]
