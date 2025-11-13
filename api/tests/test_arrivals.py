@@ -9,9 +9,20 @@ from django.test import override_settings
 
 
 class ArrivalsEndpointTests(APITestCase):
+    """Test suite for the /api/arrivals/ endpoint.
+    
+    This endpoint integrates with an external ETA service (Project 4) to provide
+    real-time arrival predictions. Tests use mocked HTTP responses.
+    """
+
     @override_settings(ETAS_API_URL="http://project4.example/etas")
     @patch("api.views.requests.get")
     def test_arrivals_returns_expected_shape(self, mock_get: Mock):
+        """Verify endpoint returns arrivals with expected JSON structure.
+        
+        Mocks successful upstream response and validates response format,
+        required fields, and time formatting.
+        """
         # Mock upstream Project 4 response
         upstream_payload = [
             {
@@ -80,6 +91,10 @@ class ArrivalsEndpointTests(APITestCase):
     @override_settings(ETAS_API_URL="http://project4.example/etas")
     @patch("api.views.requests.get")
     def test_arrivals_propagates_upstream_error(self, mock_get: Mock):
+        """Verify endpoint returns 502 when upstream ETA service fails.
+        
+        Tests error handling when the external service returns a 503 error.
+        """
         mock_resp = Mock()
         mock_resp.status_code = 503
         mock_resp.json.return_value = {"error": "down"}
@@ -90,6 +105,7 @@ class ArrivalsEndpointTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_502_BAD_GATEWAY)
 
     def test_arrivals_requires_stop_id(self):
+        """Verify endpoint returns 400 when stop_id parameter is missing."""
         url = "/api/arrivals/?limit=2"
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
@@ -97,6 +113,10 @@ class ArrivalsEndpointTests(APITestCase):
     @override_settings(ETAS_API_URL="http://project4.example/etas")
     @patch("api.views.requests.get")
     def test_arrivals_accepts_wrapped_results_object(self, mock_get: Mock):
+        """Verify endpoint handles upstream response with wrapped results array.
+        
+        Some upstream APIs return {"results": [...]} instead of [...] directly.
+        """
         # Upstream returns a dict with results: []
         upstream_payload = {
             "results": [
@@ -127,6 +147,10 @@ class ArrivalsEndpointTests(APITestCase):
     @override_settings(ETAS_API_URL="http://project4.example/etas")
     @patch("api.views.requests.get")
     def test_arrivals_handles_unexpected_upstream_structure_as_empty_list(self, mock_get: Mock):
+        """Verify endpoint gracefully handles unexpected upstream response format.
+        
+        Returns empty list when upstream returns unexpected structure (e.g., empty dict).
+        """
         # Upstream returns an empty dict (no list)
         mock_resp = Mock()
         mock_resp.status_code = 200
@@ -141,24 +165,31 @@ class ArrivalsEndpointTests(APITestCase):
 
     @override_settings(ETAS_API_URL="http://project4.example/etas")
     def test_arrivals_limit_bounds_low(self):
+        """Verify endpoint rejects limit parameter below minimum (< 1)."""
         resp = self.client.get("/api/arrivals/?stop_id=S1&limit=0")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", resp.json())
 
     @override_settings(ETAS_API_URL="http://project4.example/etas")
     def test_arrivals_limit_bounds_high(self):
+        """Verify endpoint rejects limit parameter above maximum (> 100)."""
         resp = self.client.get("/api/arrivals/?stop_id=S1&limit=101")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", resp.json())
 
     @override_settings(ETAS_API_URL="http://project4.example/etas")
     def test_arrivals_limit_must_be_integer(self):
+        """Verify endpoint rejects non-integer limit parameter."""
         resp = self.client.get("/api/arrivals/?stop_id=S1&limit=abc")
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("error", resp.json())
 
     @override_settings(ETAS_API_URL=None)
     def test_arrivals_returns_501_if_not_configured(self):
+        """Verify endpoint returns 501 when ETAS_API_URL is not configured.
+        
+        Ensures graceful degradation when external ETA service is not available.
+        """
         # ETAS_API_URL not set; should return 501 when params are otherwise valid
         resp = self.client.get("/api/arrivals/?stop_id=S1&limit=2")
         self.assertEqual(resp.status_code, status.HTTP_501_NOT_IMPLEMENTED)
