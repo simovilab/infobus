@@ -61,16 +61,16 @@ Starts the Infobus application in production mode with:
 ./scripts/dev.sh
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
 
 # Stop development environment
-docker-compose down
+docker compose down
 
 # Run Django shell
-docker-compose exec web uv run python manage.py shell
+docker compose exec web uv run python manage.py shell
 
 # Run migrations
-docker-compose exec web uv run python manage.py migrate
+docker compose exec web uv run python manage.py migrate
 ```
 
 ### Production
@@ -79,13 +79,13 @@ docker-compose exec web uv run python manage.py migrate
 ./scripts/prod.sh
 
 # View production logs
-docker-compose -f docker-compose.production.yml logs -f
+docker compose -f docker-compose.production.yml logs -f
 
 # Stop production environment
-docker-compose -f docker-compose.production.yml down
+docker compose -f docker-compose.production.yml down
 
 # Run production Django shell
-docker-compose -f docker-compose.production.yml exec web uv run python manage.py shell
+docker compose -f docker-compose.production.yml exec web uv run python manage.py shell
 ```
 
 ## File Structure

@@ -38,6 +38,9 @@ FROM base as development
 # Copy source code
 COPY --chown=app:app . .
 
+# Pre-create .venv directory with proper permissions for volume mount
+RUN mkdir -p /app/.venv && chown -R app:app /app/.venv
+
 USER app
 
 # Expose port for Django development server

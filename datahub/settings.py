@@ -36,7 +36,6 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv())
 INSTALLED_APPS = [
     "daphne",
     "channels",
-    "corsheaders",
     "website.apps.WebsiteConfig",
     "gtfs.apps.GtfsConfig",
     "feed.apps.FeedConfig",
@@ -60,14 +59,13 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django.middleware.http.ConditionalGetMiddleware",
     "api.middleware.APIUsageTrackingMiddleware",
 ]
 
@@ -135,10 +133,6 @@ AUTH_PASSWORD_VALIDATORS = [
 REDIS_HOST = config("REDIS_HOST")
 REDIS_PORT = config("REDIS_PORT")
 
-# Optional Fuseki (SPARQL) backend
-FUSEKI_ENABLED = config("FUSEKI_ENABLED", cast=bool, default=False)
-FUSEKI_ENDPOINT = config("FUSEKI_ENDPOINT", default=None)
-
 # DAL caching configuration
 SCHEDULE_CACHE_TTL_SECONDS = config("SCHEDULE_CACHE_TTL_SECONDS", cast=int, default=60)
 
@@ -159,21 +153,11 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
-    # Throttling for rate limiting
-    "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
-    ],
-    "DEFAULT_THROTTLE_RATES": {
-        "anon": "60/minute",
-        "user": "200/minute",
-    },
     # Documentation (drf-spectacular) schema generation
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    # Pagination for read endpoints with limits
+    # Pagination for read endpoints
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
     "PAGE_SIZE": 50,
-    "MAX_PAGINATE_BY": 1000,  # Maximum items per page
 }
 
 SPECTACULAR_SETTINGS = {
@@ -216,6 +200,9 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Custom test runner to ensure PostgreSQL extensions are installed
+TEST_RUNNER = "datahub.test_runner.InfobusTestRunner"
+
 # JWT Settings
 from datetime import timedelta
 
@@ -254,7 +241,9 @@ SIMPLE_JWT = {
 }
 
 # Rate Limiting Configuration
-RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", cast=bool, default=True)
+# Disable rate limiting during tests
+import sys
+RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", cast=bool, default=True) and 'test' not in sys.argv
 RATELIMIT_USE_CACHE = 'default'
 
 # Rate limits for different endpoint categories (requests per minute)
@@ -273,33 +262,20 @@ RATE_LIMITS = {
     'authenticated': '200/m',    # For authenticated users
 }
 
-# CORS Configuration (per environment)
-CORS_ALLOWED_ORIGINS = config(
-    "CORS_ALLOWED_ORIGINS",
-    cast=Csv(),
-    default="http://localhost:3000,http://localhost:8000"
-)
-CORS_ALLOW_CREDENTIALS = config("CORS_ALLOW_CREDENTIALS", cast=bool, default=True)
-CORS_ALLOW_METHODS = [
-    "DELETE",
-    "GET",
-    "OPTIONS",
-    "PATCH",
-    "POST",
-    "PUT",
-]
-CORS_ALLOW_HEADERS = [
-    "accept",
-    "accept-encoding",
-    "authorization",
-    "content-type",
-    "dnt",
-    "origin",
-    "user-agent",
-    "x-csrftoken",
-    "x-requested-with",
-]
+# HTTPS Security Settings for Production
+# These are read from environment variables set in .env.prod and .env.local
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
+SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=False, cast=bool)
+SECURE_CONTENT_TYPE_NOSNIFF = config('SECURE_CONTENT_TYPE_NOSNIFF', default=False, cast=bool)
+SECURE_BROWSER_XSS_FILTER = config('SECURE_BROWSER_XSS_FILTER', default=False, cast=bool)
+SECURE_REFERRER_POLICY = config('SECURE_REFERRER_POLICY', default=None)
 
-# Query and Result Limits
-MAX_PAGE_SIZE = 1000  # Maximum items per page request
-MAX_LIMIT_OFFSET = 10000  # Maximum offset to prevent deep pagination attacks
+# Cookie Security Settings
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+
+# Proxy SSL Header for reverse proxy setups (nginx)
+# This tells Django to trust the X-Forwarded-Proto header from nginx
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

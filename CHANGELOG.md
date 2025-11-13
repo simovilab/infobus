@@ -1,159 +1,11 @@
 # Changelog
 
-All notable changes to Infobús will be documented in this file.
+All notable changes to the Infobús project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
-
-### 🔒 Security & Performance Best Practices - 2025-10-23
-
-#### Added
-- **CORS Configuration** (Cross-Origin Resource Sharing)
-  - Environment-based CORS allowed origins configuration
-  - Support for multiple origin whitelist via `CORS_ALLOWED_ORIGINS` setting
-  - Credential support with `CORS_ALLOW_CREDENTIALS` flag
-  - Configured HTTP methods: GET, POST, PUT, PATCH, DELETE, OPTIONS
-  - Custom headers support including Authorization and CSRF tokens
-  - Per-environment configuration for development, staging, and production
-  - `corsheaders` middleware integrated into Django middleware stack
-
-- **ETag & HTTP Caching Headers**
-  - `ETagCacheMiddleware` for automatic ETag generation
-  - MD5-based ETag generation for response content
-  - Conditional GET support with If-None-Match headers
-  - 304 Not Modified responses for unchanged content
-  - Cache-Control headers with intelligent timeout strategies:
-    - 5 minutes for static GTFS data (stops, routes, shapes, agencies)
-    - 30 seconds for real-time data (arrivals, vehicle positions)
-    - 1 minute default for other API endpoints
-  - Vary headers for proper caching with different clients
-  - Automatic cache header skip for non-GET/HEAD requests
-  - Skip caching for admin, authentication, and WebSocket endpoints
-  - Redis-backed Django cache (db 1) for distributed caching
-
-- **Query and Result Limits Enforcement**
-  - REST Framework pagination configured with `LimitOffsetPagination`
-  - Default page size: 50 items
-  - Maximum page size: 1000 items (`MAX_PAGINATE_BY` setting)
-  - Maximum offset limit: 10000 to prevent deep pagination attacks
-  - `MAX_PAGE_SIZE` setting for global limit enforcement
-  - Pagination applied to all ModelViewSet endpoints
-  - Limit and offset parameters validated in custom views
-
-- **DRF Throttling Integration**
-  - Anonymous user throttling: 60 requests/minute
-  - Authenticated user throttling: 200 requests/minute
-  - `AnonRateThrottle` and `UserRateThrottle` classes enabled globally
-  - Throttle rates configurable via REST_FRAMEWORK settings
-  - 429 Too Many Requests responses with retry information
-  - Integration with existing django-ratelimit middleware
-
-- **Health Check Endpoints** (Already implemented)
-  - `/api/health/` - Basic health check (status: ok)
-  - `/api/ready/` - Readiness check with dependency validation
-  - Database connectivity verification
-  - Current GTFS feed availability check
-  - 503 Service Unavailable when not ready
-  - No authentication required for monitoring
-  - Rate-limited with public_light tier (100 req/min)
-
-- **Comprehensive Test Suite**
-  - `test_security_performance.py` with 15+ test cases
-  - CORS configuration testing
-  - ETag generation and conditional GET tests
-  - Query limit and pagination enforcement tests
-  - Rate limiting configuration validation
-  - Health and readiness check endpoint tests
-  - Security headers verification
-  - Performance configuration validation
-
-#### Technical Implementation
-- **Django Settings Updates**:
-  - `corsheaders` added to `INSTALLED_APPS`
-  - CORS middleware positioned after sessions, before common middleware
-  - ETag middleware added before API usage tracking
-  - Cache backend configured with Redis (separate db from Celery)
-  - REST_FRAMEWORK throttling classes and rates configured
-  - MAX_PAGE_SIZE and MAX_LIMIT_OFFSET settings added
-
-- **Middleware Stack**:
-  ```python
-  MIDDLEWARE = [
-      "django.middleware.security.SecurityMiddleware",
-      "django.contrib.sessions.middleware.SessionMiddleware",
-      "corsheaders.middleware.CorsMiddleware",  # NEW
-      "django.middleware.common.CommonMiddleware",
-      "django.middleware.csrf.CsrfViewMiddleware",
-      "django.contrib.auth.middleware.AuthenticationMiddleware",
-      "django.contrib.messages.middleware.MessageMiddleware",
-      "django.middleware.clickjacking.XFrameOptionsMiddleware",
-      "api.cache_middleware.ETagCacheMiddleware",  # NEW
-      "api.middleware.APIUsageTrackingMiddleware",
-  ]
-  ```
-
-- **Cache Configuration**:
-  ```python
-  CACHES = {
-      "default": {
-          "BACKEND": "django_redis.cache.RedisCache",
-          "LOCATION": "redis://redis:6379/1",
-          "KEY_PREFIX": "infobus",
-          "TIMEOUT": 300,  # 5 minutes default
-      }
-  }
-  ```
-
-- **Performance Optimizations**:
-  - Reduced bandwidth with 304 Not Modified responses
-  - Client-side caching with appropriate Cache-Control headers
-  - Database query reduction through pagination limits
-  - Protection against deep pagination attacks
-  - Efficient ETag comparison without recomputing full responses
-
-#### Security Improvements
-- Cross-origin request control with whitelist enforcement
-- Prevention of resource exhaustion via pagination limits
-- Rate limiting to prevent abuse and DDoS attacks
-- Secure cache headers prevent sensitive data caching
-- Health endpoints don't expose sensitive system information
-- IP-based throttling integrated with JWT authentication
-
-#### Environment Configuration
-Required environment variables:
-```bash
-# CORS Configuration
-CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000,https://app.example.com
-CORS_ALLOW_CREDENTIALS=True
-
-# Rate Limiting
-RATELIMIT_ENABLE=True
-
-# Cache Settings (uses existing REDIS_HOST and REDIS_PORT)
-```
-
-#### Files Modified
-- `pyproject.toml` - Added `django-cors-headers>=4.6.0` dependency
-- `datahub/settings.py` - CORS, caching, throttling, and pagination settings
-- `api/cache_middleware.py` - New ETagCacheMiddleware implementation
-- `api/tests/test_security_performance.py` - Comprehensive test suite
-- `CHANGELOG.md` - Feature documentation
-
-#### Migration Path
-1. Install new dependency: `uv sync`
-2. Update environment variables for CORS origins
-3. Deploy updated settings and middleware
-4. Monitor cache hit rates and performance improvements
-5. Run test suite: `docker-compose exec web uv run python manage.py test api.tests.test_security_performance`
-
-#### Performance Impact
-- ETag middleware: ~2-5ms per request for hash generation
-- 304 responses reduce bandwidth by 80-95% for unchanged content
-- Pagination limits prevent unbounded query execution
-- Redis caching reduces database load significantly
-- Rate limiting overhead: negligible with Redis backend
 
 ### 🔑 API Client Management - 2025-10-22
 
@@ -491,3 +343,214 @@ curl "http://localhost:8000/api/auth/profile/" \
 - **None**: All existing functionality remains unchanged and fully compatible
 - **New dependencies**: `djangorestframework-simplejwt` and `django-ratelimit` required
 - **Environment variables**: New optional configuration variables added
+### Added - Search and Health Endpoints (feature/search-health-endpoints)
+
+#### API Endpoints
+- **GET /api/search/** - Unified search endpoint with fuzzy text matching and multilingual support
+  - Query parameters:
+    - `q` (required): Search query string
+    - `type` (optional): Search type - 'stops', 'routes', or 'all' (default)
+    - `limit` (optional): Maximum results (1-100), defaults to 20
+    - `feed_id` (optional): Limit search to specific feed
+  - Features:
+    - **Fuzzy text matching** using PostgreSQL pg_trgm extension
+    - **Accent-insensitive search** using unaccent extension
+    - **Multilingual support** (Spanish, Portuguese, etc.)
+    - **Relevance scoring** (0.0-1.0, exact matches = 1.0)
+    - Searches: "San José" matches "San Jose" and vice versa
+    - Handles typos: "Universidad" found even with "Univercidad"
+  - Returns ranked results with:
+    - Relevance scores sorted highest first
+    - Result type (stop/route)
+    - Full entity details (names, descriptions, IDs)
+  - Searches across:
+    - Stop names and descriptions
+    - Route short names, long names, and descriptions
+
+- **GET /api/health/** - Basic health check endpoint
+  - Returns: `{"status": "ok", "timestamp": "..."}`
+  - Simple 200 OK response for lightweight monitoring
+  - No database queries - instant response
+
+- **GET /api/ready/** - Readiness check endpoint
+  - Returns 200 when ready to serve requests, 503 when not ready
+  - Checks:
+    - Database connectivity (PostgreSQL)
+    - Current feed availability
+  - Returns detailed status:
+    - `status`: 'ready' or 'not_ready'
+    - `database_ok`: Database connection status
+    - `current_feed_available`: Whether current feed exists
+    - `current_feed_id`: ID of current feed (if available)
+    - `timestamp`: ISO format timestamp
+
+#### PostgreSQL Extensions
+- Enabled pg_trgm extension for trigram similarity searches
+- Enabled unaccent extension for accent-insensitive text matching
+- Extensions configured via:
+  - `docker/db/init.sql` - Automatic setup on database creation
+  - `datahub/test_runner.py` - Custom test runner for test database
+  - Ensures extensions available in both dev and test environments
+
+#### Interactive API Documentation
+- **Swagger UI** added at `/api/docs/swagger/`
+  - Interactive forms for all API endpoints
+  - "Try it out" functionality for live testing
+  - Parameter descriptions and examples
+  - Real-time response preview
+- **ReDoc** available at `/api/docs/`
+  - Clean, organized API documentation
+  - Request/response examples
+
+#### Testing
+- Comprehensive test suite for search endpoint (`test_search.py`)
+  - Exact name matching tests
+  - Partial name matching tests
+  - Description search tests
+  - Type filtering tests (stops, routes, all)
+  - Limit parameter validation
+  - Relevance score validation
+  - Query parameter requirement tests
+  
+- Comprehensive test suite for health endpoints (`test_health.py`)
+  - Health endpoint structure validation
+  - Ready endpoint with/without current feed
+  - Database connectivity error handling
+  - Feed availability checks
+  - Multiple current feeds handling
+  - Response structure validation
+  - Status value validation
+
+### Added - API Read Endpoints (feat/api-read-endpoints)
+
+#### API Endpoints
+- **GET /api/arrivals/** - Real-time arrival predictions from external ETA service
+  - Query parameters:
+    - `stop_id` (required): Stop identifier
+    - `limit` (optional): Maximum results (1-100), defaults to 10
+  - Integrates with Project 4 ETA service via `ETAS_API_URL` configuration
+  - Returns real-time arrival predictions with:
+    - Trip and route information
+    - Real-time arrival/departure times
+    - Vehicle progression status
+    - Wheelchair accessibility information
+  - Error handling for upstream service failures (returns 502)
+  - Returns 501 if ETAS_API_URL not configured
+
+- **GET /api/status/** - System health check endpoint
+  - Reports health status of:
+    - PostgreSQL database connection
+    - Redis cache connection
+  - Useful for monitoring and load balancer health checks
+
+- **GET /api/alerts/** - Service alerts from GTFS Realtime
+  - Paginated list of current service alerts
+  - Includes alert headers, descriptions, and affected entities
+
+- **GET /api/feed-messages/** - GTFS Realtime feed messages
+  - Paginated access to raw GTFS Realtime feed data
+  - Includes timestamp and feed version information
+
+- **GET /api/stop-time-updates/** - Real-time stop time updates
+  - Paginated list of schedule deviations and predictions
+  - Includes arrival/departure delays and schedule relationships
+
+#### Pagination
+- Global pagination enabled for all list endpoints
+- `LimitOffsetPagination` with default page size of 50
+- Consistent pagination format across all endpoints
+
+#### Configuration
+- `ETAS_API_URL` environment variable for external ETA service integration
+  - Points to Project 4 real-time prediction service
+  - If not configured, `/api/arrivals/` returns 501 Not Implemented
+
+#### Testing
+- Comprehensive test suite for arrivals endpoint (`test_arrivals.py`)
+  - Mocked upstream API responses
+  - Response structure validation
+  - Error propagation testing (upstream failures)
+  - Parameter validation (stop_id required, limit bounds)
+  - Wrapped payload handling (results array)
+  - Configuration validation (ETAS_API_URL)
+  - Time format validation (HH:MM:SS)
+
+#### Documentation
+- Enhanced OpenAPI/Swagger documentation
+  - Examples for all new endpoints
+  - Pagination documentation
+  - Filter fields properly mapped to model fields
+- README updates with new endpoint documentation and usage examples
+
+### Added - Storage and Data Access Layer (feat/storage-reading-dal)
+
+#### Storage Layer
+- **Data Access Layer (DAL)** with repository pattern for GTFS schedule data
+  - `ScheduleRepository` interface defining contract for schedule data access
+  - `PostgresScheduleRepository` implementation using Django ORM
+  - `CachedScheduleRepository` decorator for Redis caching with configurable TTL
+  - `RedisCacheProvider` for cache operations
+  - Factory pattern (`get_schedule_repository()`) for obtaining configured repository instances
+
+#### API Endpoints
+- **GET /api/schedule/departures/** - Retrieve scheduled departures for a stop
+  - Query parameters:
+    - `stop_id` (required): Stop identifier
+    - `feed_id` (optional): Feed identifier, defaults to current feed
+    - `date` (optional): Service date in YYYY-MM-DD format, defaults to today
+    - `time` (optional): Departure time in HH:MM or HH:MM:SS format, defaults to now
+    - `limit` (optional): Maximum number of results (1-100), defaults to 10
+  - Returns enriched departure data with route information:
+    - Route short name and long name
+    - Trip headsign and direction
+    - Formatted arrival and departure times (HH:MM:SS)
+  - Validates stop existence (returns 404 if not found)
+  - Uses PostgreSQL as data source with Redis read-through caching
+
+#### Configuration
+- `SCHEDULE_CACHE_TTL_SECONDS` environment variable for cache duration (default: 60 seconds)
+- Cache key format: `schedule:next_departures:feed={FEED_ID}:stop={STOP_ID}:date={YYYY-MM-DD}:time={HHMMSS}:limit={N}:v1`
+
+#### Testing
+- Comprehensive test suite for schedule departures endpoint
+  - Response structure validation
+  - Stop validation (404 handling)
+  - Time format validation (HH:MM:SS)
+  - Programmatic test dataset creation
+
+#### Documentation
+- OpenAPI/Swagger schema generation with drf-spectacular
+- API endpoint annotations for automatic documentation
+- Architecture documentation for DAL strategy
+- README updates with endpoint usage examples and cache configuration
+
+### Removed - Storage and Data Access Layer (feat/storage-reading-dal)
+
+#### Fuseki Implementation
+- Removed Apache Jena Fuseki as optional SPARQL backend
+  - Deleted `storage/fuseki_schedule.py` implementation
+  - Removed `api/tests/test_fuseki_schedule.py` integration tests
+  - Removed Fuseki Docker service from docker-compose.yml
+  - Deleted `fuseki_data` Docker volume
+  - Removed `docker/fuseki/` configuration directory
+  - Deleted `docs/dev/fuseki.md` documentation
+- Removed Fuseki-related configuration
+  - `FUSEKI_ENABLED` environment variable
+  - `FUSEKI_ENDPOINT` environment variable
+  - Fuseki references in `.env.local.example`
+- Updated `storage/factory.py` to use only PostgreSQL repository
+- PostgreSQL with Redis caching is now the sole storage backend
+
+### Changed - Storage and Data Access Layer (feat/storage-reading-dal)
+
+#### Documentation
+- Updated README.md to document new DAL architecture and API endpoints
+- Updated docs/architecture.md with storage strategy and repository pattern
+- Added project structure documentation including `storage/` directory
+- Removed all Fuseki references from documentation
+
+---
+
+## [Previous Releases]
+
+<!-- Future releases will be documented above this line -->
