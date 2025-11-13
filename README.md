@@ -151,15 +151,15 @@ Infobús is a production-ready, containerized platform that transforms raw GTFS 
 docker-compose logs -f
 
 # Run Django commands
-docker-compose exec web uv run python manage.py migrate
-docker-compose exec web uv run python manage.py createsuperuser
-docker-compose exec web uv run python manage.py shell
+docker compose exec web uv run python manage.py migrate
+docker compose exec web uv run python manage.py createsuperuser
+docker compose exec web uv run python manage.py shell
 
 # Run tests
-docker-compose exec web uv run python manage.py test
+docker compose exec web uv run python manage.py test
 
 # Stop all services
-docker-compose down
+docker compose down
 ```
 
 ## 🏧 Architecture
@@ -370,40 +370,6 @@ Response shape:
 }
 ```
 
-Configuration flags (optional):
-- FUSEKI_ENABLED=false
-- FUSEKI_ENDPOINT=
-
-### Using the optional Fuseki (SPARQL) backend in development
-
-For development and tests, you can run an optional Apache Jena Fuseki server and point the app/tests at its SPARQL endpoint.
-
-1) Start Fuseki
-- docker-compose up -d fuseki
-- The dataset is defined by docker/fuseki/configuration/dataset.ttl as "dataset" with SPARQL and graph store endpoints.
-- Auth rules are controlled by docker/fuseki/shiro.ini (anon allowed for /dataset/sparql and /dataset/data in dev/tests).
-
-2) Verify readiness
-- GET: curl "http://localhost:3030/dataset/sparql?query=ASK%20%7B%7D"
-- POST: curl -X POST -H 'Content-Type: application/sparql-query' --data 'ASK {}' http://localhost:3030/dataset/sparql
-
-3) Admin UI
-- http://localhost:3030/#/
-- The mounted shiro.ini defines an Admin user by default. Also you can add users under [users] in that file if you need UI access, then recreate the container.
-
-4) Using Fuseki from the app (optional)
-- To have the app use Fuseki for reads instead of PostgreSQL, set these in .env.local:
-  - FUSEKI_ENABLED=true
-  - FUSEKI_ENDPOINT=http://fuseki:3030/dataset/sparql
-
-5) Reset state (optional)
-- The dataset persists in the fuseki_data Docker volume. To reset:
-  - docker-compose stop fuseki
-  - docker volume rm infobus_fuseki_data (name may vary)
-  - docker-compose up -d fuseki
-
-See also: docs/dev/fuseki.md for a deeper guide and troubleshooting.
-
 Caching (keys and TTLs):
 - Key pattern: schedule:next_departures:feed={FEED_ID}:stop={STOP_ID}:date={YYYY-MM-DD}:time={HHMMSS}:limit={N}:v1
 - Default TTL: 60 seconds
@@ -430,8 +396,10 @@ Intelligent search for stops and routes with relevance ranking and fuzzy matchin
 **Features**:
 - 🎯 **Smart Relevance Scoring**: Exact matches score highest, followed by prefix matches, contains matches, and fuzzy similarity
 - 🔍 **Multi-field Search**: Searches names, descriptions, and other relevant fields
-- 🌐 **Unicode Support**: Handles special characters and accented text (José, Ñandú, etc.)
-- ⚡ **PostgreSQL Trigram Similarity**: Advanced fuzzy matching with fallback to basic text search
+- 🌐 **Multilingual Support**: Accent-insensitive search using PostgreSQL unaccent extension
+  - Searches "San Jose" match "San José" and vice versa
+  - Perfect for Spanish, Portuguese, and other accented languages
+- ⚡ **PostgreSQL Trigram Similarity**: Advanced fuzzy matching handles typos and partial matches
 - 🎛️ **Configurable Search Types**: Search stops only, routes only, or everything
 
 ```bash
@@ -539,8 +507,24 @@ curl "http://localhost:8000/api/feed-messages/?limit=1"
 curl "http://localhost:8000/api/stop-time-updates/?limit=1"
 ```
 
-### REST API Root
-- **`/api/`** - Lists all registered endpoints with the DRF browsable interface
+### Interactive API Documentation
+
+Explore and test all API endpoints with interactive documentation:
+
+- **Swagger UI**: http://localhost:8000/api/docs/swagger/
+  - 🎮 Interactive forms for testing all endpoints
+  - 📝 Fill in parameters and click "Try it out"
+  - 👁️ See live request/response examples
+  - Perfect for testing search, health checks, and all other endpoints
+
+- **ReDoc**: http://localhost:8000/api/docs/
+  - 📚 Clean, organized API documentation
+  - 📖 Detailed endpoint descriptions
+  - 💡 Request/response examples
+
+- **DRF Browsable API**: http://localhost:8000/api/
+  - 🔗 Lists all registered endpoints
+  - 🌐 Built-in Django REST Framework interface
 
 ### WebSocket Endpoints
 - **`/ws/alerts/`** - Real-time screen updates
@@ -559,7 +543,7 @@ infobus/
 ├── 📁 gtfs/             # GTFS data processing (submodule)
 ├── 📁 feed/             # Data feed management
 ├── 📁 api/              # REST API endpoints
-├── 📁 storage/          # Data Access Layer (Postgres, Fuseki) and cache providers
+├── 📁 storage/          # Data Access Layer (Postgres) and cache providers
 ├── 📦 docker-compose.yml              # Development environment
 ├── 📦 docker-compose.production.yml   # Production environment
 ├── 📄 Dockerfile         # Multi-stage container build

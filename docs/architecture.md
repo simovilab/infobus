@@ -52,9 +52,6 @@ Nota: las pantallas por ahora asumimos que son Raspberry Pi en [modo kiosko](htt
 
 - PostgreSQL/PostGIS es la fuente de verdad para GTFS Schedule.
 - Redis se utiliza como caché de alto desempeño (lecturas read-through/write-through donde aplique) y para mensajería (Channels, Celery).
-- Fuseki (Jena) es un backend opcional para consultas SPARQL. Se controla con variables de entorno:
-  - FUSEKI_ENABLED (bool)
-  - FUSEKI_ENDPOINT (URL)
 
 Se define una capa de acceso a datos (DAL) con interfaces claras:
 - ScheduleRepository: obtiene salidas programadas (next departures) por parada.
@@ -63,7 +60,6 @@ Se define una capa de acceso a datos (DAL) con interfaces claras:
 Implementaciones actuales:
 - PostgresScheduleRepository (Django ORM)
 - CachedScheduleRepository (envoltorio con Redis)
-- FusekiScheduleRepository (backend opcional habilitable por entorno; utilizado en desarrollo y tests de integración)
 
 Endpoint nuevo (ejemplo):
 - GET /api/schedule/departures/?stop_id=STOP_123&limit=5
