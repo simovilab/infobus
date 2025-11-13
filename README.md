@@ -286,8 +286,10 @@ Intelligent search for stops and routes with relevance ranking and fuzzy matchin
 **Features**:
 - 🎯 **Smart Relevance Scoring**: Exact matches score highest, followed by prefix matches, contains matches, and fuzzy similarity
 - 🔍 **Multi-field Search**: Searches names, descriptions, and other relevant fields
-- 🌐 **Unicode Support**: Handles special characters and accented text (José, Ñandú, etc.)
-- ⚡ **PostgreSQL Trigram Similarity**: Advanced fuzzy matching with fallback to basic text search
+- 🌐 **Multilingual Support**: Accent-insensitive search using PostgreSQL unaccent extension
+  - Searches "San Jose" match "San José" and vice versa
+  - Perfect for Spanish, Portuguese, and other accented languages
+- ⚡ **PostgreSQL Trigram Similarity**: Advanced fuzzy matching handles typos and partial matches
 - 🎛️ **Configurable Search Types**: Search stops only, routes only, or everything
 
 ```bash
@@ -395,8 +397,24 @@ curl "http://localhost:8000/api/feed-messages/?limit=1"
 curl "http://localhost:8000/api/stop-time-updates/?limit=1"
 ```
 
-### REST API Root
-- **`/api/`** - Lists all registered endpoints with the DRF browsable interface
+### Interactive API Documentation
+
+Explore and test all API endpoints with interactive documentation:
+
+- **Swagger UI**: http://localhost:8000/api/docs/swagger/
+  - 🎮 Interactive forms for testing all endpoints
+  - 📝 Fill in parameters and click "Try it out"
+  - 👁️ See live request/response examples
+  - Perfect for testing search, health checks, and all other endpoints
+
+- **ReDoc**: http://localhost:8000/api/docs/
+  - 📚 Clean, organized API documentation
+  - 📖 Detailed endpoint descriptions
+  - 💡 Request/response examples
+
+- **DRF Browsable API**: http://localhost:8000/api/
+  - 🔗 Lists all registered endpoints
+  - 🌐 Built-in Django REST Framework interface
 
 ### WebSocket Endpoints
 - **`/ws/alerts/`** - Real-time screen updates
