@@ -47,6 +47,59 @@ Tests for the `/api/arrivals/` endpoint which provides real-time arrival predict
 - Upstream response format handling (wrapped/unwrapped arrays)
 - Mocked HTTP requests using `unittest.mock`
 
+### `test_jwt_auth.py`
+Tests for JWT authentication endpoints including user registration, login, token refresh, and profile access.
+
+**Test Cases:**
+- `JWTAuthenticationTestCase`: Complete test suite for JWT authentication system
+  - `test_user_registration`: Validates user registration with JWT token response
+  - `test_user_registration_password_mismatch`: Validates password confirmation validation
+  - `test_user_login`: Validates login with access/refresh token generation
+  - `test_user_login_invalid_credentials`: Validates 401 error on invalid credentials
+  - `test_token_refresh`: Validates JWT refresh token functionality
+  - `test_user_profile_authenticated`: Validates profile access with valid JWT
+  - `test_user_profile_unauthenticated`: Validates 401 error without authentication
+  - `test_protected_endpoint_requires_auth`: Validates authentication requirement
+  - `test_protected_endpoint_with_auth`: Validates protected endpoint access with JWT
+  - `test_public_endpoint_no_auth_required`: Validates public endpoints work without auth
+
+**What's Tested:**
+- User registration with password validation
+- JWT token generation (access + refresh tokens)
+- Token refresh mechanism with rotation
+- Profile endpoint authentication
+- Protected vs public endpoint access control
+- Error handling for invalid credentials
+- Authorization header handling (Bearer tokens)
+- User data inclusion in authentication responses
+
+### `test_rate_limiting.py`
+Tests for API rate limiting functionality across all endpoint tiers.
+
+**Test Cases:**
+- `RateLimitingTestCase`: Complete test suite for rate limiting protection
+  - `test_public_light_endpoint_rate_limit`: Validates light endpoints (100/m) rate limits
+  - `test_public_medium_endpoint_rate_limit`: Validates medium endpoints (60/m) rate limits
+  - `test_public_heavy_endpoint_rate_limit`: Validates heavy endpoints (30/m) rate limits
+  - `test_auth_register_rate_limit`: Validates registration rate limit (3/m)
+  - `test_auth_login_rate_limit`: Validates login rate limit (5/m)
+  - `test_auth_profile_rate_limit`: Validates profile rate limit (20/m)
+  - `test_rate_limiting_disabled`: Validates rate limiting can be disabled
+  - `test_rate_limit_error_response_format`: Validates 429 error response structure
+  - `test_rate_limit_configuration`: Validates rate limit configuration works
+  - `test_authenticated_vs_unauthenticated_limits`: Validates different limits by auth status
+
+**What's Tested:**
+- Rate limit enforcement across all tiers
+- 429 Too Many Requests error responses
+- Retry-after information in responses
+- Rate limiting configuration via settings
+- IP-based rate limit tracking
+- Rate limiting toggle (enable/disable)
+- Different limits for public vs authenticated endpoints
+- Error response format (error, details, retry_after, limit_type, timestamp)
+- Integration with Redis for rate limit tracking
+
 ## Running Tests
 
 ### Run all API tests
@@ -61,6 +114,12 @@ docker compose exec web uv run python manage.py test api.tests.test_schedule_dep
 
 # Arrivals tests
 docker compose exec web uv run python manage.py test api.tests.test_arrivals
+
+# JWT authentication tests
+docker compose exec web uv run python manage.py test api.tests.test_jwt_auth
+
+# Rate limiting tests
+docker compose exec web uv run python manage.py test api.tests.test_rate_limiting
 ```
 
 ### Run specific test class
@@ -93,18 +152,25 @@ Tests that integrate with external services use mocked HTTP responses:
 - `django.test.TestCase`: Django test framework
 - `unittest.mock`: Mocking external HTTP requests
 - `gtfs.models`: GTFS data models (Feed, Stop, StopTime)
+- `rest_framework_simplejwt`: JWT token generation and validation
+- `django.contrib.auth.models.User`: User model for authentication
 - PostgreSQL test database with PostGIS extension
+- Redis for rate limiting cache (mocked in tests)
 
 ## Coverage
 
 Current test coverage focuses on:
 - ✅ Schedule departures endpoint (PostgreSQL/DAL)
 - ✅ Real-time arrivals endpoint (external ETA service integration)
+- ✅ JWT authentication system (registration, login, token refresh, profile)
+- ✅ Rate limiting across all endpoint tiers
 - ✅ Error handling and validation
 - ✅ Response format verification
 - ✅ Parameter validation (required fields, bounds checking)
 - ✅ External service error propagation
 - ✅ Configuration validation
+- ✅ Authentication and authorization flows
+- ✅ Security features (rate limits, token validation)
 
 ## Adding New Tests
 
