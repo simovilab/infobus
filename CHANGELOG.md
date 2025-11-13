@@ -7,6 +7,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - API Read Endpoints (feat/api-read-endpoints)
+
+#### API Endpoints
+- **GET /api/arrivals/** - Real-time arrival predictions from external ETA service
+  - Query parameters:
+    - `stop_id` (required): Stop identifier
+    - `limit` (optional): Maximum results (1-100), defaults to 10
+  - Integrates with Project 4 ETA service via `ETAS_API_URL` configuration
+  - Returns real-time arrival predictions with:
+    - Trip and route information
+    - Real-time arrival/departure times
+    - Vehicle progression status
+    - Wheelchair accessibility information
+  - Error handling for upstream service failures (returns 502)
+  - Returns 501 if ETAS_API_URL not configured
+
+- **GET /api/status/** - System health check endpoint
+  - Reports health status of:
+    - PostgreSQL database connection
+    - Redis cache connection
+  - Useful for monitoring and load balancer health checks
+
+- **GET /api/alerts/** - Service alerts from GTFS Realtime
+  - Paginated list of current service alerts
+  - Includes alert headers, descriptions, and affected entities
+
+- **GET /api/feed-messages/** - GTFS Realtime feed messages
+  - Paginated access to raw GTFS Realtime feed data
+  - Includes timestamp and feed version information
+
+- **GET /api/stop-time-updates/** - Real-time stop time updates
+  - Paginated list of schedule deviations and predictions
+  - Includes arrival/departure delays and schedule relationships
+
+#### Pagination
+- Global pagination enabled for all list endpoints
+- `LimitOffsetPagination` with default page size of 50
+- Consistent pagination format across all endpoints
+
+#### Configuration
+- `ETAS_API_URL` environment variable for external ETA service integration
+  - Points to Project 4 real-time prediction service
+  - If not configured, `/api/arrivals/` returns 501 Not Implemented
+
+#### Testing
+- Comprehensive test suite for arrivals endpoint (`test_arrivals.py`)
+  - Mocked upstream API responses
+  - Response structure validation
+  - Error propagation testing (upstream failures)
+  - Parameter validation (stop_id required, limit bounds)
+  - Wrapped payload handling (results array)
+  - Configuration validation (ETAS_API_URL)
+  - Time format validation (HH:MM:SS)
+
+#### Documentation
+- Enhanced OpenAPI/Swagger documentation
+  - Examples for all new endpoints
+  - Pagination documentation
+  - Filter fields properly mapped to model fields
+- README updates with new endpoint documentation and usage examples
+
 ### Added - Storage and Data Access Layer (feat/storage-reading-dal)
 
 #### Storage Layer
