@@ -178,6 +178,10 @@ if 'test' not in sys.argv:
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Infobús API | bUCR",
+    "DESCRIPTION": "Real-time public transportation information API",
+    "VERSION": "1.0.0",
+    # Serve API docs only in DEBUG mode or require staff permissions
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"] if not DEBUG else ["rest_framework.permissions.AllowAny"],
 }
 
 # Channels settings
