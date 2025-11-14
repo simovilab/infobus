@@ -150,20 +150,13 @@ CELERY_CACHE_BACKEND = "django-cache"
 CELERY_RESULTS_EXTENDED = True
 
 # REST Framework settings
+import sys
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
-    "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
-    ],
-    "DEFAULT_THROTTLE_RATES": {
-        "anon": "60/minute",
-        "user": "200/minute",
-    },
     # Documentation (drf-spectacular) schema generation
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # Pagination for read endpoints with limits
@@ -171,6 +164,17 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
     "MAX_PAGINATE_BY": 1000,  # Maximum items per page
 }
+
+# Add throttling classes only when not running tests
+if 'test' not in sys.argv:
+    REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ]
+    REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
+        "anon": "60/minute",
+        "user": "200/minute",
+    }
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Infobús API | bUCR",
