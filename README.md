@@ -75,7 +75,11 @@ Infobús is a production-ready, containerized platform that transforms raw GTFS 
 
 ### 🔒 **Security & Monitoring**
 - **JWT Authentication**: Secure token-based authentication for API access
-- **Rate Limiting**: Comprehensive API protection with tiered limits
+- **Dual Rate Limiting**: DRF throttling (60/200 req/min) + django-ratelimit tiered limits
+- **CORS Protection**: Environment-based cross-origin resource sharing
+- **HTTP Caching**: ETag support with conditional GET (304 responses)
+- **Pagination Limits**: Max 1000 items/page, max offset 10,000
+- **API Documentation Security**: Swagger/ReDoc restricted to admins in production
 - **Environment-based Config**: Secure secrets management
 - **Security Headers**: OWASP recommended protections
 - **Health Checks**: Application and service monitoring
