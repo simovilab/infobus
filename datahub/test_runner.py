@@ -21,6 +21,9 @@ class InfobusTestRunner(DiscoverRunner):
             # pg_trgm for trigram similarity searches
             cursor.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm;")
             
-            print("✓ PostgreSQL extensions installed in test database")
+            # unaccent for accent-insensitive text matching (multilingual support)
+            cursor.execute("CREATE EXTENSION IF NOT EXISTS unaccent;")
+            
+            print("✓ PostgreSQL extensions installed in test database (postgis, pg_trgm, unaccent)")
         
         return result

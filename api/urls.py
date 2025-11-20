@@ -1,9 +1,22 @@
 from django.urls import include, path
 from rest_framework import routers
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from django.conf import settings
+from django.contrib.auth.decorators import user_passes_test
+from django.utils.decorators import method_decorator
 
 from . import views
 from .auth_views import CustomTokenObtainPairView, CustomTokenRefreshView, register, profile
+
+# Helper to conditionally require admin for docs in production
+# In production (DEBUG=False), require is_staff; in dev, allow all
+def get_doc_view(view_class, **kwargs):
+    if settings.DEBUG:
+        return view_class.as_view(**kwargs)
+    else:
+        # In production, require Django session auth with is_staff
+        return user_passes_test(lambda u: u.is_staff, login_url='/admin/login/')(view_class.as_view(**kwargs))
 
 router = routers.DefaultRouter()
 router.register(r"info-services", views.InfoServiceViewSet)
@@ -51,6 +64,8 @@ urlpatterns = [
     
     # Framework endpoints
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
-    path("docs/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("docs/", SpectacularRedocView.as_view(url_name="schema"), name="api_docs"),
+    # API Documentation (restricted to staff users in production, open in dev)
+    path("docs/schema/", get_doc_view(SpectacularAPIView), name="schema"),
+    path("docs/", get_doc_view(SpectacularRedocView, url_name="schema"), name="api_docs"),
+    path("docs/swagger/", get_doc_view(SpectacularSwaggerView, url_name="schema"), name="swagger-ui"),
 ]

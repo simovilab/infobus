@@ -86,6 +86,52 @@
     }
     .status-4xx { background: #ffc107; color: #000; }
     .status-5xx { background: #dc3545; color: #fff; }
+    
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+        .kpi-card,
+        .chart-container,
+        .filter-bar {
+            background: #2b2b2b;
+            border-color: #444;
+        }
+        
+        .kpi-label,
+        .chart-title {
+            color: #e0e0e0;
+        }
+        
+        .kpi-value {
+            color: #6ba3c4;
+        }
+        
+        .filter-bar label,
+        .filter-bar span {
+            color: #e0e0e0;
+        }
+        
+        .filter-bar select {
+            background: #1e1e1e;
+            color: #e0e0e0;
+            border: 1px solid #444;
+        }
+        
+        .error-table th {
+            background: #1e1e1e;
+            color: #e0e0e0;
+            border-bottom-color: #444;
+        }
+        
+        .error-table td {
+            color: #e0e0e0;
+            border-bottom-color: #333;
+        }
+        
+        .error-table code {
+            background: #1e1e1e;
+            color: #6ba3c4;
+        }
+    }
 </style>
 {% endblock %}
 
