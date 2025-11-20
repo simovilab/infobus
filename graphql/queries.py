@@ -41,7 +41,13 @@ class Query:
     # Agency Queries
     @field
     def agencies(self, page: int = 1, page_size: int = 20) -> AgencyConnection:
-        """Get all agencies with pagination"""
+        """
+        Get all agencies with pagination.
+
+        Parameters:
+            page (int): The page number to retrieve (default is 1).
+            page_size (int): The number of agencies per page (default is 20).
+        """
         queryset = Agency.objects.all().order_by('agency_name')
         paginator = Paginator(queryset, page_size)
         page_obj = paginator.get_page(page)
