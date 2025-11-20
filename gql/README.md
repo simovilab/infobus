@@ -8,14 +8,14 @@ The GraphQL API provides a flexible, modern interface to query Infobús GTFS (Ge
 
 ### Access the API
 
-- **Endpoint:** `http://localhost:8000/graphql/`
+- **Endpoint:** `http://localhost:8000/gql/`
 - **Interactive Interface:** Open the URL in a browser to access GraphiQL
 - **Method:** POST (for programmatic access)
 - **Content-Type:** `application/json`
 
 ### Your First Query
 
-Open `http://localhost:8000/graphql/` in your browser and try:
+Open `http://localhost:8000/gql/` in your browser and try:
 
 ```graphql
 query {
@@ -557,18 +557,18 @@ query {
 
 ```bash
 # Run all GraphQL tests
-python manage.py test graphql
+python manage.py test gql
 
 # Run with verbose output
-python manage.py test graphql --verbosity=2
+python manage.py test gql --verbosity=2
 
 # Run specific test class
-python manage.py test graphql.tests.GraphQLTestCase
+python manage.py test gql.tests.GraphQLTestCase
 ```
 
 ### Test Coverage
 
-The test suite (`graphql/tests.py`) includes:
+The test suite (`gql/tests.py`) includes:
 - Query execution tests
 - Schema validation
 - Endpoint accessibility
@@ -601,7 +601,7 @@ The GraphQL resolvers use Django ORM optimizations:
 ```python
 import requests
 
-GRAPHQL_URL = "http://localhost:8000/graphql/"
+GRAPHQL_URL = "http://localhost:8000/gql/"
 
 query = """
 query {
@@ -631,7 +631,7 @@ print(data["data"]["stops"])
 ### JavaScript with `fetch`
 
 ```javascript
-const GRAPHQL_URL = "http://localhost:8000/graphql/";
+const GRAPHQL_URL = "http://localhost:8000/gql/";
 
 const query = `
   query {
@@ -660,7 +660,7 @@ fetch(GRAPHQL_URL, {
 ### cURL
 
 ```bash
-curl -X POST http://localhost:8000/graphql/ \
+curl -X POST http://localhost:8000/gql/ \
   -H "Content-Type: application/json" \
   -d '{
     "query": "query { hello { message } }"
@@ -710,7 +710,7 @@ Ensure `graphql` app is in `INSTALLED_APPS` in `settings.py`:
 ```python
 INSTALLED_APPS = [
     ...
-    "graphql.apps.GraphqlConfig",
+    "gql.apps.GqlConfig",
     "strawberry_django",
     ...
 ]
@@ -721,7 +721,7 @@ INSTALLED_APPS = [
 ### Project Structure
 
 ```
-graphql/
+gql/
 ├── __init__.py       # App configuration
 ├── apps.py           # Django app config class
 ├── schema.py         # Main GraphQL schema

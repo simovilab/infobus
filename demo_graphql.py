@@ -32,7 +32,7 @@ try:
     
     # Test 2: Import GraphQL schema
     try:
-        from graphql.schema import schema
+        from gql.schema import schema
         print("✅ GraphQL schema imported successfully")
     except ImportError as e:
         print(f"❌ Failed to import GraphQL schema: {e}")

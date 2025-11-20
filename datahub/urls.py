@@ -19,7 +19,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
 from strawberry.django.views import GraphQLView
-from graphql.schema import schema
+from gql.schema import schema
 
 def health_check(request):
     """Simple health check endpoint for container health monitoring."""

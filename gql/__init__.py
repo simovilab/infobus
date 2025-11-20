@@ -8,4 +8,4 @@ Provides a GraphQL interface for GTFS transit data with support for:
 - Geographic search (PostGIS)
 """
 
-default_app_config = 'graphql.apps.GraphqlConfig'
+default_app_config = 'gql.apps.GqlConfig'
