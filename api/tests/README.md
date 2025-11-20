@@ -100,6 +100,64 @@ Tests for API rate limiting functionality across all endpoint tiers.
 - Error response format (error, details, retry_after, limit_type, timestamp)
 - Integration with Redis for rate limit tracking
 
+### `test_admin_dashboard.py`
+Tests for the Admin API Metrics Dashboard at `/admin/api/metrics/` which provides comprehensive API usage analytics.
+
+**Test Cases:**
+- `AdminDashboardAccessTest`: Tests for dashboard access control and authentication
+  - `test_dashboard_requires_staff_access`: Validates staff-only access to dashboard
+  - `test_dashboard_accessible_to_staff`: Validates staff users can access dashboard
+  - `test_dashboard_redirects_anonymous_users`: Validates redirect for unauthenticated users
+  - `test_dashboard_forbidden_for_regular_users`: Validates 403 for non-staff users
+
+- `AdminDashboardKPITest`: Tests for Key Performance Indicators (KPIs) displayed on dashboard
+  - `test_kpi_total_requests`: Validates total requests counter
+  - `test_kpi_average_latency`: Validates average latency calculation
+  - `test_kpi_error_rate`: Validates error rate percentage calculation
+  - `test_kpi_active_clients`: Validates distinct active clients count
+
+- `AdminDashboardChartsTest`: Tests for dashboard charts and visualizations
+  - `test_chart_traffic_trends`: Validates traffic over time chart data
+  - `test_chart_response_time_distribution`: Validates response time distribution histogram
+  - `test_chart_status_codes`: Validates status code breakdown chart
+  - `test_chart_top_endpoints`: Validates most accessed endpoints chart
+  - `test_chart_client_breakdown`: Validates requests by client chart
+
+- `AdminDashboardFiltersTest`: Tests for dashboard time-based filtering
+  - `test_filter_1_hour`: Validates 1-hour time window filter
+  - `test_filter_6_hours`: Validates 6-hour time window filter
+  - `test_filter_24_hours`: Validates 24-hour time window filter
+  - `test_filter_7_days`: Validates 7-day time window filter
+  - `test_filter_default`: Validates default filter (24 hours)
+  - `test_filter_invalid`: Validates handling of invalid filter parameters
+
+- `AdminDashboardTemplateTest`: Tests for dashboard template rendering
+  - `test_dashboard_uses_correct_template`: Validates template selection
+  - `test_dashboard_has_required_context`: Validates all required context variables
+  - `test_dashboard_chart_data_json_serializable`: Validates chart data can be JSON serialized
+
+- `AdminDashboardIntegrationTest`: Integration tests for complete dashboard scenarios
+  - `test_dashboard_with_no_data`: Validates graceful handling of empty metrics
+  - `test_dashboard_with_mixed_status_codes`: Validates handling of various HTTP status codes
+  - `test_dashboard_endpoint_detail_view`: Validates drill-down to specific endpoint details
+  - `test_dashboard_real_time_updates`: Validates dashboard reflects new API calls
+  - `test_dashboard_client_filtering`: Validates filtering by specific client
+
+**What's Tested:**
+- Staff-only access control to admin dashboard
+- Authentication and authorization flows
+- KPI calculations (total requests, avg latency, error rate, active clients)
+- Chart data generation and accuracy
+- Time-based filtering (1h, 6h, 24h, 7d)
+- Template rendering and context variables
+- JSON serialization of chart data
+- Empty state handling (no metrics data)
+- Multi-status code handling
+- Endpoint detail drill-down views
+- Real-time metric updates
+- Client-based filtering
+- Integration with ApiMetrics model
+
 ## Running Tests
 
 ### Run all API tests
@@ -120,6 +178,9 @@ docker compose exec web uv run python manage.py test api.tests.test_jwt_auth
 
 # Rate limiting tests
 docker compose exec web uv run python manage.py test api.tests.test_rate_limiting
+
+# Admin dashboard tests
+docker compose exec web uv run python manage.py test api.tests.test_admin_dashboard
 ```
 
 ### Run specific test class
@@ -164,6 +225,7 @@ Current test coverage focuses on:
 - ✅ Real-time arrivals endpoint (external ETA service integration)
 - ✅ JWT authentication system (registration, login, token refresh, profile)
 - ✅ Rate limiting across all endpoint tiers
+- ✅ Admin API metrics dashboard (KPIs, charts, filters, access control)
 - ✅ Error handling and validation
 - ✅ Response format verification
 - ✅ Parameter validation (required fields, bounds checking)
@@ -171,6 +233,7 @@ Current test coverage focuses on:
 - ✅ Configuration validation
 - ✅ Authentication and authorization flows
 - ✅ Security features (rate limits, token validation)
+- ✅ Staff-only administrative features
 
 ## Adding New Tests
 

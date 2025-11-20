@@ -4,6 +4,7 @@
 
 ### Admin Only
 - `/admin/` - Django admin panel (superuser only)
+- `/admin/api/metrics/` - API metrics dashboard (staff only, `@staff_member_required`)
 - `/api/docs/schema/` - API schema (admin in production, public in dev)
 - `/api/docs/` - ReDoc documentation (admin in production, public in dev)
 - `/api/docs/swagger/` - Swagger UI (admin in production, public in dev)
@@ -74,6 +75,13 @@
 ✅ XSS filter enabled
 ✅ Clickjacking protection
 
+### Admin Dashboard Security
+✅ API Metrics Dashboard protected with `@staff_member_required`
+✅ Only staff/superuser accounts can access dashboard
+✅ Non-authenticated users redirected to login
+✅ Regular users denied access (requires is_staff=True)
+✅ Comprehensive test coverage for access control
+
 ## ⚠️ Security Recommendations
 
 ### For Production Deployment
@@ -128,11 +136,19 @@ for i in {1..70}; do curl -s -o /dev/null -w "%{http_code}\n" http://localhost:8
 ```
 
 ### Automated Tests
-- ✅ 85 tests passing
+- ✅ 113 tests passing (2 skipped)
 - ✅ Security & performance tests included
 - ✅ CORS, ETag, pagination, and rate limiting validated
+- ✅ Admin dashboard access control validated
 
 ## 🔄 Security Update Log
+
+### 2025-11-20 - Admin Metrics Dashboard
+- Added API metrics dashboard at `/admin/api/metrics/`
+- Protected with `@staff_member_required` decorator (staff/superuser only)
+- Provides KPIs, charts, and analytics for API traffic
+- Comprehensive test suite validates access control
+- No sensitive data exposed to non-staff users
 
 ### 2025-11-14 - API Documentation Protection
 - Added `IsAdminUser` permission to Swagger UI in production
