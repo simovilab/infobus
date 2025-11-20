@@ -166,7 +166,7 @@ paths:
   /status:
     get:
       summary: Estado del servicio
-      description: Estado básico de dependencias (base de datos, Redis y Fuseki si está habilitado).
+      description: Estado básico de dependencias (base de datos, Redis).
       tags:
         - Status
       responses:
@@ -184,8 +184,6 @@ paths:
                     type: boolean
                   redis_ok:
                     type: boolean
-                  fuseki_ok:
-                    type: boolean
                   current_feed_id:
                     type: string
                     nullable: true
@@ -196,7 +194,6 @@ paths:
                 status: ok
                 database_ok: true
                 redis_ok: true
-                fuseki_ok: false
                 current_feed_id: "bUCR-2024-05"
                 time: "2024-07-31T16:12:25-06:00"
   /gtfs-providers:

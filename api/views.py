@@ -233,7 +233,7 @@ class StatusView(APIView):
 
     @extend_schema(
         responses={200: None},
-        description="Service status for core dependencies (database, Redis, Fuseki).",
+        description="Service status for core dependencies (database, Redis).",
         tags=["status"],
     )
     def get(self, request):
@@ -249,7 +249,6 @@ class StatusView(APIView):
         checks = {
             "database_ok": False,
             "redis_ok": False,
-            "fuseki_ok": False,
         }
 
         # Database check
@@ -265,21 +264,6 @@ class StatusView(APIView):
             checks["redis_ok"] = bool(r.ping())
         except Exception:
             checks["redis_ok"] = False
-
-        # Fuseki check
-        try:
-            if getattr(settings, "FUSEKI_ENABLED", False) and getattr(settings, "FUSEKI_ENDPOINT", None):
-                r = requests.post(
-                    settings.FUSEKI_ENDPOINT,
-                    data=b"ASK {}",
-                    headers={"Content-Type": "application/sparql-query"},
-                    timeout=3,
-                )
-                checks["fuseki_ok"] = (r.status_code == 200)
-            else:
-                checks["fuseki_ok"] = False
-        except Exception:
-            checks["fuseki_ok"] = False
 
         current_feed_id = None
         try:

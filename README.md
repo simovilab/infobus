@@ -528,7 +528,7 @@ Examples have been added for the main read endpoints (paginated) and realtime he
 - Arrivals/ETAs: GET /api/arrivals/?stop_id=...&limit=...
   - Requires ETAS_API_URL configured; returns 501 if not set
 - Status: GET /api/status
-  - Reports database_ok, redis_ok, fuseki_ok, current_feed_id, time
+  - Reports database_ok, redis_ok, current_feed_id, time
 - Scheduled Departures (DAL-backed): GET /api/schedule/departures/
 
 #### Curl examples

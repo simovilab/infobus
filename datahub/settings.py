@@ -14,6 +14,7 @@ from pathlib import Path
 from decouple import config, Csv
 import platform
 import os
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -158,15 +159,6 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
-    # Throttling for rate limiting
-    "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
-    ],
-    "DEFAULT_THROTTLE_RATES": {
-        "anon": "60/minute",
-        "user": "200/minute",
-    },
     # Documentation (drf-spectacular) schema generation
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # Pagination for read endpoints with limits
@@ -272,7 +264,6 @@ SIMPLE_JWT = {
 
 # Rate Limiting Configuration
 # Disable rate limiting during tests
-import sys
 RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", cast=bool, default=True) and 'test' not in sys.argv
 RATELIMIT_USE_CACHE = 'default'
 

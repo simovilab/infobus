@@ -158,7 +158,7 @@ class OpenAPIContractTest(APITestCase):
         data = response.json()
         
         # Required fields
-        required_fields = ["status", "database_ok", "redis_ok", "fuseki_ok", "time"]
+        required_fields = ["status", "database_ok", "redis_ok", "time"]
         for field in required_fields:
             self.assertIn(field, data)
         
@@ -166,7 +166,6 @@ class OpenAPIContractTest(APITestCase):
         self.assertIsInstance(data["status"], str)
         self.assertIsInstance(data["database_ok"], bool)
         self.assertIsInstance(data["redis_ok"], bool)
-        self.assertIsInstance(data["fuseki_ok"], bool)
         
         # Optional field
         if "current_feed_id" in data:

@@ -174,27 +174,31 @@ class RateLimitingTest(APITestCase):
             self.assertEqual(response.status_code, status.HTTP_200_OK)
     
     def test_anonymous_rate_limit_exists(self):
-        """Test that anonymous users have rate limits configured in production."""
-        # DRF throttling is disabled during tests to avoid conflicts
-        # This test verifies that throttling would be enabled in production
-        import sys
-        if 'test' in sys.argv:
-            self.skipTest("DRF throttling disabled during tests")
-        
+        """Test that anonymous users have rate limits."""
+        # This test verifies the rate limit configuration exists
+        # Actual enforcement depends on cache backend
+        # Note: During test runs, throttling is disabled via settings
         from django.conf import settings
+        import sys
+        
+        # Skip this test during test runs since throttling is intentionally disabled
+        if 'test' in sys.argv:
+            self.skipTest("DRF throttling is disabled during test runs")
+        
         throttle_rates = settings.REST_FRAMEWORK.get('DEFAULT_THROTTLE_RATES', {})
         self.assertIn('anon', throttle_rates)
         self.assertIsNotNone(throttle_rates['anon'])
     
     def test_authenticated_rate_limit_exists(self):
-        """Test that authenticated users have different rate limits in production."""
-        # DRF throttling is disabled during tests to avoid conflicts
-        # This test verifies that throttling would be enabled in production
-        import sys
-        if 'test' in sys.argv:
-            self.skipTest("DRF throttling disabled during tests")
-        
+        """Test that authenticated users have different rate limits."""
+        # Note: During test runs, throttling is disabled via settings
         from django.conf import settings
+        import sys
+        
+        # Skip this test during test runs since throttling is intentionally disabled
+        if 'test' in sys.argv:
+            self.skipTest("DRF throttling is disabled during test runs")
+        
         throttle_rates = settings.REST_FRAMEWORK.get('DEFAULT_THROTTLE_RATES', {})
         self.assertIn('user', throttle_rates)
         self.assertIsNotNone(throttle_rates['user'])

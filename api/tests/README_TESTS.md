@@ -253,7 +253,7 @@ The test suite requires:
 
 1. **Isolation:** Each test class creates its own fixtures
 2. **Cleanup:** Django's TestCase handles transaction rollback
-3. **Mocking:** External services (ETAs, Fuseki) are mocked when needed
+3. **Mocking:** External services (ETAs) are mocked when needed
 4. **Fixtures:** Minimal fixtures created per test to reduce overhead
 5. **Assertions:** Clear, descriptive assertions with helpful error messages
 

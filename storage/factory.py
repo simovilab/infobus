@@ -14,10 +14,10 @@ from .redis_cache import RedisCacheProvider
 def get_schedule_repository(*, use_cache: bool = True) -> ScheduleRepository:
     """Factory to obtain a ScheduleRepository according to settings.
 
-    - Uses PostgreSQL (Django ORM) by default.
-    - Optionally wraps with Redis cache for improved performance.
+    - Uses PostgreSQL (Django ORM) as the storage layer.
+    - Optionally wraps with Redis cache.
     """
-    base_repo: ScheduleRepository = PostgresScheduleRepository()
+    base_repo = PostgresScheduleRepository()
 
     if use_cache:
         cache = RedisCacheProvider()
