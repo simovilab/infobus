@@ -187,8 +187,33 @@ docker compose down
 - **`gtfs`**: GTFS Schedule and Realtime data management (submodule: django-app-gtfs)
 - **`feed`**: Information service providers and WebSocket consumers
 - **`api`**: RESTful API endpoints with DRF integration
+- **`gql`**: GraphQL API with Strawberry integration
 
 ## 📚 API Documentation
+
+### GraphQL API (NEW)
+- **`/gql/`** - Modern GraphQL interface for GTFS transit data
+  - **Interactive GraphiQL**: Open in browser for visual query builder
+  - **Features**: Nested queries, pagination, geographic search, field selection
+  - **Coverage**: 8 GTFS entity types, 20+ query resolvers
+  - **Documentation**: See `gql/README.md` for complete API reference
+  - **Demo Queries**: See `gql/DEMO_QUERIES.md` for examples
+
+**Quick GraphQL Example:**
+```graphql
+query {
+  stopsNear(lat: 9.9356, lon: -84.049, radiusKm: 0.5, page: 1, pageSize: 5) {
+    edges {
+      stopName
+      stopLat
+      stopLon
+    }
+    pageInfo {
+      totalCount
+    }
+  }
+}
+```
 
 ### REST API Endpoints
 - **`/api/`** - Main API endpoints with DRF browsable interface
@@ -213,9 +238,11 @@ infobus/
 ├── 📁 gtfs/             # GTFS data processing (submodule)
 ├── 📁 feed/             # Data feed management
 ├── 📁 api/              # REST API endpoints
+├── 📁 gql/              # GraphQL API (Strawberry)
 ├── 📦 docker-compose.yml              # Development environment
 ├── 📦 docker-compose.production.yml   # Production environment
 ├── 📄 Dockerfile         # Multi-stage container build
+├── 📄 CHANGELOG.md       # Version history
 └── 📄 WARP.md           # AI assistant guidance
 ```
 
