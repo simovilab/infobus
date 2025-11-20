@@ -1,0 +1,68 @@
+# SSL-enabled Docker Compose configuration with containerized Certbot
+# This extends the production configuration with SSL certificate management
+
+services:
+  # Certbot service for SSL certificate management
+  certbot:
+    image: certbot/certbot:latest
+    profiles:
+      - ssl
+    environment:
+      - SSL_DOMAIN=${SSL_DOMAIN:-infobus.bucr.digital}
+      - SSL_EMAIL=${SSL_EMAIL:-admin@infobus.bucr.digital}
+      - SSL_STAGING=${SSL_STAGING:-false}
+    volumes:
+      # Let's Encrypt certificates and configuration
+      - letsencrypt_data:/etc/letsencrypt
+      - letsencrypt_logs:/var/log/letsencrypt
+      # Webroot for domain validation
+      - certbot_webroot:/var/www/certbot
+      # SSL directory shared with nginx
+      - ssl_certs:/etc/nginx/ssl
+      # Renewal script
+      - ./certbot/renew.sh:/usr/local/bin/renew.sh:ro
+    command: /bin/sh -c "chmod +x /usr/local/bin/renew.sh && /usr/local/bin/renew.sh"
+    depends_on:
+      - nginx
+    restart: "no"  # Only run when explicitly started
+
+  # Certbot renewal cron service
+  certbot-cron:
+    image: certbot/certbot:latest
+    profiles:
+      - ssl
+      - cron
+    environment:
+      - SSL_DOMAIN=${SSL_DOMAIN:-infobus.bucr.digital}
+      - SSL_EMAIL=${SSL_EMAIL:-admin@infobus.bucr.digital}
+      - SSL_STAGING=${SSL_STAGING:-false}
+    volumes:
+      # Let's Encrypt certificates and configuration
+      - letsencrypt_data:/etc/letsencrypt
+      - letsencrypt_logs:/var/log/letsencrypt
+      # Webroot for domain validation
+      - certbot_webroot:/var/www/certbot
+      # SSL directory shared with nginx
+      - ssl_certs:/etc/nginx/ssl
+      # Renewal script
+      - ./certbot/renew.sh:/usr/local/bin/renew.sh:ro
+    # Run certificate renewal check twice daily (recommended by Let's Encrypt)
+    command: /bin/sh -c "
+      echo '0 */12 * * * /usr/local/bin/renew.sh >> /var/log/cron.log 2>&1' | crontab - &&
+      chmod +x /usr/local/bin/renew.sh &&
+      echo 'Starting certbot cron daemon...' &&
+      crond -f -l 2"
+    depends_on:
+      - nginx
+    restart: unless-stopped
+
+volumes:
+  # SSL-related volumes
+  letsencrypt_data:
+    driver: local
+  letsencrypt_logs:
+    driver: local
+  certbot_webroot:
+    driver: local
+  ssl_certs:
+    driver: local

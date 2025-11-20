@@ -60,14 +60,15 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.http.ConditionalGetMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django.middleware.http.ConditionalGetMiddleware",
     "api.middleware.APIUsageTrackingMiddleware",
 ]
 
@@ -135,10 +136,6 @@ AUTH_PASSWORD_VALIDATORS = [
 REDIS_HOST = config("REDIS_HOST")
 REDIS_PORT = config("REDIS_PORT")
 
-# Optional Fuseki (SPARQL) backend
-FUSEKI_ENABLED = config("FUSEKI_ENABLED", cast=bool, default=False)
-FUSEKI_ENDPOINT = config("FUSEKI_ENDPOINT", default=None)
-
 # DAL caching configuration
 SCHEDULE_CACHE_TTL_SECONDS = config("SCHEDULE_CACHE_TTL_SECONDS", cast=int, default=60)
 
@@ -153,21 +150,14 @@ CELERY_CACHE_BACKEND = "django-cache"
 CELERY_RESULTS_EXTENDED = True
 
 # REST Framework settings
+import sys
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",  # enable Django admin session auth
         "rest_framework_simplejwt.authentication.JWTAuthentication",
         "rest_framework.authentication.TokenAuthentication",
     ],
-    # Throttling for rate limiting
-    "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.UserRateThrottle",
-    ],
-    "DEFAULT_THROTTLE_RATES": {
-        "anon": "60/minute",
-        "user": "200/minute",
-    },
     # Documentation (drf-spectacular) schema generation
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     # Pagination for read endpoints with limits
@@ -176,8 +166,23 @@ REST_FRAMEWORK = {
     "MAX_PAGINATE_BY": 1000,  # Maximum items per page
 }
 
+# Add throttling classes only when not running tests
+if 'test' not in sys.argv:
+    REST_FRAMEWORK["DEFAULT_THROTTLE_CLASSES"] = [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ]
+    REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
+        "anon": "60/minute",
+        "user": "200/minute",
+    }
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "Infobús API | bUCR",
+    "DESCRIPTION": "Real-time public transportation information API",
+    "VERSION": "1.0.0",
+    # Serve API docs only in DEBUG mode or require staff permissions
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAdminUser"] if not DEBUG else ["rest_framework.permissions.AllowAny"],
 }
 
 # Channels settings
@@ -215,6 +220,9 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Custom test runner to ensure PostgreSQL extensions are installed
+TEST_RUNNER = "datahub.test_runner.InfobusTestRunner"
 
 # JWT Settings
 from datetime import timedelta
@@ -254,7 +262,9 @@ SIMPLE_JWT = {
 }
 
 # Rate Limiting Configuration
-RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", cast=bool, default=True)
+# Disable rate limiting during tests
+import sys
+RATELIMIT_ENABLE = config("RATELIMIT_ENABLE", cast=bool, default=True) and 'test' not in sys.argv
 RATELIMIT_USE_CACHE = 'default'
 
 # Rate limits for different endpoint categories (requests per minute)
@@ -274,6 +284,7 @@ RATE_LIMITS = {
 }
 
 # CORS Configuration (per environment)
+from decouple import Csv
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
     cast=Csv(),
@@ -303,3 +314,21 @@ CORS_ALLOW_HEADERS = [
 # Query and Result Limits
 MAX_PAGE_SIZE = 1000  # Maximum items per page request
 MAX_LIMIT_OFFSET = 10000  # Maximum offset to prevent deep pagination attacks
+
+# HTTPS Security Settings for Production
+# These are read from environment variables set in .env.prod and .env.local
+SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
+SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
+SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=False, cast=bool)
+SECURE_CONTENT_TYPE_NOSNIFF = config('SECURE_CONTENT_TYPE_NOSNIFF', default=False, cast=bool)
+SECURE_BROWSER_XSS_FILTER = config('SECURE_BROWSER_XSS_FILTER', default=False, cast=bool)
+SECURE_REFERRER_POLICY = config('SECURE_REFERRER_POLICY', default=None)
+
+# Cookie Security Settings
+SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
+CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+
+# Proxy SSL Header for reverse proxy setups (nginx)
+# This tells Django to trust the X-Forwarded-Proto header from nginx
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')

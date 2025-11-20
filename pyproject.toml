@@ -32,6 +32,7 @@ dependencies = [
     "pytz>=2025.2",
     "redis>=5.2.1",
     "requests>=2.32.5",
+    "whitenoise>=6.9.0",
 ]
 
 [dependency-groups]
