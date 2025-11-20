@@ -293,10 +293,6 @@ RATE_LIMITS = {
 }
 
 # CORS Configuration (per environment)
-<<<<<<< HEAD
-=======
-from decouple import Csv
->>>>>>> feature/admin-panel-metrics
 CORS_ALLOWED_ORIGINS = config(
     "CORS_ALLOWED_ORIGINS",
     cast=Csv(),
@@ -326,8 +322,6 @@ CORS_ALLOW_HEADERS = [
 # Query and Result Limits
 MAX_PAGE_SIZE = 1000  # Maximum items per page request
 MAX_LIMIT_OFFSET = 10000  # Maximum offset to prevent deep pagination attacks
-<<<<<<< HEAD
-=======
 
 # HTTPS Security Settings for Production
 # These are read from environment variables set in .env.prod and .env.local
@@ -346,4 +340,3 @@ CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
 # Proxy SSL Header for reverse proxy setups (nginx)
 # This tells Django to trust the X-Forwarded-Proto header from nginx
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
->>>>>>> feature/admin-panel-metrics
