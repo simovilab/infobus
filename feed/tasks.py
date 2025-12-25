@@ -28,17 +28,18 @@ from feed.metrics import (
 
 @shared_task
 def get_schedule():
-    with GTFS_PROCESSING_DURATION_SECONDS.labels(type="schedule", provider="MBTA").time():
-        # Logging configuration
-        logging.basicConfig(
-            format="%(levelname)s: %(message)s",
-            encoding="utf-8",
-            level=logging.INFO,
-        )
-
-        # GTFS information
-        company = "MBTA"
-        schedule_url = "https://cdn.mbta.com/MBTA_GTFS.zip"
+    # GTFS information
+    company = "MBTA"
+    schedule_url = "https://cdn.mbta.com/MBTA_GTFS.zip"
+    
+    # Logging configuration
+    logging.basicConfig(
+        format="%(levelname)s: %(message)s",
+        encoding="utf-8",
+        level=logging.INFO,
+    )
+    
+    with GTFS_PROCESSING_DURATION_SECONDS.labels(type="schedule", provider=company).time():
 
         logging.info(
             f"GTFS Schedule updating session\n{company}\n{datetime.now()}\nData source: {schedule_url}"
@@ -46,11 +47,10 @@ def get_schedule():
 
         # Check if the feed has been updated
         last_feed_tag = {"value": None}
-        try:
-            last_feed_tag["value"] = (
-                Feed.objects.all().order_by("-retrieved_at").first().http_etag
-            )
-        except:
+        last_feed = Feed.objects.all().order_by("-retrieved_at").first()
+        if last_feed is not None:
+            last_feed_tag["value"] = last_feed.http_etag
+        else:
             logging.info("No records found in the table 'feeds'.")
 
         # Get the feed's ETag to compare with the last one
@@ -64,7 +64,6 @@ def get_schedule():
 
         if not feed_tag == last_feed_tag["value"]:
             logging.info(f"Importing new GTFS Schedule feed detected: {feed_tag}")
-            GTFS_SCHEDULE_UPDATES_TOTAL.labels(feed_id=feed_tag).inc()
 
             # Request feed
             schedule_response = requests.get(schedule_url)
@@ -74,6 +73,8 @@ def get_schedule():
             last_modified = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z")
             last_modified = last_modified.replace(tzinfo=pytz.UTC)
             feed_id = f"{company}-{int(last_modified.timestamp())}"
+            
+            GTFS_SCHEDULE_UPDATES_TOTAL.labels(feed_id=feed_id).inc()
 
             # Save feed record to database with the Feed model
             feed = Feed.objects.create(
@@ -112,8 +113,11 @@ def get_schedule():
                     model.objects.bulk_create(objects)
                     GTFS_ENTITIES_PROCESSED_TOTAL.labels(type=table_name, provider=company).inc(len(objects))
                     logging.info(f"{file} imported successfully")
-            
-            GTFS_LAST_UPDATE_TIMESTAMP.labels(type="schedule", provider=company).set_to_current_time()
+        else:
+            logging.info("No new GTFS Schedule feed detected")
+        
+        # Always update timestamp after successful task execution
+        GTFS_LAST_UPDATE_TIMESTAMP.labels(type="schedule", provider=company).set_to_current_time()
 
     return "Fetching Schedule"
 
@@ -124,18 +128,16 @@ def get_vehicle_positions():
     saved_data = False
     for provider in providers:
         with GTFS_PROCESSING_DURATION_SECONDS.labels(type="vehicle_positions", provider=provider.code).time():
-            vehicle_positions = gtfs_rt.FeedMessage()
-            try:
-                vehicle_positions_response = requests.get(provider.vehicle_positions_url)
-                print(f"Fetching vehicle positions from {provider.vehicle_positions_url}")
-            except:
-                print(
-                    f"Error fetching vehicle positions from {provider.vehicle_positions_url}"
-                )
-                GTFS_PROCESSING_ERRORS_TOTAL.labels(task="get_vehicle_positions", provider=provider.code).inc()
-                continue
-            
-            try:
+        vehicle_positions = gtfs_rt.FeedMessage()
+        try:
+            vehicle_positions_response = requests.get(provider.vehicle_positions_url)
+            print(f"Fetching vehicle positions from {provider.vehicle_positions_url}")
+        except requests.RequestException as e:
+            print(
+                f"Error fetching vehicle positions from {provider.vehicle_positions_url}: {e}"
+            )
+            GTFS_PROCESSING_ERRORS_TOTAL.labels(task="get_vehicle_positions", provider=provider.code).inc()
+            continue            try:
                 vehicle_positions.ParseFromString(vehicle_positions_response.content)
 
                 # Save feed message to database

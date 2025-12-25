@@ -5,8 +5,6 @@ This test suite verifies that GTFS processing metrics are properly
 instrumented and updated during task execution.
 """
 
-import pytest
-from unittest.mock import Mock, patch
 from feed.metrics import (
     GTFS_SCHEDULE_UPDATES_TOTAL,
     GTFS_VEHICLE_POSITIONS_UPDATES_TOTAL,
