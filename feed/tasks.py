@@ -66,15 +66,20 @@ def get_schedule():
             logging.info(f"Importing new GTFS Schedule feed detected: {feed_tag}")
 
             # Request feed
-            schedule_response = requests.get(schedule_url)
-            schedule_zip = zipfile.ZipFile(io.BytesIO(schedule_response.content))
+            try:
+                schedule_response = requests.get(schedule_url)
+                schedule_zip = zipfile.ZipFile(io.BytesIO(schedule_response.content))
+            except Exception as e:
+                GTFS_PROCESSING_ERRORS_TOTAL.labels(task="get_schedule", provider=company).inc()
+                logging.error(f"Error fetching schedule: {e}")
+                return "Error fetching schedule"
 
             last_modified = schedule_check.headers["Last-Modified"]
             last_modified = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z")
             last_modified = last_modified.replace(tzinfo=pytz.UTC)
             feed_id = f"{company}-{int(last_modified.timestamp())}"
             
-            GTFS_SCHEDULE_UPDATES_TOTAL.labels(feed_id=feed_id).inc()
+            GTFS_SCHEDULE_UPDATES_TOTAL.labels(provider=company).inc()
 
             # Save feed record to database with the Feed model
             feed = Feed.objects.create(
@@ -84,22 +89,22 @@ def get_schedule():
             )
 
             tables = {
-                "agency": "Agency",
-                "stops": "Stop",
-                "shapes": "Shape",
-                "calendar": "Calendar",
-                "calendar_dates": "CalendarDate",
-                "routes": "Route",
-                "trips": "Trip",
-                "stop_times": "StopTime",
-                "feed_info": "FeedInfo",
+                "agency": Agency,
+                "stops": Stop,
+                "shapes": Shape,
+                "calendar": Calendar,
+                "calendar_dates": CalendarDate,
+                "routes": Route,
+                "trips": Trip,
+                "stop_times": StopTime,
+                "feed_info": FeedInfo,
             }  # They must be loaded in this order
 
             # Import and save tables
             for table_name in tables.keys():
                 file = f"{table_name}.txt"
                 if file in schedule_zip.namelist():
-                    model = eval(f"{tables[table_name]}")
+                    model = tables[table_name]
                     fields = [field.name for field in model._meta.fields]
                     table = pd.read_csv(
                         schedule_zip.open(file),
@@ -128,16 +133,18 @@ def get_vehicle_positions():
     saved_data = False
     for provider in providers:
         with GTFS_PROCESSING_DURATION_SECONDS.labels(type="vehicle_positions", provider=provider.code).time():
-        vehicle_positions = gtfs_rt.FeedMessage()
-        try:
-            vehicle_positions_response = requests.get(provider.vehicle_positions_url)
-            print(f"Fetching vehicle positions from {provider.vehicle_positions_url}")
-        except requests.RequestException as e:
-            print(
-                f"Error fetching vehicle positions from {provider.vehicle_positions_url}: {e}"
-            )
-            GTFS_PROCESSING_ERRORS_TOTAL.labels(task="get_vehicle_positions", provider=provider.code).inc()
-            continue            try:
+            vehicle_positions = gtfs_rt.FeedMessage()
+            try:
+                vehicle_positions_response = requests.get(provider.vehicle_positions_url)
+                print(f"Fetching vehicle positions from {provider.vehicle_positions_url}")
+            except requests.RequestException as e:
+                print(
+                    f"Error fetching vehicle positions from {provider.vehicle_positions_url}: {e}"
+                )
+                GTFS_PROCESSING_ERRORS_TOTAL.labels(task="get_vehicle_positions", provider=provider.code).inc()
+                continue
+            
+            try:
                 vehicle_positions.ParseFromString(vehicle_positions_response.content)
 
                 # Save feed message to database
@@ -162,6 +169,9 @@ def get_vehicle_positions():
                 vehicle_positions_json = json.loads(vehicle_positions_json)
                 if "entity" not in vehicle_positions_json:
                     print("No vehicle positions found")
+                    GTFS_LAST_UPDATE_TIMESTAMP.labels(
+                        type="vehicle_positions", provider=provider.code
+                    ).set_to_current_time()
                     continue
                 vehicle_positions_df = pd.json_normalize(
                     vehicle_positions_json["entity"], sep="_"
@@ -174,7 +184,8 @@ def get_vehicle_positions():
                         columns=["vehicle_multi_carriage_details"],
                         inplace=True,
                     )
-                except:
+                except KeyError:
+                    # Column not present; safe to ignore
                     pass
                 # Fix entity timestamp
                 vehicle_positions_df["vehicle_timestamp"] = pd.to_datetime(

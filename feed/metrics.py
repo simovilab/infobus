@@ -17,7 +17,7 @@ from prometheus_client import Counter, Gauge, Histogram
 GTFS_SCHEDULE_UPDATES_TOTAL = Counter(
     "gtfs_schedule_updates_total",
     "Total number of schedule updates processed",
-    ["feed_id"],
+    ["provider"],
 )
 
 GTFS_VEHICLE_POSITIONS_UPDATES_TOTAL = Counter(
