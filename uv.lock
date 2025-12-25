@@ -454,6 +454,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-prometheus"
+version = "2.4.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+    { name = "prometheus-client" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/98/f4/cb39ddd2a41e07a274c4e162c076e906ae232d63b66bbabdea0300878877/django_prometheus-2.4.1.tar.gz", hash = "sha256:073628243d2a6de6a8a8c20e5b512872dfb85d66e1b60b28bcf1eca0155dad95", size = 24464, upload-time = "2025-06-25T15:45:37.149Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/01/50/9c5e022fa92574e5d20606687f15a2aa255e10512a17d11a8216fa117f72/django_prometheus-2.4.1-py2.py3-none-any.whl", hash = "sha256:7fe5af7f7c9ad9cd8a429fe0f3f1bf651f0e244f77162147869eab7ec09cc5e7", size = 29541, upload-time = "2025-06-25T15:45:35.433Z" },
+]
+
+[[package]]
 name = "django-timezone-field"
 version = "7.1"
 source = { registry = "https://pypi.org/simple" }
@@ -568,9 +581,11 @@ version = "1.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "protobuf" },
-    { name = "setuptools" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/3d/55/ed46db9267d2615851bfba3c22b6c0e7f88751efb5d5d1468291935c7f65/gtfs-realtime-bindings-1.0.0.tar.gz", hash = "sha256:2e8ced8904400cc93ab7e8520adb6934cfa601edacc6f593fc2cb4448662bb47", size = 6197, upload-time = "2023-02-23T17:53:20.8Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b3/67/1f030547f94716b3259d99ad93467a6608703942bc62f35e43b1bb8bc2e9/gtfs_realtime_bindings-1.0.0-py3-none-any.whl", hash = "sha256:0a9b57a103a5401895b65b6051344003b5fb213523ea4383596be017e6d67e2d", size = 5306, upload-time = "2025-12-03T18:45:09.045Z" },
+]
 
 [[package]]
 name = "gunicorn"
@@ -648,6 +663,7 @@ dependencies = [
     { name = "django-celery-beat" },
     { name = "django-celery-results" },
     { name = "django-filter" },
+    { name = "django-prometheus" },
     { name = "djangorestframework" },
     { name = "djangorestframework-gis" },
     { name = "drf-spectacular" },
@@ -684,6 +700,7 @@ requires-dist = [
     { name = "django-celery-beat", specifier = ">=2.8.1" },
     { name = "django-celery-results", specifier = ">=2.6.0" },
     { name = "django-filter", specifier = ">=25.1" },
+    { name = "django-prometheus", specifier = ">=2.3.1" },
     { name = "djangorestframework", specifier = ">=3.16.1" },
     { name = "djangorestframework-gis", specifier = ">=1.2.0" },
     { name = "drf-spectacular", specifier = ">=0.28.0" },
