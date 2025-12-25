@@ -25,7 +25,7 @@ def health_check(request):
 
 urlpatterns = [
     path("health/", health_check, name="health_check"),
-    path("", include("django_prometheus.urls")),
+    path("monitoring/", include("django_prometheus.urls")),
     path("admin/", admin.site.urls),
     path("", include("website.urls")),
     path("api/", include("api.urls")),
