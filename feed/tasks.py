@@ -69,7 +69,7 @@ def get_schedule():
             try:
                 schedule_response = requests.get(schedule_url)
                 schedule_zip = zipfile.ZipFile(io.BytesIO(schedule_response.content))
-            except Exception as e:
+            except (requests.RequestException, zipfile.BadZipFile) as e:
                 GTFS_PROCESSING_ERRORS_TOTAL.labels(task="get_schedule", provider=company).inc()
                 logging.error(f"Error fetching schedule: {e}")
                 return "Error fetching schedule"
