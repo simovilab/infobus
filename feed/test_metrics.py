@@ -31,9 +31,9 @@ class TestGTFSMetrics:
 
     def test_schedule_updates_counter(self):
         """Test that schedule updates counter increments correctly."""
-        initial = GTFS_SCHEDULE_UPDATES_TOTAL.labels(feed_id="test-feed")._value.get()
-        GTFS_SCHEDULE_UPDATES_TOTAL.labels(feed_id="test-feed").inc()
-        final = GTFS_SCHEDULE_UPDATES_TOTAL.labels(feed_id="test-feed")._value.get()
+        initial = GTFS_SCHEDULE_UPDATES_TOTAL.labels(provider="test-provider")._value.get()
+        GTFS_SCHEDULE_UPDATES_TOTAL.labels(provider="test-provider").inc()
+        final = GTFS_SCHEDULE_UPDATES_TOTAL.labels(provider="test-provider")._value.get()
         assert final == initial + 1
 
     def test_vehicle_positions_counter(self):

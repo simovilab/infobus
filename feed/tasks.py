@@ -78,8 +78,6 @@ def get_schedule():
             last_modified = datetime.strptime(last_modified, "%a, %d %b %Y %H:%M:%S %Z")
             last_modified = last_modified.replace(tzinfo=pytz.UTC)
             feed_id = f"{company}-{int(last_modified.timestamp())}"
-            
-            GTFS_SCHEDULE_UPDATES_TOTAL.labels(provider=company).inc()
 
             # Save feed record to database with the Feed model
             feed = Feed.objects.create(
@@ -101,23 +99,31 @@ def get_schedule():
             }  # They must be loaded in this order
 
             # Import and save tables
-            for table_name in tables.keys():
-                file = f"{table_name}.txt"
-                if file in schedule_zip.namelist():
-                    model = tables[table_name]
-                    fields = [field.name for field in model._meta.fields]
-                    table = pd.read_csv(
-                        schedule_zip.open(file),
-                        dtype=str,
-                        keep_default_na=False,
-                        na_values="",
-                    )
-                    table = table[[col for col in fields if col in table.columns]]
-                    table["feed"] = feed
-                    objects = [model(**row) for row in table.to_dict(orient="records")]
-                    model.objects.bulk_create(objects)
-                    GTFS_ENTITIES_PROCESSED_TOTAL.labels(type=table_name, provider=company).inc(len(objects))
-                    logging.info(f"{file} imported successfully")
+            try:
+                for table_name in tables.keys():
+                    file = f"{table_name}.txt"
+                    if file in schedule_zip.namelist():
+                        model = tables[table_name]
+                        fields = [field.name for field in model._meta.fields]
+                        table = pd.read_csv(
+                            schedule_zip.open(file),
+                            dtype=str,
+                            keep_default_na=False,
+                            na_values="",
+                        )
+                        table = table[[col for col in fields if col in table.columns]]
+                        table["feed"] = feed
+                        objects = [model(**row) for row in table.to_dict(orient="records")]
+                        model.objects.bulk_create(objects)
+                        GTFS_ENTITIES_PROCESSED_TOTAL.labels(type=table_name, provider=company).inc(len(objects))
+                        logging.info(f"{file} imported successfully")
+                
+                # Only increment after successful import of all tables
+                GTFS_SCHEDULE_UPDATES_TOTAL.labels(provider=company).inc()
+            except Exception as e:
+                GTFS_PROCESSING_ERRORS_TOTAL.labels(task="get_schedule", provider=company).inc()
+                logging.error(f"Error importing schedule data: {e}")
+                return "Error importing schedule data"
         else:
             logging.info("No new GTFS Schedule feed detected")
         
