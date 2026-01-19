@@ -1,0 +1,664 @@
+asyncapi: 3.0.0
+
+info:
+  title: Infobus WebSocket API
+  version: 1.0.0
+  description: |
+    Especificación AsyncAPI para el sistema de WebSockets de Infobus.
+    
+    Este API proporciona actualizaciones en tiempo real de datos GTFS (General Transit Feed Specification)
+    para el sistema de transporte público de Costa Rica.
+    
+    **Canales Implementados:**
+    - Trip Updates: Actualizaciones de viajes específicos
+    - Route Updates: Actualizaciones de todas las unidades en una ruta
+    
+    **Desarrollador:** Brandon Trigueros Lara
+    **Proyecto:** TCU - SIMOVI Lab, Universidad de Costa Rica
+    **Fecha:** Enero 2026
+  contact:
+    name: SIMOVI Lab
+    url: https://github.com/simovilab
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  externalDocs:
+    description: Especificación GTFS-Realtime
+    url: https://gtfs.org/realtime/
+  tags:
+    - name: trip
+      description: Operaciones relacionadas con viajes específicos
+    - name: route
+      description: Operaciones relacionadas con rutas y múltiples vehículos
+    - name: realtime
+      description: Datos en tiempo real GTFS-Realtime
+
+servers:
+  production:
+    host: infobus.ucr.ac.cr
+    protocol: wss
+    description: Servidor de producción con SSL
+    security:
+      - $ref: '#/components/securitySchemes/apiKey'
+  
+  development:
+    host: localhost:8000
+    protocol: ws
+    description: Servidor de desarrollo local
+    variables:
+      port:
+        default: '8000'
+        description: Puerto del servidor Django
+
+defaultContentType: application/json
+
+channels:
+  trip/{trip_id}:
+    address: trip/{trip_id}
+    description: |
+      Canal para recibir actualizaciones en tiempo real de un viaje específico (trip).
+      
+      Un trip representa un viaje programado de un vehículo en una ruta específica.
+      Incluye información sobre paradas, horarios, retrasos y posición del vehículo.
+    
+    parameters:
+      trip_id:
+        description: Identificador único del viaje (trip) según GTFS
+        location: $message.payload#/trip_id
+    
+    messages:
+      tripUpdate:
+        $ref: '#/components/messages/TripUpdate'
+      vehiclePosition:
+        $ref: '#/components/messages/VehiclePosition'
+      alert:
+        $ref: '#/components/messages/Alert'
+    
+    bindings:
+      ws:
+        method: GET
+        query:
+          type: object
+          properties:
+            include_stops:
+              type: boolean
+              description: Incluir información detallada de paradas
+              default: true
+            include_shape:
+              type: boolean
+              description: Incluir geometría de la ruta
+              default: false
+
+  route/{route_id}:
+    address: route/{route_id}
+    description: |
+      Canal para recibir actualizaciones de todos los vehículos operando en una ruta específica.
+      
+      Una ruta (route) agrupa múltiples viajes (trips) que siguen el mismo recorrido general.
+      Este canal emite actualizaciones de todos los vehículos activos en la ruta.
+    
+    parameters:
+      route_id:
+        description: Identificador único de la ruta según GTFS
+        location: $message.payload#/route_id
+    
+    messages:
+      routeVehicles:
+        $ref: '#/components/messages/RouteVehicles'
+      alert:
+        $ref: '#/components/messages/Alert'
+    
+    bindings:
+      ws:
+        method: GET
+        query:
+          type: object
+          properties:
+            direction_id:
+              type: integer
+              enum: [0, 1]
+              description: |
+                Filtrar por dirección del viaje:
+                0 = Ida (outbound)
+                1 = Vuelta (inbound)
+
+  route/{route_id}/direction/{direction_id}:
+    address: route/{route_id}/direction/{direction_id}
+    description: |
+      Canal para recibir actualizaciones de vehículos en una ruta específica
+      filtrados por dirección (ida o vuelta).
+    
+    parameters:
+      route_id:
+        description: Identificador único de la ruta según GTFS
+        location: $message.payload#/route_id
+      
+      direction_id:
+        description: |
+          Dirección del viaje:
+          0 = Ida (outbound)
+          1 = Vuelta (inbound)
+        location: $message.payload#/direction_id
+    
+    messages:
+      routeVehicles:
+        $ref: '#/components/messages/RouteVehicles'
+      alert:
+        $ref: '#/components/messages/Alert'
+
+operations:
+  subscribeTripUpdates:
+    action: receive
+    channel:
+      $ref: '#/channels/trip~1{trip_id}'
+    summary: Suscribirse a actualizaciones de un viaje
+    description: |
+      Recibe actualizaciones en tiempo real del estado de un viaje específico,
+      incluyendo posición del vehículo, progreso en la ruta, y retrasos.
+    messages:
+      - $ref: '#/channels/trip~1{trip_id}/messages/tripUpdate'
+      - $ref: '#/channels/trip~1{trip_id}/messages/vehiclePosition'
+      - $ref: '#/channels/trip~1{trip_id}/messages/alert'
+    
+  subscribeRouteUpdates:
+    action: receive
+    channel:
+      $ref: '#/channels/route~1{route_id}'
+    summary: Suscribirse a actualizaciones de una ruta
+    description: |
+      Recibe actualizaciones de todos los vehículos operando en una ruta,
+      útil para visualización de mapa con múltiples unidades.
+    messages:
+      - $ref: '#/channels/route~1{route_id}/messages/routeVehicles'
+      - $ref: '#/channels/route~1{route_id}/messages/alert'
+  
+  subscribeRouteDirection:
+    action: receive
+    channel:
+      $ref: '#/channels/route~1{route_id}~1direction~1{direction_id}'
+    summary: Suscribirse a actualizaciones de ruta por dirección
+    description: |
+      Recibe actualizaciones filtradas por dirección (ida o vuelta),
+      útil para aplicaciones que muestran solo una dirección de servicio.
+    messages:
+      - $ref: '#/channels/route~1{route_id}~1direction~1{direction_id}/messages/routeVehicles'
+
+components:
+  messages:
+    TripUpdate:
+      name: TripUpdate
+      title: Actualización de Viaje
+      summary: Información actualizada sobre un viaje programado
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/TripUpdatePayload'
+      examples:
+        - name: tripUpdateExample
+          summary: Ejemplo de actualización de viaje con retraso
+          payload:
+            type: 'trip_update'
+            timestamp: '2026-01-19T10:30:00-06:00'
+            trip:
+              trip_id: 'TRIP_SJ_HER_001'
+              route_id: 'ROUTE_001'
+              direction_id: 0
+              schedule_relationship: 'SCHEDULED'
+            vehicle:
+              id: 'BUS_123'
+              label: 'Unidad 123'
+            stop_time_updates:
+              - stop_sequence: 5
+                stop_id: 'STOP_001'
+                arrival:
+                  delay: 120
+                  time: '2026-01-19T10:32:00-06:00'
+                departure:
+                  delay: 120
+                  time: '2026-01-19T10:33:00-06:00'
+    
+    VehiclePosition:
+      name: VehiclePosition
+      title: Posición de Vehículo
+      summary: Ubicación actual de un vehículo en servicio
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/VehiclePositionPayload'
+      examples:
+        - name: vehiclePositionExample
+          summary: Posición de vehículo en movimiento
+          payload:
+            type: 'vehicle_position'
+            timestamp: '2026-01-19T10:30:15-06:00'
+            vehicle:
+              id: 'BUS_123'
+              label: 'Unidad 123'
+            trip:
+              trip_id: 'TRIP_SJ_HER_001'
+              route_id: 'ROUTE_001'
+              direction_id: 0
+            position:
+              latitude: 9.9355
+              longitude: -84.0783
+              bearing: 45.5
+              speed: 12.5
+            current_stop_sequence: 5
+            current_status: 'IN_TRANSIT_TO'
+            congestion_level: 'RUNNING_SMOOTHLY'
+    
+    RouteVehicles:
+      name: RouteVehicles
+      title: Vehículos en Ruta
+      summary: Lista de todos los vehículos operando en una ruta
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/RouteVehiclesPayload'
+      examples:
+        - name: routeVehiclesExample
+          summary: Tres vehículos operando en la ruta
+          payload:
+            type: 'route_vehicles'
+            timestamp: '2026-01-19T10:30:00-06:00'
+            route_id: 'ROUTE_001'
+            direction_id: 0
+            vehicles:
+              - vehicle_id: 'BUS_123'
+                trip_id: 'TRIP_001'
+                position:
+                  latitude: 9.9355
+                  longitude: -84.0783
+                current_stop_sequence: 5
+              - vehicle_id: 'BUS_456'
+                trip_id: 'TRIP_002'
+                position:
+                  latitude: 9.9400
+                  longitude: -84.0800
+                current_stop_sequence: 3
+    
+    Alert:
+      name: Alert
+      title: Alerta de Servicio
+      summary: Notificación sobre interrupciones o cambios en el servicio
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/AlertPayload'
+      examples:
+        - name: alertExample
+          summary: Alerta de desvío por construcción
+          payload:
+            type: 'alert'
+            timestamp: '2026-01-19T10:00:00-06:00'
+            alert_id: 'ALERT_001'
+            cause: 'CONSTRUCTION'
+            effect: 'DETOUR'
+            severity_level: 'WARNING'
+            header_text: 'Desvío en Ruta 001'
+            description_text: 'Debido a trabajos de construcción, la Ruta 001 tomará un desvío temporal.'
+            affected_entities:
+              routes:
+                - 'ROUTE_001'
+              trips:
+                - 'TRIP_SJ_HER_001'
+            active_period:
+              start: '2026-01-19T06:00:00-06:00'
+              end: '2026-01-19T18:00:00-06:00'
+
+  schemas:
+    TripUpdatePayload:
+      type: object
+      description: Payload de actualización de viaje según GTFS-Realtime
+      required:
+        - type
+        - timestamp
+        - trip
+      properties:
+        type:
+          type: string
+          const: 'trip_update'
+          description: Tipo de mensaje
+        
+        timestamp:
+          type: string
+          format: date-time
+          description: Momento de la actualización (ISO 8601)
+        
+        trip:
+          type: object
+          required:
+            - trip_id
+            - route_id
+          properties:
+            trip_id:
+              type: string
+              description: ID del viaje
+            route_id:
+              type: string
+              description: ID de la ruta
+            direction_id:
+              type: integer
+              enum: [0, 1]
+              description: Dirección del viaje
+            schedule_relationship:
+              type: string
+              enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED']
+              default: 'SCHEDULED'
+        
+        vehicle:
+          type: object
+          properties:
+            id:
+              type: string
+              description: ID único del vehículo
+            label:
+              type: string
+              description: Etiqueta visible del vehículo
+            license_plate:
+              type: string
+              description: Placa del vehículo
+        
+        stop_time_updates:
+          type: array
+          description: Actualizaciones de horarios en paradas
+          items:
+            type: object
+            required:
+              - stop_sequence
+              - stop_id
+            properties:
+              stop_sequence:
+                type: integer
+                description: Orden de la parada en el viaje
+              stop_id:
+                type: string
+                description: ID de la parada
+              arrival:
+                $ref: '#/components/schemas/StopTimeEvent'
+              departure:
+                $ref: '#/components/schemas/StopTimeEvent'
+              schedule_relationship:
+                type: string
+                enum: ['SCHEDULED', 'SKIPPED', 'NO_DATA']
+                default: 'SCHEDULED'
+    
+    VehiclePositionPayload:
+      type: object
+      description: Payload de posición de vehículo según GTFS-Realtime
+      required:
+        - type
+        - timestamp
+        - vehicle
+        - position
+      properties:
+        type:
+          type: string
+          const: 'vehicle_position'
+        
+        timestamp:
+          type: string
+          format: date-time
+          description: Momento de la lectura de posición
+        
+        vehicle:
+          type: object
+          required:
+            - id
+          properties:
+            id:
+              type: string
+            label:
+              type: string
+            license_plate:
+              type: string
+        
+        trip:
+          type: object
+          properties:
+            trip_id:
+              type: string
+            route_id:
+              type: string
+            direction_id:
+              type: integer
+              enum: [0, 1]
+        
+        position:
+          type: object
+          required:
+            - latitude
+            - longitude
+          properties:
+            latitude:
+              type: number
+              format: float
+              minimum: -90
+              maximum: 90
+              description: Latitud en grados decimales
+            longitude:
+              type: number
+              format: float
+              minimum: -180
+              maximum: 180
+              description: Longitud en grados decimales
+            bearing:
+              type: number
+              format: float
+              minimum: 0
+              maximum: 360
+              description: Dirección en grados (0=Norte, 90=Este)
+            speed:
+              type: number
+              format: float
+              minimum: 0
+              description: Velocidad en m/s
+        
+        current_stop_sequence:
+          type: integer
+          description: Secuencia de la próxima parada
+        
+        current_status:
+          type: string
+          enum: 
+            - 'INCOMING_AT'
+            - 'STOPPED_AT'
+            - 'IN_TRANSIT_TO'
+          description: Estado actual respecto a la próxima parada
+        
+        congestion_level:
+          type: string
+          enum:
+            - 'UNKNOWN_CONGESTION_LEVEL'
+            - 'RUNNING_SMOOTHLY'
+            - 'STOP_AND_GO'
+            - 'CONGESTION'
+            - 'SEVERE_CONGESTION'
+          default: 'UNKNOWN_CONGESTION_LEVEL'
+        
+        occupancy_status:
+          type: string
+          enum:
+            - 'EMPTY'
+            - 'MANY_SEATS_AVAILABLE'
+            - 'FEW_SEATS_AVAILABLE'
+            - 'STANDING_ROOM_ONLY'
+            - 'CRUSHED_STANDING_ROOM_ONLY'
+            - 'FULL'
+            - 'NOT_ACCEPTING_PASSENGERS'
+    
+    RouteVehiclesPayload:
+      type: object
+      description: Payload de vehículos operando en una ruta
+      required:
+        - type
+        - timestamp
+        - route_id
+        - vehicles
+      properties:
+        type:
+          type: string
+          const: 'route_vehicles'
+        
+        timestamp:
+          type: string
+          format: date-time
+        
+        route_id:
+          type: string
+          description: ID de la ruta
+        
+        direction_id:
+          type: integer
+          enum: [0, 1]
+          description: Dirección filtrada (opcional)
+        
+        vehicles:
+          type: array
+          description: Lista de vehículos activos
+          items:
+            type: object
+            required:
+              - vehicle_id
+              - trip_id
+              - position
+            properties:
+              vehicle_id:
+                type: string
+              trip_id:
+                type: string
+              position:
+                type: object
+                required:
+                  - latitude
+                  - longitude
+                properties:
+                  latitude:
+                    type: number
+                    format: float
+                  longitude:
+                    type: number
+                    format: float
+                  bearing:
+                    type: number
+                    format: float
+              current_stop_sequence:
+                type: integer
+              delay:
+                type: integer
+                description: Retraso en segundos
+    
+    AlertPayload:
+      type: object
+      description: Payload de alerta según GTFS-Realtime
+      required:
+        - type
+        - timestamp
+        - alert_id
+      properties:
+        type:
+          type: string
+          const: 'alert'
+        
+        timestamp:
+          type: string
+          format: date-time
+        
+        alert_id:
+          type: string
+          description: ID único de la alerta
+        
+        cause:
+          type: string
+          enum:
+            - 'UNKNOWN_CAUSE'
+            - 'OTHER_CAUSE'
+            - 'TECHNICAL_PROBLEM'
+            - 'STRIKE'
+            - 'DEMONSTRATION'
+            - 'ACCIDENT'
+            - 'HOLIDAY'
+            - 'WEATHER'
+            - 'MAINTENANCE'
+            - 'CONSTRUCTION'
+            - 'POLICE_ACTIVITY'
+            - 'MEDICAL_EMERGENCY'
+        
+        effect:
+          type: string
+          enum:
+            - 'NO_SERVICE'
+            - 'REDUCED_SERVICE'
+            - 'SIGNIFICANT_DELAYS'
+            - 'DETOUR'
+            - 'ADDITIONAL_SERVICE'
+            - 'MODIFIED_SERVICE'
+            - 'OTHER_EFFECT'
+            - 'UNKNOWN_EFFECT'
+            - 'STOP_MOVED'
+        
+        severity_level:
+          type: string
+          enum: ['INFO', 'WARNING', 'SEVERE']
+          default: 'WARNING'
+        
+        header_text:
+          type: string
+          description: Título corto de la alerta
+        
+        description_text:
+          type: string
+          description: Descripción detallada
+        
+        url:
+          type: string
+          format: uri
+          description: URL con más información
+        
+        affected_entities:
+          type: object
+          description: Entidades afectadas por la alerta
+          properties:
+            routes:
+              type: array
+              items:
+                type: string
+            trips:
+              type: array
+              items:
+                type: string
+            stops:
+              type: array
+              items:
+                type: string
+        
+        active_period:
+          type: object
+          description: Período de actividad de la alerta
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+    
+    StopTimeEvent:
+      type: object
+      description: Evento de llegada o salida en una parada
+      properties:
+        delay:
+          type: integer
+          description: Retraso en segundos (positivo=tarde, negativo=adelantado)
+        time:
+          type: string
+          format: date-time
+          description: Hora estimada del evento
+        uncertainty:
+          type: integer
+          description: Incertidumbre en segundos
+
+  securitySchemes:
+    apiKey:
+      type: httpApiKey
+      name: X-API-Key
+      in: header
+      description: |
+        API Key para autenticación (futuro).
+        En fase inicial el WebSocket es público sin autenticación.
