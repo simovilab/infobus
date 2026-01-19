@@ -18,6 +18,7 @@ paths:
   /gtfs-providers:
     get:
       summary: Proveedores de datos GTFS
+      operationId: listGtfsProviders
       description: Información sobre los proveedores de datos GTFS del servicio de transporte público.
       parameters:
         - in: query
@@ -30,6 +31,9 @@ paths:
           schema:
             type: string
           description: 'Búsqueda de proveedor de datos GTFS por nombre.'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       tags:
         - Schedule
       responses:
@@ -38,10 +42,35 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GTFSProvider'
+                type: array
+                items:
+                  $ref: '#/components/schemas/GTFSProvider'
+              examples:
+                basic:
+                  summary: Lista de proveedores GTFS
+                  value:
+                    - code: bUCR
+                      name: bUCR
+                      schedule_url: 'https://example.com/gtfs/bucr.zip'
+                      trip_updates_url: 'https://example.com/gtfs-rt/trip-updates.pb'
+                      vehicle_positions_url: 'https://example.com/gtfs-rt/vehicle-positions.pb'
+                      service_alerts_url: 'https://example.com/gtfs-rt/alerts.pb'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /agencies:
     get:
       summary: Agencias operadoras del servicio
+      operationId: listAgencies
       description: Datos sobre las agencias operadoras del servicio según GTFS.
       parameters:
         - in: query
@@ -54,6 +83,9 @@ paths:
           schema:
             type: string
           description: 'Búsqueda de agencia operadora por nombre.'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       tags:
         - Schedule
       responses:
@@ -62,52 +94,45 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Agency'
+                type: array
+                items:
+                  $ref: '#/components/schemas/Agency'
+              examples:
+                basic:
+                  summary: Lista de agencias
+                  value:
+                    - agency_id: bUCR
+                      agency_name: bUCR
+                      agency_url: 'https://bucr.digital'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /stops:
     get:
       summary: Datos sobre las paradas
+      operationId: listStops
       description: Paradas donde los vehículos recogen o dejan a los pasajeros. También define estaciones y entradas a las estaciones.
       tags:
         - Schedule
       parameters:
-      - in: query
-        name: route_id
-        schema:
-          type: string
-        description: 'Búsqueda de paradas que pertenecen a una ruta particular.'
-      - in: query
-        name: location_type
-        schema:
-          type: integer
-          enum: [0, 1]
-        description: 'El tipo de parada, donde 0 es una parada o plataforma y 1 es una estación.'
-      - in: query
-        name: wheelchair_boarding
-        schema:
-          type: integer
-          enum: [0, 1, 2]
-        description: 'Indica si la parada permite el abordaje de sillas de ruedas, donde 0 es desconocido, 1 es accesible y 2 es no accesible.'
-      - in: query
-        name: located_within
-        schema:
-          type: string
-          example: 'POLYGON ((-85 9, -85 11, -83 11, -83 9, -85 9))'
-          format: WKT
-        description: 'Búsqueda de paradas dentro de un región, especificada como un polígono en formato WKT.'
-      - in: query
-        name: close_to
-        schema:
-          type: string
-          example: 'POINT (-84 9)'
-          format: WKT
-        description: 'Búsqueda de paradas cercanas a una ubicación, especificada como un punto en formato WKT.'
-      - in: query
-        name: distance
-        schema:
-          type: integer
-          example: 400
-          default: 800
-        description: 'Distancia en metros para la búsqueda de paradas cercanas a un punto.'
+      - $ref: '#/components/parameters/route_id'
+      - $ref: '#/components/parameters/location_type'
+      - $ref: '#/components/parameters/wheelchair_boarding'
+      - $ref: '#/components/parameters/located_within'
+      - $ref: '#/components/parameters/close_to'
+      - $ref: '#/components/parameters/distance'
+      - $ref: '#/components/parameters/limit'
+      - $ref: '#/components/parameters/offset'
+      - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -117,17 +142,36 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Stops'
+              examples:
+                basic:
+                  summary: Lista de paradas
+                  value:
+                    - stop_id: bUCR-0-03
+                      stop_name: Facultad de Ingeniería
+                      stop_lat: 9.937
+                      stop_lon: -84.051
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /shapes:
     get:
       summary: Trayectorias de las rutas
+      operationId: listShapes
       description: Datos sobre las trayectorias de las rutas, como las coordenadas y las formas de las rutas.
       parameters:
-        - in: query
-          name: shape_id
-          schema:
-            type: string
-            example: 'desde_educacion'
-          description: 'Búsqueda de trayectorias que pertenecen a una trayectoria particular.'
+        - $ref: '#/components/parameters/shape_id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       tags:
         - Schedule
       responses:
@@ -139,19 +183,38 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Shapes'
+              examples:
+                basic:
+                  summary: Puntos de una trayectoria
+                  value:
+                    - shape_id: desde_educacion
+                      shape_pt_lat: 9.937
+                      shape_pt_lon: -84.051
+                      shape_pt_sequence: 15
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /calendar:
     get:
       summary: Días de operación de las rutas
+      operationId: listCalendar
       description: Datos sobre los los días de operación del servicio durante la semana y las fechas de inicio y fin del esquema de operación.
       tags:
         - Schedule
       parameters:
-        - in: query
-          name: service_id
-          schema:
-            type: string
-            example: 'entresemana'
-          description: 'Búsqueda de días de operación en un servicio particular.'
+        - $ref: '#/components/parameters/service_id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -161,19 +224,44 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Calendar'
+              examples:
+                basic:
+                  summary: Calendario base de operación
+                  value:
+                    - service_id: entresemana
+                      monday: 1
+                      tuesday: 1
+                      wednesday: 1
+                      thursday: 1
+                      friday: 1
+                      saturday: 0
+                      sunday: 0
+                      start_date: '20240503'
+                      end_date: '20241231'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /calendar-dates:
     get:
       summary: Excepciones de operación de las rutas
+      operationId: listCalendarDates
       description: Datos sobre las excepciones de operación de las rutas, como las fechas en que no operan o cambian de servicio.
       tags:
         - Schedule
       parameters:
-        - in: query
-          name: service_id
-          schema:
-            type: string
-            example: 'entresemana'
-          description: 'Búsqueda de excepciones de operación en un servicio particular.'
+        - $ref: '#/components/parameters/service_id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -183,25 +271,44 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CalendarDates'
+              examples:
+                basic:
+                  summary: Excepciones del calendario
+                  value:
+                    - service_id: entresemana
+                      date: '20240815'
+                      exception_type: 2
+                      holiday_name: 'Día de la Madre'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /routes:
     get:
       summary: Datos de las rutas
+      operationId: listRoutes
       description: Datos sobre las rutas, como el nombre, la descripción y la URL de la ruta.
       tags:
         - Schedule
       parameters:
-        - in: query
-          name: route_id
-          schema:
-            type: string
-            example: 'bUCR-L1'
-          description: 'Búsqueda por identificador de ruta.'
+        - $ref: '#/components/parameters/route_id'
         - in: query
           name: route_type
           schema:
             type: integer
             enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
           description: 'Tipo de ruta, según GTFS, donde 3 es autobús.'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -211,43 +318,49 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Routes'
+              examples:
+                basic:
+                  summary: Lista de rutas
+                  value:
+                    - route_id: bUCR-L1
+                      route_type: 3
+                      route_short_name: L1
+                      route_long_name: Línea 1
+                      route_desc: Línea 1 de buses de la Universidad de Costa Rica
+                      route_url: 'https://bucr.digital/rutas/L1'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /trips:  
     get:
       summary: Datos de los viajes
+      operationId: listTrips
       description: Datos sobre los viajes, como la hora de inicio, la fecha de inicio y la relación con el horario.
       tags:
         - Schedule
       parameters:
-        - in: query
-          name: trip_id
-          schema:
-            type: string
-            example: 'NROD7888'
-          description: 'Búsqueda por identificador de viaje.'
-        - in: query
-          name: route_id
-          schema:
-            type: string
-            example: 'bUCR-L1'
-          description: 'Búsqueda de viajes que pertenecen a una ruta particular.'
+        - $ref: '#/components/parameters/trip_id'
+        - $ref: '#/components/parameters/route_id'
         - in: query
           name: direction_id
           schema:
             type: integer
             enum: [0, 1]
           description: 'Búsqueda de viajes en una dirección particular.'
-        - in: query
-          name: service_id
-          schema:
-            type: string
-            example: 'entresemana'
-          description: 'Búsqueda de viajes en días de operación particulares.'
-        - in: query
-          name: shape_id
-          schema:
-            type: string
-            example: 'desde_educacion'
-          description: 'Búsqueda de viajes en una trayectoria particular.'
+        - $ref: '#/components/parameters/service_id'
+        - $ref: '#/components/parameters/shape_id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -257,25 +370,42 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Trips'
+              examples:
+                basic:
+                  summary: Lista de viajes
+                  value:
+                    - trip_id: JFH367
+                      route_id: bUCR-L1
+                      start_time: '07:15:00'
+                      start_date: '20240503'
+                      direction_id: 0
+                      trip_headsign: Facultad de Ingeniería
+                      schedule_relationship: SCHEDULED
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /stop-times:
     get:
       summary: Horarios de llegada a las paradas
+      operationId: listStopTimes
       description: Datos sobre los horarios de las paradas, como la hora de llegada y salida, y la secuencia de la parada.
       tags:
         - Schedule
       parameters:
-        - in: query
-          name: trip_id
-          schema:
-            type: string
-            example: 'JFH367'
-          description: 'Búsqueda de horarios de paradas en un viaje particular.'
-        - in: query
-          name: stop_id
-          schema:
-            type: string
-            example: 'bUCR-0-03'
-          description: 'Búsqueda de horarios de paradas en una parada particular.'
+        - $ref: '#/components/parameters/trip_id'
+        - $ref: '#/components/parameters/stop_id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -285,19 +415,42 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/StopTimes'
+              examples:
+                basic:
+                  summary: Horario de paradas de un viaje
+                  value:
+                    - trip_id: JFH367
+                      arrival_time: '07:15:00'
+                      departure_time: '07:16:00'
+                      stop_id: bUCR-0-03
+                      stop_sequence: 15
+                      stop_headsign: Facultad de Ingeniería
+                      pickup_type: 0
+                      drop_off_type: 0
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /frequencies:
     get:
       summary: Frecuencias de los viajes
+      operationId: listFrequencies
       description: Datos sobre las frecuencias de los viajes, como la hora de inicio, la hora de fin y la frecuencia.
       tags:
         - Schedule
       parameters:
-        - in: query
-          name: trip_id
-          schema:
-            type: string
-            example: 'JFH367'
-          description: 'Búsqueda de frecuencias de viajes en un viaje particular.'
+        - $ref: '#/components/parameters/trip_id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -307,9 +460,30 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Frequencies'
+              examples:
+                basic:
+                  summary: Frecuencias de un viaje
+                  value:
+                    - trip_id: JFH367
+                      start_time: '07:00:00'
+                      end_time: '09:00:00'
+                      headway_secs: 600
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /feed-info:
     get:
       summary: Información del feed
+      operationId: listFeedInfo
       description: Datos sobre el feed de datos, como la versión, la URL y la fecha de inicio y fin de la operación.
       tags:
         - Schedule
@@ -320,6 +494,9 @@ paths:
             type: string
             example: 'bUCR'
           description: 'Búsqueda de información del feed por nombre del proveedor.'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -329,19 +506,40 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/FeedInfo'
+              examples:
+                basic:
+                  summary: Metadatos del feed
+                  value:
+                    - feed_publisher_name: bUCR
+                      feed_publisher_url: 'https://bucr.digital'
+                      feed_lang: es
+                      feed_start_date: '20240503'
+                      feed_end_date: '20241231'
+                      feed_version: '1.0.0'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /route-stops:
     get:
       summary: Paradas de las rutas
+      operationId: listRouteStops
       description: Datos sobre las paradas de las rutas según su trayectoria, con la secuencia de paradas y distancia recorrida. Esto no es parte de GTFS Schedule.
       tags:
         - Schedule
       parameters:
-        - in: query
-          name: route_id
-          schema:
-            type: string
-            example: 'bUCR-L1'
-          description: 'Búsqueda de paradas en una ruta particular.'
+        - $ref: '#/components/parameters/route_id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -351,19 +549,37 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/RouteStops'
+              examples:
+                basic:
+                  summary: Secuencia de paradas por ruta
+                  value:
+                    - route_id: bUCR-L1
+                      stop_sequence: 15
+                      stop_id: bUCR-0-03
+                      stop_name: Facultad de Ingeniería
+                      stop_lat: 9.937
+                      stop_lon: -84.051
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /geoshapes:
     get:
       summary: Trayectorias de las rutas en formato GeoJSON
+      operationId: listGeoShapes
       description: Datos sobre las trayectorias de las rutas en formato GeoJSON. Esto no es parte de GTFS Schedule.
       tags:
         - Schedule
       parameters:
-        - in: query
-          name: shape_id
-          schema:
-            type: string
-            example: 'desde_educacion'
-          description: 'Búsqueda de una trayectoria particular.'
+        - $ref: '#/components/parameters/shape_id'
       responses:
         '200':
           description: OK
@@ -373,19 +589,40 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/GeoShapes'
+              examples:
+                basic:
+                  summary: Features GeoJSON
+                  value:
+                    - type: Feature
+                      geometry:
+                        type: Point
+                        coordinates: [-84.051, 9.937]
+                      properties:
+                        shape_id: desde_educacion
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /trip-times:
     get:
       summary: Horarios de salida los viajes
+      operationId: listTripTimes
       description: Datos sobre los horarios de salida de los viajes, como la hora de inicio y fin, y la duración del viaje. Esto no es parte de GTFS Schedule, y es complementario a stop_times.
       tags:
         - Schedule
       parameters:
-        - in: query
-          name: trip_id
-          schema:
-            type: string
-            example: 'JFH367'
-          description: 'Búsqueda de horarios de un viaje particular.'
+        - $ref: '#/components/parameters/trip_id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       responses:
         '200':
           description: OK
@@ -395,31 +632,39 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TripTimes'     
+              examples:
+                basic:
+                  summary: Ventana horaria del viaje
+                  value:
+                    - trip_id: JFH367
+                      start_time: '07:15:00'
+                      end_time: '08:15:00'
+                      duration: 3600
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /next-trips:
     get:
       summary: Próximos viajes
+      operationId: getNextTrips
       description: Datos sobre los próximos viajes en una o varias paradas particulares, como la hora de llegada y salida, y la secuencia de la parada. Útil para desplegar información en tiempo real en pantallas o páginas web, por ejemplo.
       tags:
         - Realtime
       parameters:
-        - in: query
-          name: stop_id
-          schema:
-            type: string
-            example: 'bUCR-0-03'
-          description: 'Búsqueda de próximos viajes en una parada particular.'
-          required: true
-        - in: query
-          name: route_id
-          schema:
-            type: string
-          description: 'Búsqueda de próximos viajes filtrada por parada y por ruta.'
-        - in: query
-          name: timestamp
-          schema:
-            type: string
-            example: '2024-07-31T16:12:25'
-          description: 'Fecha y hora de referencia en el futuro para buscar próximos viajes a partir de ese momento. Será asumida la zona horaria de la agencia. Parámetro opcional, por defecto es el momento actual.'
+        - $ref: '#/components/parameters/stop_id_required'
+        - $ref: '#/components/parameters/route_id'
+        - $ref: '#/components/parameters/timestamp'
+        - $ref: '#/components/parameters/max_trips'
+        - $ref: '#/components/parameters/include_delays'
       responses:
         '200':
           description: OK
@@ -427,36 +672,52 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NextTrips'
+              examples:
+                basic:
+                  summary: Próximas llegadas para una parada
+                  value:
+                    stop_id: bUCR-0-03
+                    timestamp: '2024-07-31T07:12:00-06:00'
+                    feed_version: 'bUCR-rt-2024-07-31'
+                    feed_timestamp: '2024-07-31T07:11:50-06:00'
+                    feed_ttl_seconds: 300
+                    next_arrivals:
+                      - trip_id: JFH367
+                        route_id: bUCR-L1
+                        route_short_name: L1
+                        trip_headsign: Facultad de Ingeniería
+                        scheduled_time: '2024-07-31T07:15:00-06:00'
+                        predicted_time: '2024-07-31T07:18:00-06:00'
+                        eta_seconds: 360
+                        eta_text: 6 min
+                        vehicle_id: VEH-123
+                        source: GTFS-RT
+                        last_update: '2024-07-31T07:11:50-06:00'
         '400':
-          description: Bad Request - Es necesario especificar el stop_id como parámetro de la solicitud.
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+
   /next-stops:
     get:
       summary: Próximas paradas
+      operationId: getNextStops
       description: Datos sobre las próximas paradas en un viaje particular y los tiempos estimados de llegada. Útil para desplegar información en tiempo real en pantallas en los autobuses.
       tags:
         - Realtime
       parameters:
-        - in: query
-          name: trip_id
-          schema:
-            type: string
-            example: 'JFH367'
-          description: 'Búsqueda de próximas paradas en un viaje particular.'
-          required: true
-        - in: query
-          name: start_date
-          schema:
-            type: string
-            example: '2024-07-31'
-          description: 'Fecha de salida del viaje.'
-          required: true
-        - in: query
-          name: start_time
-          schema:
-            type: string
-            example: '16:12:25'
-          description: 'Hora de salida del viaje.'
-          required: true
+        - $ref: '#/components/parameters/trip_id_required'
+        - $ref: '#/components/parameters/start_date_required'
+        - $ref: '#/components/parameters/start_time_required'
+        - $ref: '#/components/parameters/max_stops'
       responses:
         '200':
           description: OK
@@ -464,36 +725,49 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/NextStops'
+              examples:
+                basic:
+                  summary: Secuencia de próximas paradas para un viaje
+                  value:
+                    trip_id: JFH367
+                    start_date: '20240731'
+                    start_time: '07:15:00'
+                    stop_status: IN_TRANSIT_TO
+                    occupancy_status: MANY_SEATS_AVAILABLE
+                    next_stop_sequence:
+                      - stop_sequence: 15
+                        stop_id: bUCR-0-03
+                        stop_name: Facultad de Ingeniería
+                        stop_lat: 9.937
+                        stop_lon: -84.051
+                        arrival: '2024-07-31T07:15:00-06:00'
+                        departure: '2024-07-31T07:16:00-06:00'
         '400':
-          description: Bad Request - Es necesario especificar todos los parámetros de la solicitud, trip_id, start_date y start_time.
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+
   /vehicle-positions:
     get:
       summary: Posiciones de los vehículos
+      operationId: listVehiclePositions
       description: Datos sobre las posiciones de los vehículos, como la ubicación, la velocidad y la dirección.
       tags:
         - Realtime
-      parameters: 
-        - in: query
-          name: vehicle_vehicle_id
-          schema:
-            type: string
-          description: 'Búsqueda de posiciones de vehículos por identificador.'
-        - in: query
-          name: vehicle_trip_route_id
-          schema:
-            type: string
-          description: 'Búsqueda de posiciones de vehículos por ruta.'
-        - in: query
-          name: vehicle_trip_trip_id
-          schema:
-            type: string
-          description: 'Búsqueda de posiciones de vehículos por viaje.'
-        - in: query
-          name: vehicle_trip_schedule_relationship
-          schema:
-            type: string
-            enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
-          description: 'Búsqueda de posiciones de vehículos por relación con el horario.'
+      parameters:
+        - $ref: '#/components/parameters/vehicle_vehicle_id'
+        - $ref: '#/components/parameters/vehicle_trip_route_id'
+        - $ref: '#/components/parameters/vehicle_trip_trip_id'
+        - $ref: '#/components/parameters/vehicle_trip_schedule_relationship'
+        - $ref: '#/components/parameters/updated_since'
       responses:
         '200':
           description: OK
@@ -503,33 +777,44 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/VehiclePositions'
+              examples:
+                basic:
+                  summary: Lista de posiciones de vehículos
+                  value:
+                    - vehicle:
+                        id: MEYS-8236
+                        label: MEYS-8236
+                        wheelchair_accessible: WHEELCHAIR_ACCESSIBLE
+                      schedule:
+                        current_stop_sequence: 15
+                        stop_id: bUCR-0-03
+                        current_status: IN_TRANSIT_TO
+                      timestamp: '2024-07-31T07:12:25-06:00'
+                      ttl_seconds: 300
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /trip-updates:
     get:
       summary: Actualizaciones de los viajes
+      operationId: listTripUpdates
       description: Obtiene las horas de llegada y salida de las paradas en tiempo real.
       tags:
         - Realtime
-      parameters: 
-        - in: query
-          name: trip_trip_id
-          schema:
-            type: string
-          description: 'Búsqueda de actualizaciones de viajes por identificador.'
-        - in: query
-          name: trip_route_id
-          schema:
-            type: string
-          description: 'Búsqueda de actualizaciones de viajes por ruta.'
-        - in: query
-          name: trip_start_time
-          schema:
-            type: string
-          description: 'Búsqueda de actualizaciones de viajes por hora de salida.'
-        - in: query
-          name: vehicle_id
-          schema:
-            type: string
-          description: 'Búsqueda de actualizaciones de viajes por identificador de vehículo.'
+      parameters:
+        - $ref: '#/components/parameters/trip_trip_id'
+        - $ref: '#/components/parameters/trip_route_id'
+        - $ref: '#/components/parameters/trip_start_time'
+        - $ref: '#/components/parameters/vehicle_id'
       responses:
         '200':
           description: OK
@@ -539,38 +824,52 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/TripUpdates'
+              examples:
+                basic:
+                  summary: Actualizaciones de un viaje
+                  value:
+                    - trip_id: JFH367
+                      route_id: bUCR-L1
+                      vehicle_id: VEH-123
+                      timestamp: '2024-07-31T07:12:25-06:00'
+                      ttl_seconds: 300
+                      source: GTFS-RT
+                      stop_time_update:
+                        - stop_id: bUCR-0-03
+                          stop_sequence: 15
+                          arrival:
+                            time: '2024-07-31T07:15:00-06:00'
+                            delay: 120
+                          departure:
+                            time: '2024-07-31T07:16:00-06:00'
+                            delay: 120
+                          schedule_relationship: SCHEDULED
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /service-alerts:
     get:
       summary: Alertas del servicio
+      operationId: listServiceAlerts
       description: Obtiene alertas que modifican el servicio en tiempo real.
       tags:
         - Realtime
       parameters:
-        - in: query
-          name: alert_id
-          schema:
-            type: string
-          description: 'Búsqueda de alertas por identificador de servicio.'
-        - in: query
-          name: route_id
-          schema:
-            type: string
-          description: 'Búsqueda de alertas por ruta.'
-        - in: query
-          name: trip_id
-          schema:
-            type: string
-          description: 'Búsqueda de alertas por viaje.'
-        - in: query
-          name: service_start_time
-          schema:
-            type: string
-          description: 'Búsqueda de alertas por hora de inicio.'
-        - in: query
-          name: service_date
-          schema:
-            type: string
-          description: 'Búsqueda de alertas por fecha de inicio.'
+        - $ref: '#/components/parameters/alert_id'
+        - $ref: '#/components/parameters/route_id'
+        - $ref: '#/components/parameters/trip_id'
+        - $ref: '#/components/parameters/service_start_time'
+        - $ref: '#/components/parameters/service_date'
+        - $ref: '#/components/parameters/active'
       responses:
         '200':
           description: OK
@@ -580,9 +879,40 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/ServiceAlerts'
+              examples:
+                basic:
+                  summary: Alertas activas del servicio
+                  value:
+                    - alert_id: bUCR-001
+                      header_text: Cierre de vías
+                      description_text: Cierre de vías en la Ciudad de la Investigación
+                      url: 'https://bucr.digital/alertas/bUCR-001'
+                      effect: DETOUR
+                      cause: MAINTENANCE
+                      severity: MINOR
+                      lifecycle: ONGOING
+                      active_period:
+                        - start: '2024-07-31T08:00:00-06:00'
+                          end: '2024-07-31T18:00:00-06:00'
+                      informed_entity:
+                        - route_id: bUCR-L1
+                          stop_id: bUCR-0-03
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /weather:
     get:
       summary: Datos meteorológicos
+      operationId: listWeather
       description: Obtiene datos meteorológicos en tiempo real
       tags:
         - External
@@ -606,9 +936,34 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Weather'
+              examples:
+                basic:
+                  summary: Lectura meteorológica
+                  value:
+                    - location: 'San José, Costa Rica'
+                      timestamp: '2024-07-31T12:00:00-06:00'
+                      temperature: 25.5
+                      humidity: 0.75
+                      pressure: 1013.25
+                      wind_speed: 12.5
+                      wind_direction: 135
+                      precipitation: 0.0
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /social:
     get:
       summary: Redes sociales
+      operationId: listSocial
       description: Obtiene datos de las redes sociales de la agencia operadora del servicio y de las personas usuarias.
       tags:
         - External
@@ -637,9 +992,31 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Social'
+              examples:
+                basic:
+                  summary: Publicaciones y menciones
+                  value:
+                    - platform: facebook
+                      url: 'https://facebook.com/post/123'
+                      timestamp: '2024-07-31T10:00:00-06:00'
+                      content: 'Actualización del servicio de buses'
+                      source: 'API de Facebook'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /user-reports:
     get:
       summary: Reportes de personas usuarias
+      operationId: listUserReports
       description: Obtiene reportes de personas usuarias sobre el servicio.
       tags:
         - External
@@ -652,17 +1029,90 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/UserReports'
+              examples:
+                basic:
+                  summary: Reportes públicos anonimizados
+                  value:
+                    - report_id: REP-12345
+                      user_id: null
+                      user_name: null
+                      user_email: null
+                      report_type: incidencia
+                      location:
+                        stop_id: bUCR-0-03
+                      description: Bus retrasado
+                      user_evidence:
+                        - type: link
+                          url: 'https://example.com/evidence/REP-12345'
+                      timestamp: '2024-07-31T14:00:00-06:00'
+                      status: pending
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
     post:
       summary: Reportes de personas usuarias
+      operationId: createUserReport
       description: Publica reportes de personas usuarias sobre el servicio.
       tags:
         - External
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        description: Reporte de persona usuaria. No debe incluir información personal sensible; el campo `user_evidence` puede incluir archivos adjuntos.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserReportCreate'
+            examples:
+              basic:
+                summary: Crear reporte con stop_id
+                value:
+                  report_type: incidencia
+                  location:
+                    stop_id: bUCR-0-03
+                  description: Bus retrasado
+                  user_evidence:
+                    - type: link
+                      url: 'https://example.com/evidence/REP-12345'
       responses:
-        '200':
-          description: OK
+        '201':
+          description: Reporte creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserReportCreated'
+              examples:
+                created:
+                  summary: Respuesta de creación
+                  value:
+                    report_id: REP-12345
+                    status: created
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /user-data:
     get:
       summary: Datos de personas usuarias
+      operationId: listUserData
       description: Obtiene datos de personas usuarias del servicio.
       tags:
         - External
@@ -675,26 +1125,83 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/UserData'
+              examples:
+                basic:
+                  summary: Datos anonimizados de personas usuarias
+                  value:
+                    - user_id: '123456'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
     post:
       summary: Datos de personas usuarias
-      description: Publica datos de personas usuarias del servicio.
+      operationId: createUserData
+      description: Publica datos de personas usuarias del servicio. Evitar PII en texto libre; si se incluye correo/nombre debe ser con consentimiento explícito.
       tags:
         - External
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        description: Datos de persona usuaria.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserData'
+            examples:
+              minimal:
+                summary: Crear/actualizar dato mínimo (sin PII)
+                value:
+                  user_id: '123456'
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserData'
+              examples:
+                ok:
+                  summary: Respuesta OK
+                  value:
+                    user_id: '123456'
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserData'
+              examples:
+                created:
+                  summary: Respuesta creada
+                  value:
+                    user_id: '123456'
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /wide-alerts:
     get:
       summary: Alertas generales
+      operationId: listWideAlerts
       description: Obtiene alertas generales a nivel de país que pueden afectar el servicio o que son información pública relevante.
-      tags:
-        - External
-      responses:
-        '200':
-          description: OK
-    post:
-      summary: Alertas generales
-      description: Publica alertas generales del servicio
       tags:
         - External
       responses:
@@ -706,9 +1213,94 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/WideAlerts'
+              examples:
+                basic:
+                  summary: Lista de alertas generales
+                  value:
+                    - alert_id: bUCR-001
+                      alert_header: Cierre de vías
+                      alert_description: Cierre de vías en la Ciudad de la Investigación
+                      alert_url: 'https://bucr.digital/alertas/bUCR-001'
+                      timestamp: '2024-07-31T08:00:00-06:00'
+                      source: Ministerio de Seguridad Pública
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
+    post:
+      summary: Alertas generales
+      operationId: createWideAlert
+      description: Publica alertas generales del servicio
+      tags:
+        - External
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        description: Alerta general.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WideAlerts'
+            examples:
+              basic:
+                summary: Crear alerta general
+                value:
+                  alert_id: bUCR-001
+                  alert_header: Cierre de vías
+                  alert_description: Cierre de vías en la Ciudad de la Investigación
+                  alert_url: 'https://bucr.digital/alertas/bUCR-001'
+                  timestamp: '2024-07-31T08:00:00-06:00'
+                  source: Ministerio de Seguridad Pública
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/WideAlerts'
+        '201':
+          description: Creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WideAlerts'
+              examples:
+                created:
+                  summary: Alerta creada
+                  value:
+                    alert_id: bUCR-001
+                    alert_header: Cierre de vías
+                    alert_description: Cierre de vías en la Ciudad de la Investigación
+                    alert_url: 'https://bucr.digital/alertas/bUCR-001'
+                    timestamp: '2024-07-31T08:00:00-06:00'
+                    source: Ministerio de Seguridad Pública
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
   /info-service:
     get:
       summary: Servicios de información
+      operationId: listInfoServices
       description: Servicio que provee información general, como horarios, rutas, paradas y alertas en distintos medios como aplicaciones, pantallas, sitios web, etc.
       parameters:
         - in: query
@@ -722,6 +1314,9 @@ paths:
           schema:
             type: string
           description: 'Búsqueda por nombre de servicios de información.'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - $ref: '#/components/parameters/ordering'
       tags:
         - External
       responses:
@@ -730,13 +1325,434 @@ paths:
           content:
             application/json:
               schema:
+                type: array
                 items:
                   $ref: '#/components/schemas/InfoService'
+              examples:
+                basic:
+                  summary: Servicios de información
+                  value:
+                    - name: Infobús Pantallas
+                      description: Servicio de pantallas informativas en la Universidad de Costa Rica
+                      type: screens
+                      provider: Infobús S.A.
+                      url: 'https://infobus.ucr.ac.cr'
+                      active: true
+        '400':
+          $ref: '#/components/responses/Error400'
+        '401':
+          $ref: '#/components/responses/Error401'
+        '403':
+          $ref: '#/components/responses/Error403'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '429':
+          $ref: '#/components/responses/Error429'
+        '500':
+          $ref: '#/components/responses/Error500'
 
 components:
+
+# The SecuritySchemes are specifically applied to endpoints like /user-reports POST to enforce authentication.
+# - ApiKeyAuth is required for the POST operation to create user reports, ensuring only authorized clients (e.g., trusted apps or services)
+#   can submit reports. This prevents abuse, spam, or malicious submissions by requiring a valid API key in the X-API-Key header.
+# - Without authentication, the endpoint could be vulnerable to anonymous reports, potentially leading to data quality issues or security risks.
+# - BearerAuth is not used here as the focus is on simple key-based auth for writes; reads (GET) remain public but could optionally use Bearer for advanced access.
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: 'Usar para operaciones de publicación/escritura. Mantener la clave restringida.'
+    BearerAuth:
+      type: http
+      scheme: bearer
+
+  responses:
+    Error400:
+      description: Solicitud inválida
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            badRequest:
+              summary: Validación fallida
+              value:
+                code: 400
+                message: 'Solicitud inválida'
+    Error401:
+      description: No autorizado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            unauthorized:
+              summary: Falta o inválida la API key
+              value:
+                code: 401
+                message: 'No autorizado'
+    Error403:
+      description: Prohibido
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            forbidden:
+              summary: Acceso denegado
+              value:
+                code: 403
+                message: 'Prohibido'
+    Error404:
+      description: No encontrado
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            notFound:
+              summary: Recurso no existe
+              value:
+                code: 404
+                message: 'No encontrado'
+    Error429:
+      description: Demasiadas solicitudes (rate limit)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            rateLimit:
+              summary: Límite excedido
+              value:
+                code: 429
+                message: 'Demasiadas solicitudes'
+    Error500:
+      description: Error interno
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            internal:
+              summary: Error inesperado
+              value:
+                code: 500
+                message: 'Error interno'
+
+  parameters:
+    limit:
+      in: query
+      name: limit
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 1000
+        default: 100
+      description: 'Paginación: número máximo de resultados a retornar.'
+    offset:
+      in: query
+      name: offset
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+      description: 'Paginación: cantidad de resultados a omitir desde el inicio.'
+    ordering:
+      in: query
+      name: ordering
+      required: false
+      schema:
+        type: string
+        example: 'stop_id'
+      description: "Ordenamiento: nombre de campo. Prefijo '-' para descendente (ej: -timestamp)."
+
+    route_id:
+      in: query
+      name: route_id
+      required: false
+      schema:
+        type: string
+        example: 'bUCR-L1'
+      description: 'Filtro por identificador de ruta.'
+    trip_id:
+      in: query
+      name: trip_id
+      required: false
+      schema:
+        type: string
+        example: 'JFH367'
+      description: 'Filtro por identificador de viaje.'
+    stop_id:
+      in: query
+      name: stop_id
+      required: false
+      schema:
+        type: string
+        example: 'bUCR-0-03'
+      description: 'Filtro por identificador de parada.'
+    shape_id:
+      in: query
+      name: shape_id
+      required: false
+      schema:
+        type: string
+        example: 'desde_educacion'
+      description: 'Filtro por identificador de trayectoria (shape_id).'
+    service_id:
+      in: query
+      name: service_id
+      required: false
+      schema:
+        type: string
+        example: 'entresemana'
+      description: 'Filtro por identificador de servicio (calendario).'
+
+    trip_id_required:
+      in: query
+      name: trip_id
+      required: true
+      schema:
+        type: string
+        example: 'JFH367'
+      description: 'Identificador del viaje.'
+    stop_id_required:
+      in: query
+      name: stop_id
+      required: true
+      schema:
+        type: string
+        example: 'bUCR-0-03'
+      description: 'Identificador de la parada. Acepta múltiples stop_id separados por coma.'
+
+    start_date_required:
+      in: query
+      name: start_date
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9]{8}$'
+        example: '20240731'
+      description: 'Fecha GTFS/GTFS-RT (YYYYMMDD).'
+    start_time_required:
+      in: query
+      name: start_time
+      required: true
+      schema:
+        type: string
+        pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
+        example: '16:12:25'
+      description: 'Hora GTFS/GTFS-RT (HH:MM:SS). Puede exceder 24 horas.'
+
+    timestamp:
+      in: query
+      name: timestamp
+      required: false
+      schema:
+        type: string
+        format: date-time
+        example: '2024-07-31T16:12:25-06:00'
+      description: 'Fecha y hora de referencia en ISO 8601; por defecto se toma el momento actual.'
+    max_trips:
+      in: query
+      name: max_trips
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 5
+        example: 5
+      description: 'Número máximo de próximos viajes a retornar por parada.'
+    max_stops:
+      in: query
+      name: max_stops
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+        example: 20
+      description: 'Límite de paradas a retornar.'
+    include_delays:
+      in: query
+      name: include_delays
+      required: false
+      schema:
+        type: boolean
+        default: true
+        example: true
+      description: 'Incluir campos de delay/eta.'
+
+    location_type:
+      in: query
+      name: location_type
+      required: false
+      schema:
+        type: integer
+        enum: [0, 1]
+      description: 'Tipo de parada: 0 parada/plataforma; 1 estación.'
+    wheelchair_boarding:
+      in: query
+      name: wheelchair_boarding
+      required: false
+      schema:
+        type: integer
+        enum: [0, 1, 2]
+      description: 'Accesibilidad: 0 desconocido; 1 accesible; 2 no accesible.'
+    located_within:
+      in: query
+      name: located_within
+      required: false
+      schema:
+        type: string
+        format: wkt
+        pattern: '^[A-Za-z]+\s*\(.*\)$'
+        example: 'POLYGON ((-85 9, -85 11, -83 11, -83 9, -85 9))'
+      description: 'Filtro espacial: geometría WKT (ej. POLYGON (...)).'
+    close_to:
+      in: query
+      name: close_to
+      required: false
+      schema:
+        type: string
+        format: wkt
+        pattern: '^[A-Za-z]+\s*\(.*\)$'
+        example: 'POINT (-84 9)'
+      description: 'Filtro espacial: punto WKT (ej. POINT (...)).'
+    distance:
+      in: query
+      name: distance
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        default: 800
+        example: 400
+      description: 'Distancia en metros para la búsqueda cercana (usada con close_to).'
+
+    vehicle_vehicle_id:
+      in: query
+      name: vehicle_vehicle_id
+      required: false
+      schema:
+        type: string
+        example: 'VEH-123'
+      description: 'Filtro: id de vehículo.'
+    vehicle_trip_route_id:
+      in: query
+      name: vehicle_trip_route_id
+      required: false
+      schema:
+        type: string
+        example: 'bUCR-L1'
+      description: 'Filtro: id de ruta.'
+    vehicle_trip_trip_id:
+      in: query
+      name: vehicle_trip_trip_id
+      required: false
+      schema:
+        type: string
+        example: 'JFH367'
+      description: 'Filtro: id de viaje.'
+    vehicle_trip_schedule_relationship:
+      in: query
+      name: vehicle_trip_schedule_relationship
+      required: false
+      schema:
+        type: string
+        enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
+      description: 'Filtro: relación con el horario.'
+    updated_since:
+      in: query
+      name: updated_since
+      required: false
+      schema:
+        type: string
+        format: date-time
+        example: '2024-07-31T16:00:00-06:00'
+      description: 'Filtro: registros con `last_update` posterior (ISO 8601).'
+
+    trip_trip_id:
+      in: query
+      name: trip_trip_id
+      required: false
+      schema:
+        type: string
+        example: 'JFH367'
+      description: 'Filtro: id de viaje.'
+    trip_route_id:
+      in: query
+      name: trip_route_id
+      required: false
+      schema:
+        type: string
+        example: 'bUCR-L1'
+      description: 'Filtro: id de ruta.'
+    trip_start_time:
+      in: query
+      name: trip_start_time
+      required: false
+      schema:
+        type: string
+        pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
+        example: '16:12:25'
+      description: 'Filtro: hora inicio (HH:MM:SS; puede exceder 24h).'
+    vehicle_id:
+      in: query
+      name: vehicle_id
+      required: false
+      schema:
+        type: string
+        example: 'VEH-123'
+      description: 'Filtro: id de vehículo.'
+
+    alert_id:
+      in: query
+      name: alert_id
+      required: false
+      schema:
+        type: string
+        example: 'bUCR-001'
+      description: 'Filtro: id de alerta.'
+    service_start_time:
+      in: query
+      name: service_start_time
+      required: false
+      schema:
+        type: string
+        pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
+        example: '07:15:00'
+      description: 'Filtro: hora (HH:MM:SS; puede exceder 24h).'
+    service_date:
+      in: query
+      name: service_date
+      required: false
+      schema:
+        type: string
+        pattern: '^[0-9]{8}$'
+        example: '20240731'
+      description: 'Filtro: fecha (YYYYMMDD).'
+    active:
+      in: query
+      name: active
+      required: false
+      schema:
+        type: boolean
+        example: true
+      description: 'Filtro: sólo alertas activas si true.'
+
   schemas:
     GTFSProvider:
       type: object
+      additionalProperties: false
+      required: [code, name, schedule_url]
       properties:
         code:
           description: Identificador del proveedor de datos
@@ -747,7 +1763,7 @@ components:
           type: string
           example: 'Massachusetts Bay Transportation Authority'
         description:
-          description: Descrippción del proveedor de datos
+          description: Descripcción del proveedor de datos
           type: string
           example: 'La agencia de transporte público de Boston.'
         website:
@@ -780,6 +1796,8 @@ components:
           example: true
     Agency:
       type: object
+      additionalProperties: false
+      required: [agency_id, agency_name, agency_url]
       properties:
         agency_id:
           description: Identificador de la agencia según GTFS Schedule
@@ -815,6 +1833,8 @@ components:
           example: 'bus@ucr.ac.cr'
     Stops:
       type: object
+      additionalProperties: false
+      required: [stop_id, stop_name, stop_lat, stop_lon]
       properties:
         stop_id:
           description: Identificador único de la parada
@@ -854,6 +1874,8 @@ components:
           example: 1
     Shapes:
       type: object
+      additionalProperties: false
+      required: [shape_id, shape_pt_lat, shape_pt_lon, shape_pt_sequence]
       properties:
         shape_id:
           description: Identificador de la trayectoria
@@ -880,6 +1902,8 @@ components:
           example: 0.5
     Calendar:
       type: object
+      additionalProperties: false
+      required: [service_id, monday, tuesday, wednesday, thursday, friday, saturday, sunday, start_date, end_date]
       properties:
         service_id:
           description: Identificador del servicio
@@ -923,13 +1947,17 @@ components:
         start_date:
           description: Fecha de inicio de operación
           type: string
-          example: '2024-05-03'
+          pattern: '^[0-9]{8}$'
+          example: '20240503'
         end_date:
           description: Fecha de fin de operación
           type: string
-          example: '2024-12-31'
+          pattern: '^[0-9]{8}$'
+          example: '20241231'
     CalendarDates:
       type: object
+      additionalProperties: false
+      required: [service_id, date, exception_type]
       properties:
         service_id:
           description: Identificador del servicio
@@ -938,7 +1966,8 @@ components:
         date:
           description: Fecha de excepción
           type: string
-          example: '2024-08-15'
+          pattern: '^[0-9]{8}$'
+          example: '20240815'
         exception_type:
           description: Tipo de excepción
           type: integer
@@ -950,6 +1979,8 @@ components:
           example: 'Día de la Madre'
     Routes:
       type: object
+      additionalProperties: false
+      required: [route_id, route_type]
       properties:
         route_id:
           description: Identificador de la ruta
@@ -978,6 +2009,8 @@ components:
           example: 'https://bucr.digital/rutas/L1'
     Trips:
       type: object
+      additionalProperties: false
+      required: [trip_id, route_id, start_time, start_date]
       properties:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
@@ -991,36 +2024,42 @@ components:
           description: Identificador de la dirección del viaje según GTFS Schedule
           type: integer
           example: 0
-      #  start_time:
-      #    description: Hora de inicio del viaje
-      #    type: string
-      #    example: '07:15:00'
-      #  start_date:
-      #    description: Fecha de inicio del viaje
-      #    type: string
-      #    example: '2024-05-03'
-      #  schedule_relationship:
-      #    description: Relación con el horario
-      #    type: string
-      #    enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
+        start_time:
+          type: string
+          description: Hora de inicio del viaje (GTFS/GTFS-RT). Puede exceder 24 horas.
+          pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
+          example: '07:15:00'
+        start_date:
+          type: string
+          description: Fecha de inicio del viaje (GTFS/GTFS-RT)
+          pattern: '^[0-9]{8}$'
+          example: '20240503'
+        schedule_relationship:
+          description: Relación con el horario
+          type: string
+          enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
         trip_headsign:
           description: Letrero del viaje
           type: string
           example: 'Facultad de Ingeniería'
     StopTimes:
       type: object
+      additionalProperties: false
+      required: [trip_id, arrival_time, departure_time, stop_id, stop_sequence]
       properties:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
           example: 'JFH367'
         arrival_time:
-          description: Hora de llegada a la parada
           type: string
+          description: Hora de llegada a la parada (GTFS). Puede exceder 24 horas.
+          pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
           example: '07:15:00'
         departure_time:
-          description: Hora de salida de la parada
           type: string
+          description: Hora de salida de la parada (GTFS). Puede exceder 24 horas.
+          pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
           example: '07:15:00'
         stop_id:
           description: Identificador de la parada según GTFS Schedule
@@ -1051,6 +2090,8 @@ components:
           example: 0.5
     Frequencies:
       type: object
+      additionalProperties: false
+      required: [trip_id, start_time, end_time, headway_secs]
       properties:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
@@ -1059,10 +2100,12 @@ components:
         start_time:
           description: Hora de inicio de la frecuencia
           type: string
+          pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
           example: '07:15:00'
         end_time:
           description: Hora de fin de la frecuencia
           type: string
+          pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
           example: '07:15:00'
         headway_secs:
           description: Intervalo de tiempo entre viajes
@@ -1070,6 +2113,8 @@ components:
           example: 600
     FeedInfo:
       type: object
+      additionalProperties: false
+      required: [feed_publisher_name, feed_publisher_url, feed_lang]
       properties:
         feed_publisher_name:
           description: Nombre del proveedor de datos
@@ -1086,17 +2131,21 @@ components:
         feed_start_date:
           description: Fecha de inicio del feed
           type: string
-          example: '2024-05-03'
+          pattern: '^[0-9]{8}$'
+          example: '20240503'
         feed_end_date:
           description: Fecha de fin del feed
           type: string
-          example: '2024-12-31'
+          pattern: '^[0-9]{8}$'
+          example: '20241231'
         feed_version:
           description: Versión del feed
           type: string
           example: '1.0.0'
     RouteStops:
       type: object
+      additionalProperties: false
+      required: [route_id, stop_sequence, stop_id]
       properties:
         route_id:
           description: Identificador de la ruta
@@ -1140,6 +2189,7 @@ components:
           example: 1
     GeoShapes:
       type: object
+      additionalProperties: false
       required:
         - type
         - geometry
@@ -1164,7 +2214,7 @@ components:
                 items:
                   type: number
                   format: float
-                minItems: 2  
+                minItems: 2
                 maxItems: 3
               minItems: 2
               example: [[-84.051, 9.937], [-84.052, 9.938]]
@@ -1181,25 +2231,32 @@ components:
               example: false
     TripTimes:
       type: object
+      additionalProperties: false
+      required: [trip_id, start_time, end_time, duration]
       properties:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
           example: 'JFH367'
         start_time:
-          description: Hora de inicio del viaje
+          description: Hora de inicio del viaje (GTFS). Puede exceder 24 horas.
           type: string
+          pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
           example: '07:15:00'
         end_time:
-          description: Hora de fin del viaje
+          description: Hora de fin del viaje (GTFS). Puede exceder 24 horas.
           type: string
+          pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
           example: '07:15:00'
         duration:
           description: Duración del viaje
           type: integer
           example: 3600
+
     NextTrips:
       type: object
+      additionalProperties: false
+      required: [stop_id, timestamp, next_arrivals]
       properties:
         stop_id:
           description: Identificador de la parada según GTFS Schedule
@@ -1208,11 +2265,24 @@ components:
         timestamp:
           description: Hora de referencia para buscar próximos viajes
           type: string
-          example: '2024-07-31T16:12:25-06:00'
+          format: date-time
+        feed_version:
+          type: string
+          description: Version del feed usada para generar predicciones
+        feed_timestamp:
+          type: string
+          format: date-time
+          description: Marca de tiempo del feed RT
+        feed_ttl_seconds:
+          type: integer
+          description: TTL en segundos que define frescura de datos RT
+          example: 300
         next_arrivals:
           type: array
           items:
             type: object
+            additionalProperties: false
+            required: [trip_id, route_id, source]
             properties:
               trip_id:
                 description: Identificador del viaje según GTFS Schedule
@@ -1234,19 +2304,57 @@ components:
                 description: Destino del viaje
                 type: string
                 example: 'Facultad de Ingeniería'
+              scheduled_time:
+                description: Hora programada
+                type: string
+                format: date-time
+                example: '2024-07-31T07:15:00-06:00'
               wheelchair_accessible:
                 description: Accesibilidad para sillas de ruedas
                 type: string
                 enum: ['NO_VALUE', 'UNKNOWN', 'WHEELCHAIR_ACCESSIBLE', 'WHEELCHAIR_INACCESSIBLE']
                 example: 'WHEELCHAIR_ACCESSIBLE'
+              predicted_time:
+                description: Hora predicha (si disponible)
+                type: string
+                format: date-time
+                nullable: true
+                example: '2024-07-31T07:18:00-06:00'
               arrival_time:
                 description: Hora de llegada a la parada
                 type: string
-                example: '07:15:00'
+                format: date-time
+                nullable: true
+                example: '2024-07-31T07:15:00-06:00'
+              eta_seconds:
+                type: integer
+                description: Segundos desde `timestamp` hasta `predicted_time` o `scheduled_time`
+                example: 180
+              eta_text:
+                type: string
+                description: Texto legible de ETA (ej. 10 min)
+                example: '3 min'
               departure_time:
                 description: Hora de salida de la parada
                 type: string
-                example: '07:15:00'
+                format: date-time
+                nullable: true
+                example: '2024-07-31T07:15:00-06:00'
+              vehicle_id:
+                type: string
+                example: 'VEH-123'
+              vehicle_label:
+                type: string
+                example: 'VEH-123'
+              source:
+                type: string
+                enum: ['SCHEDULE','GTFS-RT','EXTRAPOLATED']
+                example: 'GTFS-RT'
+              last_update:
+                description: Marca de tiempo de la última actualización de la predicción
+                type: string
+                format: date-time
+                example: '2024-07-31T07:10:00-06:00'
               in_progress:
                 description: Indica si el viaje está en progreso
                 type: boolean
@@ -1254,6 +2362,7 @@ components:
               progression:
                 description: Trayecto del viaje
                 type: object
+                additionalProperties: false
                 properties:
                   position_in_shape:
                     description: Porcentaje de progreso del viaje en la trayectoria
@@ -1269,31 +2378,62 @@ components:
                   current_status:
                     description: Estado actual del vehículo en relación con la parada
                     type: string
-                    enum: ['INCOMING_AT', 'STOPPED_AT', 'IN_TRANSIT_TO']
-                    example: 'STOPPED_AT'
-                  occupancy_status:
-                    description: Estado de ocupación del vehículo
-                    type: string
-                    enum: ['EMPTY', 'MANY_SEATS_AVAILABLE', 'FEW_SEATS_AVAILABLE', 'STANDING_ROOM_ONLY', 'CRUSHED_STANDING_ROOM_ONLY', 'FULL', 'NOT_ACCEPTING_PASSENGERS', 'NO_DATA_AVAILABLE', 'NOT_BOARDABLE']
+                    enum: ['INCOMING_AT','STOPPED_AT','IN_TRANSIT_TO']
+                    example: 'IN_TRANSIT_TO'
+              occupancy_status:
+                type: string
+                enum: ['EMPTY','MANY_SEATS_AVAILABLE','FEW_SEATS_AVAILABLE','STANDING_ROOM_ONLY','CRUSHED_STANDING_ROOM_ONLY','FULL','NOT_ACCEPTING_PASSENGERS','NO_DATA_AVAILABLE','NOT_BOARDABLE']
+                example: 'MANY_SEATS_AVAILABLE'
+              confidence:
+                type: number
+                format: float
+                description: Confianza calculada (0..1)
+                example: 0.85
+              distance_to_stop_m:
+                type: number
+                format: float
+                description: Distancia aproximada desde vehículo a la parada en metros (si disponible)
+                example: 500.0
+              notes:
+                type: array
+                items:
+                  type: string
+                description: Mensajes cortos opcionales sobre la predicción (p. ej. "detenido en semáforo")
+                example: ['Detenido en semáforo']
+
     NextStops:
       type: object
+      additionalProperties: false
+      required: [trip_id, start_date, start_time, next_stop_sequence]
       properties:
+        stop_status:
+          type: string
+          enum: [INCOMING_AT, STOPPED_AT, IN_TRANSIT_TO]
+          example: STOPPED_AT
+        occupancy_status:
+          type: string
+          description: Estado de ocupación del vehículo
+          enum: [EMPTY, MANY_SEATS_AVAILABLE, FEW_SEATS_AVAILABLE, STANDING_ROOM_ONLY, CRUSHED_STANDING_ROOM_ONLY, FULL, NOT_ACCEPTING_PASSENGERS, NO_DATA_AVAILABLE, NOT_BOARDABLE]
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
           example: 'JFH367'
         start_date:
-          description: Fecha de inicio del viaje
           type: string
-          example: '2024-07-31'
+          description: Fecha de inicio del viaje (GTFS/GTFS-RT)
+          pattern: '^[0-9]{8}$'
+          example: '20240731'
         start_time:
-          description: Hora de inicio del viaje
           type: string
+          description: Hora de inicio del viaje (GTFS/GTFS-RT). Puede exceder 24 horas.
+          pattern: '^[0-9]{1,2}:[0-9]{2}:[0-9]{2}$'
           example: '16:12:25'
         next_stop_sequence:
           type: array
           items:
             type: object
+            additionalProperties: false
+            required: [stop_sequence, stop_id]
             properties:
               stop_sequence:
                 description: Secuencia de la parada
@@ -1320,13 +2460,17 @@ components:
               arrival:
                 description: Día y hora de llegada a la parada en formato ISO 8601
                 type: string
+                format: date-time
                 example: '2024-07-31T16:12:25-06:00'
               departure:
                 description: Día y hora de salida de la parada en formato ISO 8601
                 type: string
+                format: date-time
                 example: '2024-07-31T16:12:25-06:00'
     VehiclePositions:
       type: object
+      additionalProperties: false
+      required: [vehicle, timestamp]
       properties:
         vehicle:
           $ref: '#/components/schemas/Vehicle'
@@ -1336,55 +2480,304 @@ components:
           $ref: '#/components/schemas/Loading'
         equipment:
           $ref: '#/components/schemas/Equipment'
+        timestamp:
+          type: string
+          format: date-time
+          description: Marca de tiempo de la posición
+          example: '2024-07-31T16:12:25-06:00'
+        ttl_seconds:
+          type: integer
+          description: TTL en segundos para la frescura de los datos
+          example: 300
+
     TripUpdates:
       type: object
+      additionalProperties: false
+      required: [trip_id, timestamp, source]
       properties:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
           example: 'JFH367'
+        route_id:
+          type: string
+          example: 'bUCR-L1'
+        vehicle_id:
+          type: string
+          example: 'VEH-123'
+        timestamp:
+          type: string
+          format: date-time
+          description: Marca de tiempo del feed/actualización
+          example: '2024-07-31T16:12:25-06:00'
+        ttl_seconds:
+          type: integer
+          description: TTL en segundos para la frescura de los datos
+          example: 300
         stop_time_update:
           type: array
           items:
             type: object
+            additionalProperties: false
             properties:
               stop_id:
                 description: Identificador de la parada según GTFS Schedule
                 type: string
                 example: 'bUCR-0-03'
+              stop_sequence:
+                type: integer
+                example: 15
               arrival:
+                type: object
+                additionalProperties: false
+                properties:
+                  time:
+                    type: string
+                    format: date-time
+                    example: '2024-07-31T16:12:25-06:00'
+                  delay:
+                    type: integer
+                    description: Segundos de retraso (+/-)
+                    example: 60
                 description: Hora de llegada a la parada
-                type: string
-                example: '07:15:00'
               departure:
+                type: object
+                additionalProperties: false
+                properties:
+                  time:
+                    type: string
+                    format: date-time
+                    example: '2024-07-31T16:12:25-06:00'
+                  delay:
+                    type: integer
+                    example: 60
                 description: Hora de salida de la parada
-                type: string
-                example: '07:15:00'
               schedule_relationship:
                 description: Relación con el horario
                 type: string
-                enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
+                enum: ['SCHEDULED','ADDED','UNSCHEDULED','CANCELED','DUPLICATED','DELETED']
+                example: 'SCHEDULED'
+        source:
+          type: string
+          enum: ['GTFS-RT']
+          example: 'GTFS-RT'
+        raw_proto_b64:
+          type: string
+          nullable: true
+          description: Base64 del mensaje protobuf original (opcional, acceso restringido)
+    VehiclePosition:
+      type: object
+      additionalProperties: false
+      required: [vehicle_id, timestamp, position]
+      properties:
+        vehicle_id:
+          type: string
+          example: 'VEH-123'
+        vehicle_label:
+          type: string
+          example: 'VEH-123'
+        timestamp:
+          type: string
+          format: date-time
+          example: '2024-07-31T16:12:25-06:00'
+        position:
+          type: object
+          additionalProperties: false
+          required: [latitude, longitude]
+          properties:
+            latitude:
+              type: number
+              format: float
+              example: 9.937
+            longitude:
+              type: number
+              format: float
+              example: -84.051
+            bearing:
+              type: number
+              format: float
+              example: 90.0
+            speed_mps:
+              type: number
+              format: float
+              example: 10.5
+        trip:
+          type: object
+          additionalProperties: false
+          properties:
+            trip_id:
+              type: string
+              example: 'JFH367'
+            route_id:
+              type: string
+              example: 'bUCR-L1'
+            schedule_relationship:
+              type: string
+              enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
+              example: 'SCHEDULED'
+        current_stop_id:
+          type: string
+          nullable: true
+          example: 'bUCR-0-03'
+        occupancy_status:
+          type: string
+          enum: ['EMPTY','MANY_SEATS_AVAILABLE','FEW_SEATS_AVAILABLE','STANDING_ROOM_ONLY','CRUSHED_STANDING_ROOM_ONLY','FULL','NOT_ACCEPTING_PASSENGERS','NO_DATA_AVAILABLE','NOT_BOARDABLE']
+          example: 'MANY_SEATS_AVAILABLE'
+        extrapolated:
+          type: boolean
+          example: false
+        odometer_m:
+          type: number
+          format: float
+          example: 15000.0
+        source:
+          type: string
+          enum: ['GTFS-RT','GPS','OTHER']
+          example: 'GTFS-RT'
+        last_update:
+          type: string
+          format: date-time
+          example: '2024-07-31T16:12:25-06:00'
+        ttl_seconds:
+          type: integer
+          description: TTL en segundos para la frescura de los datos
+          example: 300
+        raw_proto_b64:
+          type: string
+          nullable: true
+          example: 'base64string'
+
     ServiceAlerts:
       type: object
+      additionalProperties: false
+      required: [alert_id]
       properties:
         alert_id:
           description: Identificador de la alerta
           type: string
           example: 'bUCR-001'
+        header_text:
+          type: string
+          example: 'Cierre de vías'
         alert_header:
           description: Encabezado de la alerta
           type: string
           example: 'Cierre de vías'
+        description_text:
+          type: string
+          example: 'Cierre de vías en la Ciudad de la Investigación'
         alert_description:
           description: Descripción de la alerta
           type: string
           example: 'Cierre de vías en la Ciudad de la Investigación'
+        url:
+          type: string
+          example: 'https://bucr.digital/alertas/bUCR-001'
         alert_url:
           description: URL de la alerta
           type: string
+          nullable: true
           example: 'https://bucr.digital/alertas/bUCR-001'
+        active_period:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              start:
+                type: string
+                format: date-time
+                nullable: true
+                example: '2024-07-31T08:00:00-06:00'
+              end:
+                type: string
+                format: date-time
+                nullable: true
+                example: '2024-07-31T18:00:00-06:00'
+        informed_entity:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            properties:
+              agency_id:
+                type: string
+                nullable: true
+                example: 'bUCR'
+              route_id:
+                type: string
+                nullable: true
+                example: 'bUCR-L1'
+              trip_id:
+                type: string
+                nullable: true
+                example: 'JFH367'
+              stop_id:
+                type: string
+                nullable: true
+                example: 'bUCR-0-03'
+        effect:
+          type: string
+          enum: ['NO_SERVICE','REDUCED_SERVICE','DETOUR','ADDED_SERVICE','MODIFIED_SERVICE','OTHER_EFFECT']
+          example: 'DETOUR'
+        cause:
+          type: string
+          enum: ['UNKNOWN','ACCIDENT','WEATHER','MAINTENANCE','STRIKE','EMERGENCY','OTHER_CAUSE']
+          example: 'MAINTENANCE'
+        severity:
+          type: string
+          enum: ['INFO','MINOR','MAJOR','CRITICAL']
+          example: 'MINOR'
+        lifecycle:
+          type: string
+          enum: ['NEW','ONGOING','UPDATE','RESOLVED','CANCELED']
+          example: 'ONGOING'
+        created_at:
+          type: string
+          format: date-time
+          example: '2024-07-31T07:00:00-06:00'
+        updated_at:
+          type: string
+          format: date-time
+          example: '2024-07-31T07:30:00-06:00'
+        translations:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: false
+            properties:
+              header:
+                type: string
+                example: 'Road Closure'
+              description:
+                type: string
+                example: 'Road closure in Ciudad de la Investigación'
+        related_alerts:
+          type: array
+          items:
+            type: string
+          example: ['bUCR-002']
+        geometry:
+          type: object
+          nullable: true
+          description: GeoJSON (Feature) opcional que delimita zona afectada
+          example: '{"type": "Feature", "geometry": {"type": "Point", "coordinates": [-84.051, 9.937]}}'
+        source:
+          type: string
+          description: 'Identificador del feed origen (ej: provider code)'
+          example: 'bUCR'
+        raw_proto_b64:
+          type: string
+          nullable: true
+          example: 'base64string'
+        ttl_seconds:
+          type: integer
+          description: TTL en segundos para la frescura de los datos
+          example: 3600
     Vehicle:
       type: object
+      additionalProperties: false
+      required: [id]
       properties:
         id:
           description: Identificador del vehículo
@@ -1405,6 +2798,7 @@ components:
           example: 'WHEELCHAIR_ACCESSIBLE'
     Schedule:
       type: object
+      additionalProperties: false
       properties:
         current_stop_sequence:
           description: Secuencia de la parada
@@ -1426,6 +2820,7 @@ components:
           example: 'SEVERE_CONGESTION'
     Loading:
       type: object
+      additionalProperties: false
       properties:
         occupancy_status:
           description: Estado de la ocupación de la parada
@@ -1438,6 +2833,7 @@ components:
           example: 95
     Equipment:
       type: object
+      additionalProperties: false
       properties:
         serial_number:
           description: Número de serie del equipo
@@ -1461,7 +2857,18 @@ components:
           example: 'bUCR'
     Weather:
       type: object
+      additionalProperties: false
+      required: [location, timestamp]
       properties:
+        location:
+          description: Ubicación de los datos meteorológicos
+          type: string
+          example: 'San José, Costa Rica'
+        timestamp:
+          description: Marca de tiempo de los datos
+          type: string
+          format: date-time
+          example: '2024-07-31T12:00:00-06:00'
         temperature:
           description: Temperatura del ambiente
           type: number
@@ -1492,67 +2899,234 @@ components:
           type: number
           format: float
           example: 0.5
-        #rainfall:
-        #  description: Descripción de intensidad de lluvia
-        #  type: number
-        #  enum: ['NO_RAIN', 'DRIZZLE', 'LIGHT_RAIN', 'HEAVY_RAIN']
-        #  example: 'DRIZZLE'
-        visibility:
-          description: Visibilidad
-          type: number
-          format: float
-          example: 10
+        weather_condition:
+          type: string
+          description: Condición meteorológica general normalizada
+          enum: [DESPEJADO, PARCIALMENTE_NUBLADO, NUBLADO, CUBIERTO, LLOVIZNA, LLUVIA_LIGERA, LLUVIA_FUERTE, TORMENTA_ELECTRICA, NIEBLA, CALINA, VENTOSO]
+          example: PARCIALMENTE_NUBLADO
+        WeatherCondition:
+          type: string
+          deprecated: true
+          description: (Deprecated) Usar `weather_condition`.
+          enum: [DESPEJADO, PARCIALMENTE_NUBLADO, NUBLADO, CUBIERTO, LLOVIZNA, LLUVIA_LIGERA, LLUVIA_FUERTE, TORMENTA_ELECTRICA, NIEBLA, CALINA, VENTOSO]
+          example: PARCIALMENTE_NUBLADO
+        source:
+          type: string
+          description: Fuente de los datos
+          nullable: true
+          example: 'Instituto Meteorológico Nacional'
+        visibility_level:
+          type: string
+          enum: [MUY_BAJA, BAJA, MODERADA, ALTA, MUY_ALTA]
+          description: Clasificación cualitativa de la visibilidad
+          example: ALTA
     Social:
       type: object
+      additionalProperties: false
+      required: [platform, url, timestamp]
       properties:
-        facebook:
-          description: URL de la página de Facebook
+        platform:
+          description: Plataforma social
+          type: string
+          example: 'Facebook'
+        handle:
+          description: Nombre de usuario o página
+          type: string
+          example: 'bUCR'
+        url:
+          description: URL de la página
           type: string
           example: 'https://www.facebook.com/bUCR'
-        twitter:
-          description: URL de la cuenta de Twitter
+        location:
+          description: Ubicación asociada
           type: string
-          example: 'https://twitter.com/bUCR'
-        instagram:
-          description: URL de la cuenta de Instagram
+          example: 'San José, Costa Rica'
+        timestamp:
+          description: Marca de tiempo del post o actualización
           type: string
-          example: 'https://www.instagram.com/bUCR'
-        youtube:
-          description: URL del canal de YouTube
+          format: date-time
+          example: '2024-07-31T10:00:00-06:00'
+        content:
+          description: Contenido del post
           type: string
-          example: 'https://www.youtube.com/bUCR'
+          example: 'Actualización del servicio de buses'
+        engagement:
+          description: Métricas de engagement
+          type: object
+          properties:
+            likes:
+              type: integer
+              example: 150
+            shares:
+              type: integer
+              example: 20
+            comments:
+              type: integer
+              example: 5
+        source:
+          description: Fuente de los datos
+          type: string
+          nullable: true
+          example: 'API de Facebook'
+
     UserReports:
       type: object
+      additionalProperties: false
       properties:
+        report_id:
+          description: Identificador único del reporte
+          type: string
+          readOnly: true
+          example: 'REP-12345'
         user_id:
-          description: Identificador de la persona usuaria
+          description: Identificador de la persona usuaria (anónimo si no proporcionado)
           type: string
-          example: '123456'
+          nullable: true
+          example: null
         user_name:
-          description: Nombre de la persona usuaria
+          description: Nombre de la persona usuaria (anónimo si no proporcionado). No debe recolectarse/exponerse; mantener anonimizado.
           type: string
-          example: 'Juan Pérez'
+          nullable: true
+          deprecated: true
+          example: null
         user_email:
-          description: Correo electrónico de la persona usuaria
+          description: Correo electrónico de la persona usuaria (anónimo si no proporcionado). No debe recolectarse/exponerse; mantener anonimizado.
           type: string
-          example: 'ejemplo@ejemplo.com'
+          format: email
+          nullable: true
+          deprecated: true
+          example: null
+        report_type:
+          type: string
+          description: Tipo de reporte
+          example: 'incidencia'
+        location:
+          $ref: '#/components/schemas/UserReportLocation'
+        description:
+          type: string
+          description: Descripción corta del incidente
+          maxLength: 500
+          example: 'Bus retrasado'
+        user_evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserEvidenceItem'
+          description: Adjuntos o referencias; evitar PII
+        timestamp:
+          description: Marca de tiempo del reporte
+          type: string
+          format: date-time
+          readOnly: true
+          example: '2024-07-31T14:00:00-06:00'
+        status:
+          description: Estado del reporte
+          type: string
+          enum: ['pending', 'reviewed', 'resolved']
+          readOnly: true
+          example: 'pending'
+
+    UserReportLocation:
+      type: object
+      additionalProperties: false
+      description: Ubicación del reporte. Se recomienda stop_id; alternativamente lat/lon.
+      properties:
+        stop_id:
+          type: string
+          example: 'bUCR-0-03'
+        lat:
+          type: number
+          format: float
+          example: 9.937
+        lon:
+          type: number
+          format: float
+          example: -84.051
+      oneOf:
+        - required: [stop_id]
+        - required: [lat, lon]
+
+    UserEvidenceItem:
+      type: object
+      additionalProperties: false
+      description: Evidencia adjunta o referencia. Proveer url o b64.
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: ['photo', 'video', 'link', 'other']
+          example: 'photo'
+        url:
+          type: string
+          nullable: true
+          example: 'https://example.com/photo.jpg'
+        b64:
+          type: string
+          nullable: true
+          writeOnly: true
+          example: null
+      oneOf:
+        - required: [url]
+        - required: [b64]
+
+    UserReportCreate:
+      type: object
+      additionalProperties: false
+      required: [report_type, location, description]
+      properties:
+        report_type:
+          type: string
+          description: Tipo de reporte (p. ej. 'incidencia', 'comportamiento', 'condicion_via')
+          example: 'incidencia'
+        location:
+          $ref: '#/components/schemas/UserReportLocation'
+        description:
+          type: string
+          description: Descripción corta del incidente
+          maxLength: 500
+          example: 'Bus retrasado'
+        user_evidence:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/UserEvidenceItem'
+          description: Adjuntos o referencias
+
+    UserReportCreated:
+      type: object
+      additionalProperties: false
+      properties:
+        report_id:
+          type: string
+          example: 'REP-12345'
+        status:
+          type: string
+          example: 'created'
     UserData:
       type: object
+      additionalProperties: false
       properties:
         user_id:
           description: Identificador de la persona usuaria
           type: string
           example: '123456'
         user_name:
-          description: Nombre de la persona usuaria
+          description: Nombre de la persona usuaria. Evitar exponer públicamente.
           type: string
+          nullable: true
+          deprecated: true
+          writeOnly: true
           example: 'Juan Pérez'
         user_email:
-          description: Correo electrónico de la persona usuaria
+          description: Correo electrónico de la persona usuaria. Evitar exponer públicamente.
           type: string
+          format: email
+          nullable: true
+          deprecated: true
+          writeOnly: true
           example: 'persona@ejemplo.com'
     WideAlerts:
       type: object
+      additionalProperties: false
       properties:
         alert_id:
           description: Identificador de la alerta
@@ -1570,8 +3144,21 @@ components:
           description: URL de la alerta
           type: string
           example: 'https://bucr.digital/alertas/bUCR-001'
+        timestamp:
+          description: Marca de tiempo de la alerta
+          type: string
+          format: date-time
+          example: '2024-07-31T08:00:00-06:00'
+        source:
+          description: Fuente de la alerta
+          type: string
+          nullable: true
+          example: 'Ministerio de Seguridad Pública'
+
     InfoService:
       type: object
+      additionalProperties: false
+      required: [name, type]
       properties:
         name:
           description: Identificador del servicio
@@ -1590,6 +3177,25 @@ components:
           description: Proveedor del servicio
           type: string
           example: 'Infobús S.A.'
+        url:
+          description: URL del servicio
+          type: string
+          example: 'https://infobus.ucr.ac.cr'
+        active:
+          description: Estado de actividad del servicio
+          type: boolean
+          example: true
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: 'Bad Request'
 
 tags:
   - name: Schedule
