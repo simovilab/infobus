@@ -10,8 +10,15 @@ info:
     para el sistema de transporte público de Costa Rica.
     
     **Canales Implementados:**
-    - Trip Updates: Actualizaciones de viajes específicos
-    - Route Updates: Actualizaciones de todas las unidades en una ruta
+    - Trip Updates: Actualizaciones de viajes específicos (ws/trip/{trip_id})
+    - Route Updates: Actualizaciones de todas las unidades en una ruta (ws/route/{route_id})
+    - Route Direction: Filtrado por dirección (ws/route/{route_id}/direction/{direction_id})
+    
+    **Características:**
+    - Manejo de errores con códigos 4000-5999 y cierre de conexión
+    - Heartbeat/keep-alive a nivel de aplicación (opcional)
+    - Estrategia de "snapshot" para RouteVehicles (array completo)
+    - Ping/Pong automático manejado por Django Channels
     
     **Desarrollador:** Brandon Trigueros Lara
     **Proyecto:** TCU - SIMOVI Lab, Universidad de Costa Rica
@@ -53,10 +60,12 @@ servers:
 defaultContentType: application/json
 
 channels:
-  trip/{trip_id}:
-    address: trip/{trip_id}
+  ws/trip/{trip_id}:
+    address: /ws/trip/{trip_id}
     description: |
       Canal para recibir actualizaciones en tiempo real de un viaje específico (trip).
+      
+      **URL completa:** wss://infobus.ucr.ac.cr/ws/trip/{trip_id}
       
       Un trip representa un viaje programado de un vehículo en una ruta específica.
       Incluye información sobre paradas, horarios, retrasos y posición del vehículo.
@@ -89,13 +98,21 @@ channels:
               description: Incluir geometría de la ruta
               default: false
 
-  route/{route_id}:
-    address: route/{route_id}
+  ws/route/{route_id}:
+    address: /ws/route/{route_id}
     description: |
       Canal para recibir actualizaciones de todos los vehículos operando en una ruta específica.
       
+      **URL completa:** wss://infobus.ucr.ac.cr/ws/route/{route_id}
+      
       Una ruta (route) agrupa múltiples viajes (trips) que siguen el mismo recorrido general.
       Este canal emite actualizaciones de todos los vehículos activos en la ruta.
+      
+      **Estrategia de datos:** Este canal envía "snapshots" completos (array de vehículos)
+      cada 5-10 segundos en lugar de eventos individuales por vehículo. Esto simplifica
+      la renderización en el frontend (actualización completa del mapa) y es adecuado
+      para rutas con <50 vehículos. Para rutas muy grandes, considerar filtrado por
+      dirección o paginación.
     
     parameters:
       route_id:
@@ -122,11 +139,13 @@ channels:
                 0 = Ida (outbound)
                 1 = Vuelta (inbound)
 
-  route/{route_id}/direction/{direction_id}:
-    address: route/{route_id}/direction/{direction_id}
+  ws/route/{route_id}/direction/{direction_id}:
+    address: /ws/route/{route_id}/direction/{direction_id}
     description: |
       Canal para recibir actualizaciones de vehículos en una ruta específica
       filtrados por dirección (ida o vuelta).
+      
+      **URL completa:** wss://infobus.ucr.ac.cr/ws/route/{route_id}/direction/{direction_id}
     
     parameters:
       route_id:
@@ -150,38 +169,38 @@ operations:
   subscribeTripUpdates:
     action: receive
     channel:
-      $ref: '#/channels/trip~1{trip_id}'
+      $ref: '#/channels/ws~1trip~1{trip_id}'
     summary: Suscribirse a actualizaciones de un viaje
     description: |
       Recibe actualizaciones en tiempo real del estado de un viaje específico,
       incluyendo posición del vehículo, progreso en la ruta, y retrasos.
     messages:
-      - $ref: '#/channels/trip~1{trip_id}/messages/tripUpdate'
-      - $ref: '#/channels/trip~1{trip_id}/messages/vehiclePosition'
-      - $ref: '#/channels/trip~1{trip_id}/messages/alert'
+      - $ref: '#/channels/ws~1trip~1{trip_id}/messages/tripUpdate'
+      - $ref: '#/channels/ws~1trip~1{trip_id}/messages/vehiclePosition'
+      - $ref: '#/channels/ws~1trip~1{trip_id}/messages/alert'
     
   subscribeRouteUpdates:
     action: receive
     channel:
-      $ref: '#/channels/route~1{route_id}'
+      $ref: '#/channels/ws~1route~1{route_id}'
     summary: Suscribirse a actualizaciones de una ruta
     description: |
       Recibe actualizaciones de todos los vehículos operando en una ruta,
       útil para visualización de mapa con múltiples unidades.
     messages:
-      - $ref: '#/channels/route~1{route_id}/messages/routeVehicles'
-      - $ref: '#/channels/route~1{route_id}/messages/alert'
+      - $ref: '#/channels/ws~1route~1{route_id}/messages/routeVehicles'
+      - $ref: '#/channels/ws~1route~1{route_id}/messages/alert'
   
   subscribeRouteDirection:
     action: receive
     channel:
-      $ref: '#/channels/route~1{route_id}~1direction~1{direction_id}'
+      $ref: '#/channels/ws~1route~1{route_id}~1direction~1{direction_id}'
     summary: Suscribirse a actualizaciones de ruta por dirección
     description: |
       Recibe actualizaciones filtradas por dirección (ida o vuelta),
       útil para aplicaciones que muestran solo una dirección de servicio.
     messages:
-      - $ref: '#/channels/route~1{route_id}~1direction~1{direction_id}/messages/routeVehicles'
+      - $ref: '#/channels/ws~1route~1{route_id}~1direction~1{direction_id}/messages/routeVehicles'
 
 components:
   messages:
@@ -301,6 +320,54 @@ components:
             active_period:
               start: '2026-01-19T06:00:00-06:00'
               end: '2026-01-19T18:00:00-06:00'
+    
+    Error:
+      name: Error
+      title: Error de Conexión
+      summary: Mensaje de error enviado por el servidor antes de cerrar la conexión
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/ErrorPayload'
+      examples:
+        - name: invalidTripIdError
+          summary: Error por ID de viaje inválido
+          payload:
+            type: 'error'
+            error_code: 4004
+            message: 'Trip ID not found'
+            details:
+              trip_id: 'INVALID_TRIP'
+            timestamp: '2026-01-19T10:30:00-06:00'
+        - name: internalServerError
+          summary: Error interno del servidor
+          payload:
+            type: 'error'
+            error_code: 4500
+            message: 'Internal server error'
+            details:
+              description: 'Unable to fetch trip data from database'
+            timestamp: '2026-01-19T10:30:00-06:00'
+    
+    Heartbeat:
+      name: Heartbeat
+      title: Heartbeat (Ping/Pong)
+      summary: Mensaje de keep-alive a nivel de aplicación (opcional)
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/HeartbeatPayload'
+      examples:
+        - name: clientPing
+          summary: Cliente envía ping
+          payload:
+            type: 'heartbeat'
+            action: 'ping'
+            timestamp: '2026-01-19T10:30:00-06:00'
+        - name: serverPong
+          summary: Servidor responde pong
+          payload:
+            type: 'heartbeat'
+            action: 'pong'
+            timestamp: '2026-01-19T10:30:01-06:00'
 
   schemas:
     TripUpdatePayload:
@@ -653,6 +720,72 @@ components:
         uncertainty:
           type: integer
           description: Incertidumbre en segundos
+    
+    ErrorPayload:
+      type: object
+      description: |
+        Mensaje de error enviado cuando ocurre un problema.
+        
+        **Comportamiento:** El servidor enviará este mensaje y luego cerrará
+        la conexión WebSocket con el código de cierre correspondiente.
+        
+        **Códigos de error comunes:**
+        - 4000: Bad Request (parámetros inválidos)
+        - 4004: Not Found (trip_id o route_id no existe)
+        - 4500: Internal Server Error
+      required:
+        - type
+        - error_code
+        - message
+        - timestamp
+      properties:
+        type:
+          type: string
+          enum: [Error]
+          description: Tipo de mensaje (siempre "Error")
+        error_code:
+          type: integer
+          description: Código de error HTTP-style (4000-5999)
+          enum: [4000, 4004, 4500]
+        message:
+          type: string
+          description: Descripción legible del error
+        details:
+          type: object
+          description: Información adicional sobre el error (opcional)
+        timestamp:
+          type: string
+          format: date-time
+          description: Momento en que ocurrió el error
+    
+    HeartbeatPayload:
+      type: object
+      description: |
+        Mensaje keep-alive para mantener la conexión WebSocket activa.
+        
+        **Estrategia implementada:**
+        - Django Channels maneja ping/pong automáticamente a nivel de protocolo WebSocket
+        - Este mensaje es opcional y puede usarse para heartbeat a nivel de aplicación
+        - El cliente puede enviar {"type": "Heartbeat", "action": "ping"}
+        - El servidor responderá con {"type": "Heartbeat", "action": "pong"}
+        
+        **Timeout recomendado:** 60 segundos sin actividad antes de cerrar conexión
+      required:
+        - type
+        - action
+      properties:
+        type:
+          type: string
+          enum: [Heartbeat]
+          description: Tipo de mensaje (siempre "Heartbeat")
+        action:
+          type: string
+          enum: [ping, pong]
+          description: ping (cliente → servidor) o pong (servidor → cliente)
+        timestamp:
+          type: string
+          format: date-time
+          description: Momento del heartbeat
 
   securitySchemes:
     apiKey:
