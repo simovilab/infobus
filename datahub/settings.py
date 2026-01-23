@@ -144,10 +144,18 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Infobús API | bUCR",
+    "ENUM_NAME_OVERRIDES": {
+        "WheelchairAccessibleEnum": (
+            (0, "No especificado"),
+            (1, "Accesible"),
+            (2, "No accesible"),
+        ),
+    },
 }
 
 # Channels settings
@@ -218,3 +226,9 @@ CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
 # Proxy SSL Header for reverse proxy setups (nginx)
 # This tells Django to trust the X-Forwarded-Proto header from nginx
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# API key required for write operations.
+
+# Write endpoints accept user content or publishing actions and must be protected (user_reports)
+# If `DATAHUB_API_KEY` is missing, write requests are denied (secure by default).
+DATAHUB_API_KEY = config("DATAHUB_API_KEY", default=None)

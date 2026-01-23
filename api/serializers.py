@@ -1,6 +1,7 @@
 from feed.models import InfoService
 from gtfs.models import *
 from alerts.models import *
+from .models import UserData, UserReport, WideAlert
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeometryField
 
@@ -110,7 +111,16 @@ class StopSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Stop
-        fields = "__all__"
+        exclude = ["stop_point"]
+
+
+class RouteStopsSerializer(serializers.Serializer):
+    route_id = serializers.CharField()
+    stop_sequence = serializers.IntegerField()
+    stop_id = serializers.CharField()
+    stop_name = serializers.CharField()
+    stop_lat = serializers.FloatField()
+    stop_lon = serializers.FloatField()
 
 
 class GeoStopSerializer(GeoFeatureModelSerializer):
@@ -198,6 +208,13 @@ class FeedInfoSerializer(serializers.HyperlinkedModelSerializer):
         fields = "__all__"
 
 
+class TripTimesSerializer(serializers.Serializer):
+    trip_id = serializers.CharField()
+    start_time = serializers.CharField()
+    end_time = serializers.CharField()
+    duration = serializers.IntegerField()
+
+
 class FareAttributeSerializer(serializers.HyperlinkedModelSerializer):
 
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
@@ -283,3 +300,353 @@ class InfoServiceSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = InfoService
         fields = "__all__"
+
+
+class InfoServicePublicSerializer(serializers.ModelSerializer):
+    provider = serializers.SerializerMethodField()
+    url = serializers.CharField(required=False, allow_null=True)
+    active = serializers.BooleanField(required=False)
+
+    class Meta:
+        model = InfoService
+        fields = ["name", "description", "type", "provider", "url", "active"]
+
+    def get_provider(self, obj):
+        provider = getattr(obj, "provider", None)
+        return getattr(provider, "name", None)
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data.setdefault("url", None)
+        data.setdefault("active", True)
+        return data
+
+
+class WideAlertSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WideAlert
+        fields = [
+            "alert_id",
+            "alert_header",
+            "alert_description",
+            "alert_url",
+            "timestamp",
+            "source",
+        ]
+
+
+class UserDataSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(required=False, allow_null=True, write_only=True)
+    user_email = serializers.EmailField(required=False, allow_null=True, write_only=True)
+
+    class Meta:
+        model = UserData
+        fields = ["user_id", "user_name", "user_email"]
+
+    def create(self, validated_data):
+        validated_data.pop("user_name", None)
+        validated_data.pop("user_email", None)
+        obj, _created = UserData.objects.get_or_create(user_id=validated_data["user_id"])
+        return obj
+
+    def update(self, instance, validated_data):
+        return instance
+
+
+class UserReportLocationSerializer(serializers.Serializer):
+    stop_id = serializers.CharField(required=False, allow_blank=False)
+    lat = serializers.FloatField(required=False)
+    lon = serializers.FloatField(required=False)
+
+    def validate(self, attrs):
+        has_stop = bool(attrs.get("stop_id"))
+        has_latlon = attrs.get("lat") is not None and attrs.get("lon") is not None
+        if has_stop == has_latlon:
+            raise serializers.ValidationError(
+                "Debe enviar stop_id o (lat, lon) exclusivamente."
+            )
+        return attrs
+
+
+class UserEvidenceItemSerializer(serializers.Serializer):
+    type = serializers.ChoiceField(choices=["photo", "video", "link", "other"])
+    url = serializers.CharField(required=False, allow_null=True)
+    b64 = serializers.CharField(required=False, allow_null=True, write_only=True)
+
+    def validate(self, attrs):
+        has_url = bool(attrs.get("url"))
+        has_b64 = bool(attrs.get("b64"))
+        if has_url == has_b64:
+            raise serializers.ValidationError("Debe enviar url o b64 exclusivamente.")
+        return attrs
+
+
+class UserReportCreateSerializer(serializers.Serializer):
+    report_type = serializers.CharField()
+    location = UserReportLocationSerializer()
+    description = serializers.CharField(max_length=500)
+    user_evidence = UserEvidenceItemSerializer(many=True, required=False)
+
+
+class UserReportCreatedSerializer(serializers.Serializer):
+    report_id = serializers.CharField()
+    status = serializers.CharField()
+
+
+class UserReportSerializer(serializers.ModelSerializer):
+    user_id = serializers.SerializerMethodField()
+    user_name = serializers.SerializerMethodField()
+    user_email = serializers.SerializerMethodField()
+    location = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserReport
+        fields = [
+            "report_id",
+            "user_id",
+            "user_name",
+            "user_email",
+            "report_type",
+            "location",
+            "description",
+            "user_evidence",
+            "timestamp",
+            "status",
+        ]
+
+    def get_user_id(self, obj):
+        return None
+
+    def get_user_name(self, obj):
+        return None
+
+    def get_user_email(self, obj):
+        return None
+
+    def get_location(self, obj):
+        if obj.location_stop_id:
+            return {"stop_id": obj.location_stop_id}
+        if obj.location_lat is not None and obj.location_lon is not None:
+            return {"lat": obj.location_lat, "lon": obj.location_lon}
+        return None
+
+
+class WeatherPublicSerializer(serializers.ModelSerializer):
+    location = serializers.CharField(source="weather_location")
+    timestamp = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Weather
+        fields = [
+            "location",
+            "timestamp",
+            "temperature",
+            "humidity",
+            "pressure",
+            "wind_speed",
+            "wind_direction",
+            "precipitation",
+            "visibility",
+        ]
+
+    def get_timestamp(self, obj):
+        # Combine date + time from model
+        if not obj.weather_date or not obj.weather_time:
+            return None
+        from datetime import datetime
+
+        return datetime.combine(obj.weather_date, obj.weather_time)
+
+
+class SocialPublicSerializer(serializers.ModelSerializer):
+    platform = serializers.CharField(source="social_media")
+    url = serializers.SerializerMethodField()
+    timestamp = serializers.SerializerMethodField()
+    content = serializers.CharField(source="social_content")
+    source = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Social
+        fields = ["platform", "url", "timestamp", "content", "source"]
+
+    def get_url(self, obj):
+        return None
+
+    def get_timestamp(self, obj):
+        if not obj.social_date or not obj.social_time:
+            return None
+        from datetime import datetime
+
+        return datetime.combine(obj.social_date, obj.social_time)
+
+    def get_source(self, obj):
+        return None
+
+
+class VehiclePositionPublicSerializer(serializers.ModelSerializer):
+    vehicle = serializers.SerializerMethodField()
+    schedule = serializers.SerializerMethodField()
+    timestamp = serializers.SerializerMethodField()
+    ttl_seconds = serializers.SerializerMethodField()
+
+    class Meta:
+        model = VehiclePosition
+        fields = ["vehicle", "schedule", "timestamp", "ttl_seconds"]
+
+    def get_vehicle(self, obj):
+        return {
+            "id": obj.vehicle_vehicle_id,
+            "label": obj.vehicle_vehicle_label,
+            "wheelchair_accessible": obj.vehicle_vehicle_wheelchair_accessible,
+        }
+
+    def get_schedule(self, obj):
+        return {
+            "current_stop_sequence": obj.vehicle_current_stop_sequence,
+            "stop_id": obj.vehicle_stop_id,
+            "current_status": obj.vehicle_current_status,
+        }
+
+    def get_timestamp(self, obj):
+        return obj.vehicle_timestamp or getattr(getattr(obj, "feed_message", None), "timestamp", None)
+
+    def get_ttl_seconds(self, obj):
+        return 0
+
+
+class StopTimeEventSerializer(serializers.Serializer):
+    time = serializers.DateTimeField(allow_null=True, required=False)
+    delay = serializers.IntegerField(allow_null=True, required=False)
+
+
+class TripUpdateStopTimeUpdateSerializer(serializers.Serializer):
+    stop_id = serializers.CharField(allow_null=True, required=False)
+    stop_sequence = serializers.IntegerField(allow_null=True, required=False)
+    arrival = StopTimeEventSerializer(allow_null=True, required=False)
+    departure = StopTimeEventSerializer(allow_null=True, required=False)
+    schedule_relationship = serializers.CharField(allow_null=True, required=False)
+
+
+class TripUpdatePublicSerializer(serializers.ModelSerializer):
+    trip_id = serializers.CharField(source="trip_trip_id", allow_null=True, required=False)
+    route_id = serializers.CharField(source="trip_route_id", allow_null=True, required=False)
+    vehicle_id = serializers.CharField(allow_null=True, required=False)
+    ttl_seconds = serializers.SerializerMethodField()
+    source = serializers.SerializerMethodField()
+    stop_time_update = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TripUpdate
+        fields = [
+            "trip_id",
+            "route_id",
+            "vehicle_id",
+            "timestamp",
+            "ttl_seconds",
+            "source",
+            "stop_time_update",
+        ]
+
+    def get_ttl_seconds(self, obj):
+        return 0
+
+    def get_source(self, obj):
+        return "GTFS-RT"
+
+    def get_stop_time_update(self, obj):
+        updates = StopTimeUpdate.objects.filter(trip_update=obj).order_by("stop_sequence")
+        items = []
+        for u in updates:
+            items.append(
+                {
+                    "stop_id": u.stop_id,
+                    "stop_sequence": u.stop_sequence,
+                    "arrival": {"time": u.arrival_time, "delay": u.arrival_delay},
+                    "departure": {"time": u.departure_time, "delay": u.departure_delay},
+                    "schedule_relationship": u.schedule_relationship,
+                }
+            )
+        return items
+
+
+class ServiceAlertPublicSerializer(serializers.ModelSerializer):
+    header_text = serializers.CharField(source="alert_header")
+    description_text = serializers.CharField(source="alert_description")
+    url = serializers.URLField(source="alert_url", allow_null=True, required=False)
+    effect = serializers.SerializerMethodField()
+    cause = serializers.SerializerMethodField()
+    severity = serializers.SerializerMethodField()
+    lifecycle = serializers.SerializerMethodField()
+    active_period = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Alert
+        fields = [
+            "alert_id",
+            "header_text",
+            "description_text",
+            "url",
+            "effect",
+            "cause",
+            "severity",
+            "lifecycle",
+            "active_period",
+            "informed_entity",
+        ]
+
+    def get_effect(self, obj):
+        mapping = {
+            2: "DETOUR",
+            5: "NO_SERVICE",
+        }
+        return mapping.get(obj.effect, "OTHER_EFFECT")
+
+    def get_cause(self, obj):
+        mapping = {
+            2: "ACCIDENT",
+            3: "CONGESTION",
+            5: "MAINTENANCE",
+            6: "CONSTRUCTION",
+            10: "STOP_MOVED",
+        }
+        return mapping.get(obj.cause, "OTHER_CAUSE")
+
+    def get_severity(self, obj):
+        mapping = {
+            2: "INFO",
+            3: "MINOR",
+            4: "MAJOR",
+            5: "SEVERE",
+        }
+        return mapping.get(obj.severity, "UNKNOWN")
+
+    def get_active_period(self, obj):
+        # Convert date + start/end times to datetimes when possible.
+        from datetime import datetime
+        from django.utils import timezone
+
+        if not obj.service_date:
+            return []
+
+        start_dt = None
+        end_dt = None
+        if obj.service_start_time:
+            start_dt = timezone.make_aware(datetime.combine(obj.service_date, obj.service_start_time))
+        if obj.service_end_time:
+            end_dt = timezone.make_aware(datetime.combine(obj.service_date, obj.service_end_time))
+        return [{"start": start_dt, "end": end_dt}]
+
+    def get_lifecycle(self, obj):
+        from django.utils import timezone
+
+        now = timezone.now()
+        periods = self.get_active_period(obj)
+        if not periods:
+            return "UNKNOWN"
+        start = periods[0].get("start")
+        end = periods[0].get("end")
+        if start and now < start:
+            return "UPCOMING"
+        if end and now > end:
+            return "EXPIRED"
+        return "ONGOING"
