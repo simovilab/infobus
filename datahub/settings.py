@@ -232,3 +232,9 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Write endpoints accept user content or publishing actions and must be protected (user_reports)
 # If `DATAHUB_API_KEY` is missing, write requests are denied (secure by default).
 DATAHUB_API_KEY = config("DATAHUB_API_KEY", default=None)
+
+# Realtime freshness window (seconds).
+# Used by realtime endpoints to:
+# - ignore stale GTFS-RT snapshots (server-side filtering)
+# - report `ttl_seconds` in responses (remaining freshness window)
+DATAHUB_REALTIME_TTL_SECONDS = config("DATAHUB_REALTIME_TTL_SECONDS", default=300, cast=int)

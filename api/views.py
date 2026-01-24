@@ -27,9 +27,10 @@ import pytz
 from django.conf import settings
 from django.contrib.gis.geos import GEOSGeometry
 from django.contrib.gis.measure import D
+from django.utils.dateparse import parse_date
 from django.utils import timezone
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiExample, extend_schema
 
 from .serializers import *
 from .models import UserData, UserReport, WideAlert
@@ -113,6 +114,87 @@ class CurrentFeedQuerysetMixin:
         return queryset
 
 
+def _get_latest_realtime_feed_message(entity_type: str):
+    """Return the latest FeedMessage for `entity_type` if it is fresh enough.
+
+    Freshness is controlled by settings.DATAHUB_REALTIME_TTL_SECONDS.
+    If TTL is <= 0, freshness checks are effectively disabled.
+    """
+
+    latest = FeedMessage.objects.filter(entity_type=entity_type).order_by("-timestamp").first()
+    if latest is None:
+        return None
+
+    ttl_seconds = getattr(settings, "DATAHUB_REALTIME_TTL_SECONDS", 120)
+    try:
+        ttl_seconds = int(ttl_seconds)
+    except (TypeError, ValueError):
+        ttl_seconds = 120
+
+    if ttl_seconds > 0:
+        cutoff = timezone.now() - timedelta(seconds=ttl_seconds)
+        if latest.timestamp and latest.timestamp < cutoff:
+            return None
+
+    return latest
+
+
+class ErrorEnvelopeMixin:
+    """Return OpenAPI `Error` objects instead of DRF's default error shapes.
+
+    The contract defines error responses as:
+    `{ "code": <int>, "message": <string> }`
+    """
+
+    def _error(self, status_code: int, message: str):
+        return Response({"code": int(status_code), "message": str(message)}, status=status_code)
+
+    def _detail_to_message(self, status_code: int, detail):
+        defaults = {
+            400: "Solicitud inválida",
+            401: "No autorizado",
+            403: "Prohibido",
+            404: "No encontrado",
+            429: "Demasiadas solicitudes",
+            500: "Error interno",
+        }
+
+        if status_code in defaults:
+            return defaults[status_code]
+
+        if detail is None:
+            return "Error"
+
+        # DRF can return strings, lists or dicts for `detail`.
+        if isinstance(detail, str):
+            return detail
+        if isinstance(detail, list) and detail:
+            return str(detail[0])
+        if isinstance(detail, dict) and detail:
+            # Prefer the first field's first error message.
+            first_value = next(iter(detail.values()))
+            if isinstance(first_value, list) and first_value:
+                return str(first_value[0])
+            return str(first_value)
+
+        return "Error"
+
+    def handle_exception(self, exc):
+        # Convert DRF APIExceptions (ValidationError, ParseError, NotFound, etc.)
+        # into the OpenAPI `Error` envelope.
+        try:
+            from rest_framework.exceptions import APIException
+
+            if isinstance(exc, APIException):
+                status_code = int(getattr(exc, "status_code", 500) or 500)
+                detail = getattr(exc, "detail", None)
+                return self._error(status_code, self._detail_to_message(status_code, detail))
+        except Exception:
+            pass
+
+        return super().handle_exception(exc)
+
+
 class GTFSProviderViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Proveedores de datos GTFS.
@@ -134,18 +216,8 @@ class NextTripView(generics.GenericAPIView):
         timezone = pytz.timezone(settings.TIME_ZONE)
 
         # Query parameters
-        if request.query_params.get("stop_id"):
-            stop_id = request.query_params.get("stop_id")
-            try:
-                Stop.objects.get(stop_id=stop_id)
-            except Stop.DoesNotExist:
-                return Response(
-                    {
-                        "error": f"No existe la parada especificada {stop_id} en la base de datos."
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-        else:
+        stop_id = request.query_params.get("stop_id")
+        if not stop_id:
             return Response(
                 {
                     "error": "Es necesario especificar el stop_id como parámetro de la solicitud: /next-trips?stop_id=bUCR-0-01, por ejemplo."
@@ -153,22 +225,44 @@ class NextTripView(generics.GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if request.query_params.get("timestamp"):
-            timestamp = request.query_params.get("timestamp")
-            timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
-            timestamp = timezone.localize(timestamp)
+        timestamp_raw = request.query_params.get("timestamp")
+        if timestamp_raw:
+            try:
+                timestamp = datetime.strptime(timestamp_raw, "%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                return Response(
+                    {"error": "timestamp inválido. Use formato YYYY-MM-DDTHH:MM:SS"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         else:
             timestamp = datetime.now()
-            timestamp = timezone.localize(timestamp)
+
+        timestamp = timezone.localize(timestamp)
 
         # Get the current GTFS feed
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        except Feed.DoesNotExist:
+            serializer = self.get_serializer(
+                data={"stop_id": stop_id, "timestamp": timestamp, "next_arrivals": []}
+            )
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer.data)
+
+        # Validate stop exists in the current feed
+        if not Stop.objects.filter(feed=current_feed, stop_id=stop_id).exists():
+            return Response(
+                {"error": f"No existe la parada especificada {stop_id} en la base de datos."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
         service_id = get_calendar(timestamp.date(), current_feed)
         if service_id is None:
-            return Response(
-                {"error": "No hay servicio disponible para la fecha especificada."},
-                status=status.HTTP_204_NO_CONTENT,
+            serializer = self.get_serializer(
+                data={"stop_id": stop_id, "timestamp": timestamp, "next_arrivals": []}
             )
+            serializer.is_valid(raise_exception=True)
+            return Response(serializer.data)
 
         next_arrivals = []
 
@@ -176,48 +270,79 @@ class NextTripView(generics.GenericAPIView):
         # Trips in progress
         # -----------------
 
-        latest_feed_message = (
-            FeedMessage.objects.filter(entity_type="trip_update")
-            .order_by("-timestamp")
-            .first()
-        )
-        # TODO: check TTL (time to live)
+        latest_feed_message = _get_latest_realtime_feed_message("trip_update")
         if latest_feed_message is None:
-            # No realtime messages available; keep trips_in_progress empty
             stop_time_updates = StopTimeUpdate.objects.none()
         else:
-            stop_time_updates = StopTimeUpdate.objects.filter(
-                feed_message=latest_feed_message, stop_id=stop_id
+            stop_time_updates = (
+                StopTimeUpdate.objects.filter(feed_message=latest_feed_message, stop_id=stop_id)
+                .select_related("trip_update")
+                .order_by("stop_sequence")
             )
-        print("Checkpoint 1")
 
-        trips_in_progress = []
+        trips_in_progress_ids = set()
+
+        realtime_trip_ids = [
+            stu.trip_update.trip_trip_id
+            for stu in stop_time_updates
+            if getattr(stu.trip_update, "trip_trip_id", None)
+        ]
+        trips_by_id = {
+            t.trip_id: t
+            for t in Trip.objects.filter(feed=current_feed, trip_id__in=realtime_trip_ids)
+        }
+
+        route_ids = [t.route_id for t in trips_by_id.values() if getattr(t, "route_id", None)]
+        routes_by_id = {
+            r.route_id: r
+            for r in Route.objects.filter(feed=current_feed, route_id__in=route_ids)
+        }
 
         # Build the response for trips in progress
         for stop_time_update in stop_time_updates:
-            trip_update = TripUpdate.objects.get(
-                id=stop_time_update.trip_update.id,
-            )
-            trip = Trip.objects.filter(
-                trip_id=trip_update.trip_trip_id, feed=current_feed
-            ).first()
-            trips_in_progress.append(trip)
-            route = Route.objects.filter(
-                route_id=trip.route_id, feed=current_feed
-            ).first()
+            trip_update = stop_time_update.trip_update
+            trip_id = getattr(trip_update, "trip_trip_id", None)
+            if not trip_id:
+                continue
+
+            trip = trips_by_id.get(trip_id)
+            if trip is None:
+                continue
+
+            trips_in_progress_ids.add(trip.trip_id)
+
+            route = routes_by_id.get(getattr(trip, "route_id", None))
+            if route is None:
+                continue
+
             vehicle_position = VehiclePosition.objects.filter(
-                # TODO: ponder if making a new table for TripDescriptor is better
-                vehicle_trip_trip_id=trip_update.trip_trip_id,
+                vehicle_trip_trip_id=trip_id,
                 vehicle_trip_start_date=trip_update.trip_start_date,
                 vehicle_trip_start_time=trip_update.trip_start_time,
             ).first()
-            geo_shape = GeoShape.objects.filter(
-                shape_id=trip.shape_id, feed=current_feed
-            ).first()
-            geo_shape = geometry.LineString(geo_shape.geometry.coords)
-            location = vehicle_position.vehicle_position_point
-            location = geometry.Point(location.x, location.y)
-            position_in_shape = geo_shape.project(location) / geo_shape.length
+
+            progression = None
+            try:
+                if vehicle_position and vehicle_position.vehicle_position_point and trip.shape_id:
+                    geo_shape = GeoShape.objects.filter(
+                        shape_id=trip.shape_id, feed=current_feed
+                    ).first()
+                    if geo_shape and geo_shape.geometry:
+                        shape_line = geometry.LineString(geo_shape.geometry.coords)
+                        location = vehicle_position.vehicle_position_point
+                        point = geometry.Point(location.x, location.y)
+                        if shape_line.length:
+                            position_in_shape = shape_line.project(point) / shape_line.length
+                        else:
+                            position_in_shape = 0.0
+                        progression = {
+                            "position_in_shape": float(position_in_shape),
+                            "current_stop_sequence": vehicle_position.vehicle_current_stop_sequence,
+                            "current_status": vehicle_position.vehicle_current_status,
+                            "occupancy_status": vehicle_position.vehicle_occupancy_status,
+                        }
+            except Exception:
+                progression = None
 
             next_arrivals.append(
                 {
@@ -230,16 +355,9 @@ class NextTripView(generics.GenericAPIView):
                     "arrival_time": stop_time_update.arrival_time,
                     "departure_time": stop_time_update.departure_time,
                     "in_progress": True,
-                    "progression": {
-                        "position_in_shape": position_in_shape,
-                        "current_stop_sequence": vehicle_position.vehicle_current_stop_sequence,
-                        "current_status": vehicle_position.vehicle_current_status,
-                        "occupancy_status": vehicle_position.vehicle_occupancy_status,
-                    },
+                    "progression": progression,
                 }
             )
-
-        print(trips_in_progress)
 
         # ---------------
         # Scheduled trips
@@ -252,20 +370,23 @@ class NextTripView(generics.GenericAPIView):
             # _trip__service_id=service_id,
         ).order_by("arrival_time")
 
-        print(
-            f"Checkpoint 2: {stop_times} {stop_id} {current_feed} {service_id} {timestamp.time()}"
-        )
-
         # Build the response for scheduled trips
         for stop_time in stop_times:
             trip = Trip.objects.filter(
                 trip_id=stop_time.trip_id, feed=current_feed
             ).first()
-            if trip in trips_in_progress:
+            if not trip:
+                continue
+            if trip.trip_id in trips_in_progress_ids:
                 continue
             route = Route.objects.filter(
                 route_id=trip.route_id, feed=current_feed
             ).first()
+            if not route:
+                continue
+
+            if stop_time.arrival_time is None or stop_time.departure_time is None:
+                continue
 
             arrival_time = timezone.localize(
                 datetime.combine(timestamp.today(), stop_time.arrival_time)
@@ -290,7 +411,7 @@ class NextTripView(generics.GenericAPIView):
             )
 
         # Sort the list by arrival time
-        next_arrivals.sort(key=lambda x: x["arrival_time"])
+        next_arrivals.sort(key=lambda x: x.get("arrival_time") or x.get("departure_time") or timestamp)
 
         data = {
             "stop_id": stop_id,
@@ -298,7 +419,8 @@ class NextTripView(generics.GenericAPIView):
             "next_arrivals": next_arrivals,
         }
 
-        serializer = NextTripSerializer(data)
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
         return Response(serializer.data)
 
 
@@ -322,51 +444,73 @@ class NextStopView(generics.GenericAPIView):
 
         next_stop_sequence = []
 
+        start_date_parsed = parse_date(start_date) if start_date else None
+        if start_date_parsed is None:
+            return Response(
+                {"error": "start_date inválido. Use formato YYYY-MM-DD"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            start_time_td = str_to_timedelta(start_time)
+        except Exception:
+            return Response(
+                {"error": "start_time inválido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         # For trips in progress
-        latest_trip_update = FeedMessage.objects.filter(
-            entity_type="trip_update"
-        ).latest("timestamp")
-        trip_update = TripUpdate.objects.filter(
-            feed_message=latest_trip_update,
-            trip_trip_id=trip_id,
-            trip_start_date=start_date,
-            trip_start_time=start_time,
-        ).first()
-        stop_time_updates = StopTimeUpdate.objects.filter(
-            trip_update=trip_update
-        ).order_by("stop_sequence")
+        latest_trip_update = _get_latest_realtime_feed_message("trip_update")
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        except Feed.DoesNotExist:
+            current_feed = None
 
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        if latest_trip_update is not None:
+            trip_update = TripUpdate.objects.filter(
+                feed_message=latest_trip_update,
+                trip_trip_id=trip_id,
+                trip_start_date=start_date_parsed,
+                trip_start_time=start_time_td,
+            ).first()
+        else:
+            trip_update = None
 
-        for stop_time_update in stop_time_updates:
-            print(f"La parada: {stop_time_update.stop_id}")
-            stop = Stop.objects.get(
-                stop_id=stop_time_update.stop_id,
-                feed=current_feed,
+        if trip_update is not None and current_feed is not None:
+            stop_time_updates = StopTimeUpdate.objects.filter(trip_update=trip_update).order_by(
+                "stop_sequence"
             )
-            next_stop_sequence.append(
-                {
-                    "stop_sequence": stop_time_update.stop_sequence,
-                    "stop_id": stop.stop_id,
-                    "stop_name": stop.stop_name,
-                    "stop_lat": stop.stop_lat,
-                    "stop_lon": stop.stop_lon,
-                    "arrival": stop_time_update.arrival_time,
-                    "departure": stop_time_update.departure_time,
-                }
-            )
+            stop_ids = [u.stop_id for u in stop_time_updates if u.stop_id]
+            stops_by_id = {
+                s.stop_id: s
+                for s in Stop.objects.filter(feed=current_feed, stop_id__in=stop_ids)
+            }
+
+            for stop_time_update in stop_time_updates:
+                stop = stops_by_id.get(stop_time_update.stop_id)
+                if stop is None:
+                    continue
+                next_stop_sequence.append(
+                    {
+                        "stop_sequence": stop_time_update.stop_sequence,
+                        "stop_id": stop.stop_id,
+                        "stop_name": stop.stop_name,
+                        "stop_lat": stop.stop_lat,
+                        "stop_lon": stop.stop_lon,
+                        "arrival": stop_time_update.arrival_time,
+                        "departure": stop_time_update.departure_time,
+                    }
+                )
 
         data = {
             "trip_id": trip_id,
-            "start_date": start_date,
-            # The serializer needs the timedelta object
-            "start_time": str_to_timedelta(start_time),
+            "start_date": start_date_parsed,
+            "start_time": start_time_td,
             "next_stop_sequence": next_stop_sequence,
         }
 
-        print(data)
-        serializer = NextStopSerializer(data)
-
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
         return Response(serializer.data)
 
 
@@ -879,12 +1023,12 @@ class FeedMessageViewSet(viewsets.ModelViewSet):
     # Esto no tiene path con query params ni response schema
 
 
-class TripUpdateViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class TripUpdateViewSet(ErrorEnvelopeMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Actualizaciones de viaje.
     """
 
-    queryset = TripUpdate.objects.all()
+    queryset = TripUpdate.objects.select_related("feed_message").prefetch_related("stoptimeupdate_set").all()
     serializer_class = TripUpdatePublicSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     ordering_fields = "__all__"
@@ -895,6 +1039,37 @@ class TripUpdateViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelVie
         "vehicle_id",
     ]
     # permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        responses=TripUpdatePublicSerializer(many=True),
+        examples=[
+            OpenApiExample(
+                "basic",
+                summary="Trip updates",
+                value=[
+                    {
+                        "trip_id": "JFH367",
+                        "route_id": "bUCR-L1",
+                        "vehicle_id": "VEH-123",
+                        "timestamp": "2024-07-31T07:12:25-06:00",
+                        "ttl_seconds": 300,
+                        "source": "GTFS-RT",
+                        "stop_time_update": [
+                            {
+                                "stop_id": "bUCR-0-03",
+                                "stop_sequence": 15,
+                                "arrival": {"time": "2024-07-31T07:15:00-06:00", "delay": 120},
+                                "departure": {"time": "2024-07-31T07:16:00-06:00", "delay": 120},
+                                "schedule_relationship": "SCHEDULED",
+                            }
+                        ],
+                    }
+                ],
+            )
+        ],
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
 
 class StopTimeUpdateViewSet(viewsets.ModelViewSet):
@@ -911,12 +1086,12 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     # Esto no tiene path con query params ni response schema
 
 
-class VehiclePositionViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class VehiclePositionViewSet(ErrorEnvelopeMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Posiciones de vehículos.
     """
 
-    queryset = VehiclePosition.objects.all()
+    queryset = VehiclePosition.objects.select_related("feed_message").all()
     serializer_class = VehiclePositionPublicSerializer
     filter_backends = [DjangoFilterBackend, OrderingFilter]
     ordering_fields = "__all__"
@@ -926,6 +1101,34 @@ class VehiclePositionViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyMod
         "vehicle_trip_trip_id",
         "vehicle_trip_schedule_relationship",
     ]
+
+    @extend_schema(
+        responses=VehiclePositionPublicSerializer(many=True),
+        examples=[
+            OpenApiExample(
+                "basic",
+                summary="Vehicle positions",
+                value=[
+                    {
+                        "vehicle": {
+                            "id": "MEYS-8236",
+                            "label": "MEYS-8236",
+                            "wheelchair_accessible": "WHEELCHAIR_ACCESSIBLE",
+                        },
+                        "schedule": {
+                            "current_stop_sequence": 15,
+                            "stop_id": "bUCR-0-03",
+                            "current_status": "IN_TRANSIT_TO",
+                        },
+                        "timestamp": "2024-07-31T07:12:25-06:00",
+                        "ttl_seconds": 300,
+                    }
+                ],
+            )
+        ],
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = super().get_queryset()

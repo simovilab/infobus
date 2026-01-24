@@ -5,6 +5,9 @@ from .models import UserData, UserReport, WideAlert
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeometryField
 
+from django.conf import settings
+from django.utils import timezone
+
 # from gtfs.models import GTFSProvider, Route, Trip, StopTime, Stop, FeedInfo, Calendar, CalendarDate, Shape, GeoShape, FareAttribute, FareRule, ServiceAlert, Weather, Social, FeedMessage, TripUpdate, StopTimeUpdate, VehiclePosition, Agency
 
 
@@ -28,10 +31,10 @@ class NextArrivalSerializer(serializers.Serializer):
     route_long_name = serializers.CharField()
     trip_headsign = serializers.CharField()
     wheelchair_accessible = serializers.CharField()
-    arrival_time = serializers.DateTimeField()
-    departure_time = serializers.DateTimeField()
+    arrival_time = serializers.DateTimeField(allow_null=True, required=False)
+    departure_time = serializers.DateTimeField(allow_null=True, required=False)
     in_progress = serializers.BooleanField()
-    progression = ProgressionSerializer()
+    progression = ProgressionSerializer(allow_null=True, required=False)
 
 
 class NextTripSerializer(serializers.Serializer):
@@ -46,8 +49,8 @@ class NextStopSequenceSerializer(serializers.Serializer):
     stop_name = serializers.CharField()
     stop_lat = serializers.FloatField()
     stop_lon = serializers.FloatField()
-    arrival = serializers.DateTimeField()
-    departure = serializers.DateTimeField()
+    arrival = serializers.DateTimeField(allow_null=True, required=False)
+    departure = serializers.DateTimeField(allow_null=True, required=False)
 
 
 class NextStopSerializer(serializers.Serializer):
@@ -511,7 +514,25 @@ class VehiclePositionPublicSerializer(serializers.ModelSerializer):
         return obj.vehicle_timestamp or getattr(getattr(obj, "feed_message", None), "timestamp", None)
 
     def get_ttl_seconds(self, obj):
-        return 0
+        ts = self.get_timestamp(obj)
+        if ts is None:
+            return 0
+
+        if timezone.is_naive(ts):
+            ts = timezone.make_aware(ts)
+
+        ttl_seconds = getattr(settings, "DATAHUB_REALTIME_TTL_SECONDS", 300)
+        try:
+            ttl_seconds = int(ttl_seconds)
+        except (TypeError, ValueError):
+            ttl_seconds = 300
+
+        if ttl_seconds <= 0:
+            return 0
+
+        age = (timezone.now() - ts).total_seconds()
+        remaining = max(0, ttl_seconds - int(age))
+        return int(remaining)
 
 
 class StopTimeEventSerializer(serializers.Serializer):
@@ -548,13 +569,35 @@ class TripUpdatePublicSerializer(serializers.ModelSerializer):
         ]
 
     def get_ttl_seconds(self, obj):
-        return 0
+        ts = obj.timestamp or getattr(getattr(obj, "feed_message", None), "timestamp", None)
+        if ts is None:
+            return 0
+
+        if timezone.is_naive(ts):
+            ts = timezone.make_aware(ts)
+
+        ttl_seconds = getattr(settings, "DATAHUB_REALTIME_TTL_SECONDS", 300)
+        try:
+            ttl_seconds = int(ttl_seconds)
+        except (TypeError, ValueError):
+            ttl_seconds = 300
+
+        if ttl_seconds <= 0:
+            return 0
+
+        age = (timezone.now() - ts).total_seconds()
+        remaining = max(0, ttl_seconds - int(age))
+        return int(remaining)
 
     def get_source(self, obj):
         return "GTFS-RT"
 
     def get_stop_time_update(self, obj):
-        updates = StopTimeUpdate.objects.filter(trip_update=obj).order_by("stop_sequence")
+        prefetched = getattr(obj, "stoptimeupdate_set", None)
+        if prefetched is not None:
+            updates = prefetched.all().order_by("stop_sequence")
+        else:
+            updates = StopTimeUpdate.objects.filter(trip_update=obj).order_by("stop_sequence")
         items = []
         for u in updates:
             items.append(
