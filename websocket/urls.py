@@ -8,5 +8,6 @@ app_name = 'websocket'
 
 urlpatterns = [
     path('demo/trip/', views.trip_demo, name='trip_demo'),
+    path('demo/route/', views.route_demo, name='route_demo'),
     path('demo/status/', views.demo_status, name='demo_status'),
 ]
