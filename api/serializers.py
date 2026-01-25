@@ -390,6 +390,14 @@ class UserReportCreateSerializer(serializers.Serializer):
     description = serializers.CharField(max_length=500)
     user_evidence = UserEvidenceItemSerializer(many=True, required=False)
 
+    def validate_user_evidence(self, value):
+        # OpenAPI specifies maxItems: 10.
+        if value is None:
+            return value
+        if len(value) > 10:
+            raise serializers.ValidationError("Máximo 10 elementos en user_evidence.")
+        return value
+
 
 class UserReportCreatedSerializer(serializers.Serializer):
     report_id = serializers.CharField()
@@ -473,6 +481,9 @@ class SocialPublicSerializer(serializers.ModelSerializer):
         fields = ["platform", "url", "timestamp", "content", "source"]
 
     def get_url(self, obj):
+        social_id = getattr(obj, "social_id", None)
+        if isinstance(social_id, str) and (social_id.startswith("http://") or social_id.startswith("https://")):
+            return social_id
         return None
 
     def get_timestamp(self, obj):

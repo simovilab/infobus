@@ -23,12 +23,14 @@ from django.db.models import Max, Min, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 from shapely import geometry
 from datetime import datetime, timedelta
+import re
 import pytz
 from django.conf import settings
 from django.contrib.gis.geos import GEOSGeometry
 from django.contrib.gis.measure import D
 from django.utils.dateparse import parse_date
 from django.utils import timezone
+from django.db.models import Q
 
 from drf_spectacular.utils import OpenApiExample, extend_schema
 
@@ -949,7 +951,7 @@ class FareRuleViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, v
     # Esto no tiene path con query params ni response schema
 
 
-class ServiceAlertViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class ServiceAlertViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Alertas de servicio de transporte público.
     """
@@ -966,6 +968,32 @@ class ServiceAlertViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixi
         "service_date",
     ]
     # permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        responses=ServiceAlertPublicSerializer(many=True),
+        examples=[
+            OpenApiExample(
+                "basic",
+                summary="Active service alerts",
+                value=[
+                    {
+                        "alert_id": "bUCR-001",
+                        "header_text": "Cierre de vías",
+                        "description_text": "Cierre de vías en la Ciudad de la Investigación",
+                        "url": "https://bucr.digital/alertas/bUCR-001",
+                        "effect": "DETOUR",
+                        "cause": "MAINTENANCE",
+                        "severity": "MINOR",
+                        "lifecycle": "ONGOING",
+                        "active_period": [{"start": "2024-07-31T08:00:00-06:00", "end": "2024-07-31T18:00:00-06:00"}],
+                        "informed_entity": [{"route_id": "bUCR-L1", "stop_id": "bUCR-0-03"}],
+                    }
+                ],
+            )
+        ],
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -1008,6 +1036,13 @@ class SocialViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet
     ordering_fields = "__all__"
     filterset_fields = ["social_media", "social_content", "social_location"]
     # permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # The OpenAPI schema requires `url` and `timestamp`. Our current model does not
+        # have a dedicated URL field, so we only expose rows where `social_id` already
+        # contains a usable URL.
+        queryset = super().get_queryset()
+        return queryset.filter(Q(social_id__startswith="http://") | Q(social_id__startswith="https://"))
 
 
 class FeedMessageViewSet(viewsets.ModelViewSet):
@@ -1192,6 +1227,14 @@ class UserReportsView(generics.GenericAPIView):
     @extend_schema(responses=UserReportSerializer(many=True))
     def get(self, request):
         queryset = UserReport.objects.all().order_by("-timestamp")
+        retention_days = getattr(settings, "DATAHUB_USER_REPORTS_RETENTION_DAYS", 30)
+        try:
+            retention_days = int(retention_days)
+        except (TypeError, ValueError):
+            retention_days = 30
+        if retention_days > 0:
+            cutoff = timezone.now() - timedelta(days=retention_days)
+            queryset = queryset.filter(timestamp__gte=cutoff)
         serializer = UserReportSerializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -1208,14 +1251,29 @@ class UserReportsView(generics.GenericAPIView):
         for item in evidence:
             stored_evidence.append({"type": item["type"], "url": item.get("url")})
 
+        description = data["description"]
+        # Basic PII redaction for common patterns (email/phone) to keep stored data anonymous.
+        description = re.sub(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}", "[redacted]", description)
+        description = re.sub(r"\b\+?\d[\d\s().-]{7,}\d\b", "[redacted]", description)
+
         report = UserReport.objects.create(
             report_type=data["report_type"],
             location_stop_id=location.get("stop_id"),
             location_lat=location.get("lat"),
             location_lon=location.get("lon"),
-            description=data["description"],
+            description=description,
             user_evidence=stored_evidence,
         )
+
+        # Best-effort retention enforcement on write.
+        retention_days = getattr(settings, "DATAHUB_USER_REPORTS_RETENTION_DAYS", 30)
+        try:
+            retention_days = int(retention_days)
+        except (TypeError, ValueError):
+            retention_days = 30
+        if retention_days > 0:
+            cutoff = timezone.now() - timedelta(days=retention_days)
+            UserReport.objects.filter(timestamp__lt=cutoff).delete()
 
         return Response(
             {"report_id": report.report_id, "status": "created"},
