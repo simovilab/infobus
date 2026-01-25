@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "feed.apps.FeedConfig",
     "alerts.apps.AlertsConfig",
     "api.apps.ApiConfig",
+    "websocket",
     "rest_framework",
     "rest_framework.authtoken",
     "drf_spectacular",

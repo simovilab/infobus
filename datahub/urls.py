@@ -31,4 +31,5 @@ urlpatterns = [
     path("gtfs/", include("gtfs.urls")),
     path("status/", include("feed.urls")),
     path("alertas/", include("alerts.urls")),
+    path("websocket/", include("websocket.urls")),
 ]

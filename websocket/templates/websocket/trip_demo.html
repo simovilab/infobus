@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Trip Demo - SIMOVI Infobus</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .status-indicator {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.connected {
+            background: #10b981;
+        }
+
+        .status-indicator.connecting {
+            background: #f59e0b;
+        }
+
+        .status-indicator.disconnected {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .connection-url {
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #666;
+            background: #f1f1f1;
+            padding: 8px 12px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .info-item {
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .info-value.delay {
+            color: #dc2626;
+        }
+
+        .info-value.ontime {
+            color: #10b981;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #4b5563;
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .trip-selector {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .message-log {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 8px;
+            padding: 20px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .message-log h3 {
+            color: #fff;
+            margin-bottom: 15px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+
+        .log-entry {
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .log-timestamp {
+            color: #6b7280;
+            margin-right: 10px;
+        }
+
+        .log-type {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 10px;
+        }
+
+        .log-type.snapshot {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .log-type.update {
+            background: #10b981;
+            color: white;
+        }
+
+        .log-type.error {
+            background: #ef4444;
+            color: white;
+        }
+
+        .log-data {
+            color: #a855f7;
+        }
+
+        .instructions {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .instructions h4 {
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .instructions code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚌 WebSocket Trip Demo</h1>
+            <p>SIMOVI Infobus - Real-time GTFS Updates</p>
+        </div>
+
+        <div class="card">
+            <div class="status-bar">
+                <div id="status-indicator" class="status-indicator disconnected"></div>
+                <span id="status-text" class="status-text">Desconectado</span>
+            </div>
+            <div class="connection-url" id="connection-url">No conectado</div>
+        </div>
+
+        {% if not demo_trips %}
+        <div class="instructions">
+            <h4>⚠️ No hay datos de demo</h4>
+            <p>Ejecuta este comando para crear datos de prueba:</p>
+            <br>
+            <code>docker-compose exec web uv run python manage.py demo_websocket_data</code>
+            <br><br>
+            <p>Luego, en otra terminal, simula broadcasts:</p>
+            <br>
+            <code>docker-compose exec web uv run python manage.py test_broadcast --count 15 --interval 3</code>
+        </div>
+        {% endif %}
+
+        <div class="card">
+            <div class="controls">
+                <select id="trip-selector" class="trip-selector">
+                    {% for trip in demo_trips %}
+                    <option value="{{ trip }}">{{ trip }}</option>
+                    {% endfor %}
+                    {% if not demo_trips %}
+                    <option value="DEMO_SJ_HEREDIA_001">DEMO_SJ_HEREDIA_001 (crear primero)</option>
+                    {% endif %}
+                </select>
+                <button id="btn-connect" class="btn btn-primary">Conectar</button>
+                <button id="btn-disconnect" class="btn btn-secondary" disabled>Desconectar</button>
+            </div>
+
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">Trip ID</div>
+                    <div id="trip-id" class="info-value">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Route ID</div>
+                    <div id="route-id" class="info-value">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Vehículo</div>
+                    <div id="vehicle" class="info-value">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Retraso</div>
+                    <div id="delay" class="info-value">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="message-log">
+                <h3>📡 Log de Mensajes</h3>
+                <div id="log-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentTripId = '{{ default_trip }}';
+        let messageCount = 0;
+
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const connectionUrl = document.getElementById('connection-url');
+        const tripSelector = document.getElementById('trip-selector');
+        const btnConnect = document.getElementById('btn-connect');
+        const btnDisconnect = document.getElementById('btn-disconnect');
+        const logContainer = document.getElementById('log-container');
+
+        // Info fields
+        const tripIdEl = document.getElementById('trip-id');
+        const routeIdEl = document.getElementById('route-id');
+        const vehicleEl = document.getElementById('vehicle');
+        const delayEl = document.getElementById('delay');
+
+        function getWebSocketURL(tripId) {
+            // Auto-detect protocol and host
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const host = window.location.host;
+            return `${protocol}//${host}/ws/trips/${tripId}?include_stops=true`;
+        }
+
+        function updateStatus(status) {
+            statusIndicator.className = `status-indicator ${status}`;
+            switch(status) {
+                case 'connected':
+                    statusText.textContent = 'Conectado';
+                    btnConnect.disabled = true;
+                    btnDisconnect.disabled = false;
+                    break;
+                case 'connecting':
+                    statusText.textContent = 'Conectando...';
+                    btnConnect.disabled = true;
+                    btnDisconnect.disabled = true;
+                    break;
+                case 'disconnected':
+                    statusText.textContent = 'Desconectado';
+                    btnConnect.disabled = false;
+                    btnDisconnect.disabled = true;
+                    break;
+            }
+        }
+
+        function addLogEntry(type, message, data = null) {
+            messageCount++;
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            
+            let html = `
+                <span class="log-timestamp">[${timestamp}]</span>
+                <span class="log-type ${type}">${type.toUpperCase()}</span>
+                ${message}
+            `;
+            
+            if (data) {
+                html += `<br><span class="log-data">${JSON.stringify(data, null, 2)}</span>`;
+            }
+            
+            entry.innerHTML = html;
+            logContainer.insertBefore(entry, logContainer.firstChild);
+            
+            // Keep only last 50 entries
+            if (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.lastChild);
+            }
+        }
+
+        function updateTripInfo(data) {
+            // Handle nested trip object
+            if (data.trip && data.trip.trip_id) {
+                tripIdEl.textContent = data.trip.trip_id;
+            }
+            if (data.trip && data.trip.route_id) {
+                routeIdEl.textContent = data.trip.route_id;
+            }
+            
+            if (data.vehicle) {
+                vehicleEl.textContent = `${data.vehicle.label || data.vehicle.id} (${data.vehicle.id})`;
+            }
+            
+            if (data.delay !== undefined) {
+                const delaySeconds = data.delay;
+                const delayMinutes = Math.floor(Math.abs(delaySeconds) / 60);
+                const sign = delaySeconds >= 0 ? '+' : '-';
+                delayEl.textContent = `${sign}${delayMinutes}m ${Math.abs(delaySeconds) % 60}s`;
+                delayEl.className = delaySeconds > 60 ? 'info-value delay' : 'info-value ontime';
+            }
+        }
+
+        function connect() {
+            currentTripId = tripSelector.value;
+            const url = getWebSocketURL(currentTripId);
+            
+            updateStatus('connecting');
+            connectionUrl.textContent = url;
+            addLogEntry('snapshot', `Conectando a ${currentTripId}...`);
+            
+            ws = new WebSocket(url);
+            
+            ws.onopen = () => {
+                updateStatus('connected');
+                addLogEntry('snapshot', '✓ WebSocket conectado');
+                console.log('WebSocket connected');
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                messageCount++;
+                
+                if (data.type === 'trip.snapshot') {
+                    addLogEntry('snapshot', `Snapshot recibido (msg #${messageCount})`);
+                    updateTripInfo(data);
+                } else if (data.type === 'trip.update') {
+                    addLogEntry('update', `Update recibido (msg #${messageCount})`);
+                    updateTripInfo(data);
+                }
+                
+                console.log('Received:', data);
+            };
+            
+            ws.onerror = (error) => {
+                addLogEntry('error', `Error: ${error.message || 'Unknown error'}`);
+                console.error('WebSocket error:', error);
+            };
+            
+            ws.onclose = (event) => {
+                updateStatus('disconnected');
+                addLogEntry('error', `Desconectado (code: ${event.code})`);
+                console.log('WebSocket closed:', event.code);
+                ws = null;
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        btnConnect.addEventListener('click', connect);
+        btnDisconnect.addEventListener('click', disconnect);
+
+        // Auto-connect if demo data exists
+        {% if demo_trips %}
+        window.addEventListener('load', () => {
+            setTimeout(connect, 500);
+        });
+        {% endif %}
+    </script>
+</body>
+</html>
