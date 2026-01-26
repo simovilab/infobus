@@ -409,6 +409,7 @@ class UserReportSerializer(serializers.ModelSerializer):
     user_name = serializers.SerializerMethodField()
     user_email = serializers.SerializerMethodField()
     location = serializers.SerializerMethodField()
+    user_evidence = serializers.SerializerMethodField()
 
     class Meta:
         model = UserReport
@@ -424,6 +425,15 @@ class UserReportSerializer(serializers.ModelSerializer):
             "timestamp",
             "status",
         ]
+
+    def get_user_evidence(self, obj):
+        # OpenAPI models `user_evidence` as an array of items; return [] instead of null.
+        value = getattr(obj, "user_evidence", None)
+        if value in (None, ""):
+            return []
+        if isinstance(value, list):
+            return value
+        return []
 
     def get_user_id(self, obj):
         return None
@@ -466,7 +476,10 @@ class WeatherPublicSerializer(serializers.ModelSerializer):
             return None
         from datetime import datetime
 
-        return datetime.combine(obj.weather_date, obj.weather_time)
+        dt = datetime.combine(obj.weather_date, obj.weather_time)
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt)
+        return dt
 
 
 class SocialPublicSerializer(serializers.ModelSerializer):
@@ -491,7 +504,10 @@ class SocialPublicSerializer(serializers.ModelSerializer):
             return None
         from datetime import datetime
 
-        return datetime.combine(obj.social_date, obj.social_time)
+        dt = datetime.combine(obj.social_date, obj.social_time)
+        if timezone.is_naive(dt):
+            dt = timezone.make_aware(dt)
+        return dt
 
     def get_source(self, obj):
         return None
@@ -626,7 +642,7 @@ class TripUpdatePublicSerializer(serializers.ModelSerializer):
 class ServiceAlertPublicSerializer(serializers.ModelSerializer):
     header_text = serializers.CharField(source="alert_header")
     description_text = serializers.CharField(source="alert_description")
-    url = serializers.URLField(source="alert_url", allow_null=True, required=False)
+    url = serializers.URLField(source="alert_url", required=False)
     effect = serializers.SerializerMethodField()
     cause = serializers.SerializerMethodField()
     severity = serializers.SerializerMethodField()
@@ -648,6 +664,13 @@ class ServiceAlertPublicSerializer(serializers.ModelSerializer):
             "informed_entity",
         ]
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        # `url` is optional in the spec, but not nullable.
+        if data.get("url") is None:
+            data.pop("url", None)
+        return data
+
     def get_effect(self, obj):
         mapping = {
             2: "DETOUR",
@@ -656,23 +679,25 @@ class ServiceAlertPublicSerializer(serializers.ModelSerializer):
         return mapping.get(obj.effect, "OTHER_EFFECT")
 
     def get_cause(self, obj):
+        # OpenAPI enum: UNKNOWN, ACCIDENT, WEATHER, MAINTENANCE, STRIKE, EMERGENCY, OTHER_CAUSE
         mapping = {
             2: "ACCIDENT",
-            3: "CONGESTION",
             5: "MAINTENANCE",
-            6: "CONSTRUCTION",
-            10: "STOP_MOVED",
+            7: "STRIKE",
+            8: "EMERGENCY",
         }
         return mapping.get(obj.cause, "OTHER_CAUSE")
 
     def get_severity(self, obj):
+        # OpenAPI enum: INFO, MINOR, MAJOR, CRITICAL
         mapping = {
             2: "INFO",
             3: "MINOR",
             4: "MAJOR",
-            5: "SEVERE",
+            5: "CRITICAL",
         }
-        return mapping.get(obj.severity, "UNKNOWN")
+        # No UNKNOWN in spec; default to INFO.
+        return mapping.get(obj.severity, "INFO")
 
     def get_active_period(self, obj):
         # Convert date + start/end times to datetimes when possible.
@@ -691,16 +716,15 @@ class ServiceAlertPublicSerializer(serializers.ModelSerializer):
         return [{"start": start_dt, "end": end_dt}]
 
     def get_lifecycle(self, obj):
-        from django.utils import timezone
-
+        # OpenAPI enum: NEW, ONGOING, UPDATE, RESOLVED, CANCELED
         now = timezone.now()
         periods = self.get_active_period(obj)
         if not periods:
-            return "UNKNOWN"
+            return "ONGOING"
         start = periods[0].get("start")
         end = periods[0].get("end")
         if start and now < start:
-            return "UPCOMING"
+            return "NEW"
         if end and now > end:
-            return "EXPIRED"
+            return "RESOLVED"
         return "ONGOING"

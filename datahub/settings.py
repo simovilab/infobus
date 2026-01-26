@@ -233,6 +233,10 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # If `DATAHUB_API_KEY` is missing, write requests are denied (secure by default).
 DATAHUB_API_KEY = config("DATAHUB_API_KEY", default=None)
 
+# External endpoints: retention window for user-generated content.
+# Used by /user-reports to limit public exposure and enforce data minimization.
+DATAHUB_USER_REPORTS_RETENTION_DAYS = config("DATAHUB_USER_REPORTS_RETENTION_DAYS", default=30, cast=int)
+
 # Realtime freshness window (seconds).
 # Used by realtime endpoints to:
 # - ignore stale GTFS-RT snapshots (server-side filtering)

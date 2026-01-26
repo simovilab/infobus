@@ -127,11 +127,11 @@ def _get_latest_realtime_feed_message(entity_type: str):
     if latest is None:
         return None
 
-    ttl_seconds = getattr(settings, "DATAHUB_REALTIME_TTL_SECONDS", 120)
+    ttl_seconds = getattr(settings, "DATAHUB_REALTIME_TTL_SECONDS", 300)
     try:
         ttl_seconds = int(ttl_seconds)
     except (TypeError, ValueError):
-        ttl_seconds = 120
+        ttl_seconds = 300
 
     if ttl_seconds > 0:
         cutoff = timezone.now() - timedelta(seconds=ttl_seconds)
@@ -1012,7 +1012,7 @@ class ServiceAlertViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOff
         return queryset
 
 
-class WeatherViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class WeatherViewSet(ErrorEnvelopeMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Condiciones climáticas.
     """
@@ -1025,7 +1025,7 @@ class WeatherViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSe
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class SocialViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class SocialViewSet(ErrorEnvelopeMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Publicaciones en redes sociales.
     """
@@ -1042,7 +1042,11 @@ class SocialViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet
         # have a dedicated URL field, so we only expose rows where `social_id` already
         # contains a usable URL.
         queryset = super().get_queryset()
-        return queryset.filter(Q(social_id__startswith="http://") | Q(social_id__startswith="https://"))
+        return queryset.filter(
+            (Q(social_id__startswith="http://") | Q(social_id__startswith="https://"))
+            & Q(social_date__isnull=False)
+            & Q(social_time__isnull=False)
+        )
 
 
 class FeedMessageViewSet(viewsets.ModelViewSet):
@@ -1194,7 +1198,7 @@ class InfoServiceViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelVi
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class WideAlertsView(generics.GenericAPIView):
+class WideAlertsView(ErrorEnvelopeMixin, generics.GenericAPIView):
     serializer_class = WideAlertSerializer
 
     def get_permissions(self):
@@ -1216,7 +1220,7 @@ class WideAlertsView(generics.GenericAPIView):
         return Response(self.serializer_class(obj).data, status=status.HTTP_201_CREATED)
 
 
-class UserReportsView(generics.GenericAPIView):
+class UserReportsView(ErrorEnvelopeMixin, generics.GenericAPIView):
     def get_permissions(self):
         # GET is public (responses anonymized).
         # POST requires ApiKeyAuth to prevent spam and ensure trusted submissions
@@ -1249,7 +1253,11 @@ class UserReportsView(generics.GenericAPIView):
 
         stored_evidence = []
         for item in evidence:
-            stored_evidence.append({"type": item["type"], "url": item.get("url")})
+            # Public API only exposes URL-based evidence. If a client submits b64,
+            # we intentionally do not persist/return it (writeOnly in the OpenAPI contract).
+            url = item.get("url")
+            if url:
+                stored_evidence.append({"type": item["type"], "url": url})
 
         description = data["description"]
         # Basic PII redaction for common patterns (email/phone) to keep stored data anonymous.
@@ -1281,7 +1289,7 @@ class UserReportsView(generics.GenericAPIView):
         )
 
 
-class UserDataView(generics.GenericAPIView):
+class UserDataView(ErrorEnvelopeMixin, generics.GenericAPIView):
     serializer_class = UserDataSerializer
 
     def get_permissions(self):
