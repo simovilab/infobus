@@ -12,7 +12,7 @@ from gtfs.models import (
     StopTime,
     StopTimeUpdate,
 )
-from rest_framework import viewsets, permissions, generics
+from rest_framework import viewsets, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -192,12 +192,13 @@ class ErrorEnvelopeMixin:
                 detail = getattr(exc, "detail", None)
                 return self._error(status_code, self._detail_to_message(status_code, detail))
         except Exception:
+            # Silently fall through to default DRF exception handling if conversion fails
             pass
 
         return super().handle_exception(exc)
 
 
-class GTFSProviderViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class GTFSProviderViewSet(ErrorEnvelopeMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Proveedores de datos GTFS.
     """
@@ -222,7 +223,8 @@ class NextTripView(generics.GenericAPIView):
         if not stop_id:
             return Response(
                 {
-                    "error": "Es necesario especificar el stop_id como parámetro de la solicitud: /next-trips?stop_id=bUCR-0-01, por ejemplo."
+                    "code": 400,
+                    "message": "Es necesario especificar el stop_id como parámetro de la solicitud: /next-trips?stop_id=bUCR-0-01, por ejemplo."
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -230,16 +232,24 @@ class NextTripView(generics.GenericAPIView):
         timestamp_raw = request.query_params.get("timestamp")
         if timestamp_raw:
             try:
-                timestamp = datetime.strptime(timestamp_raw, "%Y-%m-%dT%H:%M:%S")
-            except ValueError:
+                # Try parsing as ISO 8601 with timezone first
+                from django.utils.dateparse import parse_datetime
+                timestamp = parse_datetime(timestamp_raw)
+                if timestamp is None:
+                    # Fallback to naive datetime parsing
+                    timestamp = datetime.strptime(timestamp_raw, "%Y-%m-%dT%H:%M:%S")
+                    timestamp = timezone.localize(timestamp)
+                elif timezone.is_naive(timestamp):
+                    # Make timezone-aware if parsed as naive
+                    timestamp = timezone.localize(timestamp)
+            except (ValueError, TypeError):
                 return Response(
-                    {"error": "timestamp inválido. Use formato YYYY-MM-DDTHH:MM:SS"},
+                    {"code": 400, "message": "timestamp inválido. Use formato ISO 8601 (ej. 2024-07-31T16:12:25 o 2024-07-31T16:12:25-06:00)"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         else:
             timestamp = datetime.now()
-
-        timestamp = timezone.localize(timestamp)
+            timestamp = timezone.localize(timestamp)
 
         # Get the current GTFS feed
         try:
@@ -254,7 +264,7 @@ class NextTripView(generics.GenericAPIView):
         # Validate stop exists in the current feed
         if not Stop.objects.filter(feed=current_feed, stop_id=stop_id).exists():
             return Response(
-                {"error": f"No existe la parada especificada {stop_id} en la base de datos."},
+                {"code": 404, "message": f"No existe la parada especificada {stop_id} en la base de datos."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -358,6 +368,7 @@ class NextTripView(generics.GenericAPIView):
                     "departure_time": stop_time_update.departure_time,
                     "in_progress": True,
                     "progression": progression,
+                    "source": "GTFS-RT",
                 }
             )
 
@@ -409,6 +420,7 @@ class NextTripView(generics.GenericAPIView):
                     "departure_time": departure_time,
                     "in_progress": False,
                     "progression": None,
+                    "source": "GTFS",
                 }
             )
 
@@ -439,17 +451,29 @@ class NextStopView(generics.GenericAPIView):
         if not trip_id or not start_date or not start_time:
             return Response(
                 {
-                    "error": "Es necesario especificar todos los parámetros de la solicitud, trip_id, start_date y start_time."
+                    "code": 400,
+                    "message": "Es necesario especificar todos los parámetros de la solicitud, trip_id, start_date y start_time."
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         next_stop_sequence = []
 
-        start_date_parsed = parse_date(start_date) if start_date else None
+        # Parse start_date - accept both YYYYMMDD (GTFS format) and YYYY-MM-DD
+        start_date_parsed = None
+        if start_date:
+            # First try standard formats supported by parse_date (e.g., YYYY-MM-DD)
+            start_date_parsed = parse_date(start_date)
+            # If that fails, try GTFS YYYYMMDD format explicitly
+            if start_date_parsed is None and re.fullmatch(r"\d{8}", start_date):
+                try:
+                    start_date_parsed = datetime.strptime(start_date, "%Y%m%d").date()
+                except ValueError:
+                    start_date_parsed = None
+
         if start_date_parsed is None:
             return Response(
-                {"error": "start_date inválido. Use formato YYYY-MM-DD"},
+                {"code": 400, "message": "start_date inválido. Use formato YYYYMMDD o YYYY-MM-DD"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -457,7 +481,7 @@ class NextStopView(generics.GenericAPIView):
             start_time_td = str_to_timedelta(start_time)
         except Exception:
             return Response(
-                {"error": "start_time inválido."},
+                {"code": 400, "message": "start_time inválido."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -536,13 +560,13 @@ class RouteStopView(generics.GenericAPIView):
             offset = int(offset)
         except ValueError:
             return Response(
-                {"error": "Parámetros inválidos: limit/offset deben ser enteros."},
+                {"code": 400, "message": "Parámetros inválidos: limit/offset deben ser enteros."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if limit < 1 or limit > 1000 or offset < 0:
             return Response(
-                {"error": "Parámetros inválidos: limit debe ser 1..1000 y offset >= 0."},
+                {"code": 400, "message": "Parámetros inválidos: limit debe ser 1..1000 y offset >= 0."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -555,7 +579,8 @@ class RouteStopView(generics.GenericAPIView):
         if ordering_field not in allowed_ordering:
             return Response(
                 {
-                    "error": "Parámetro inválido: ordering no permitido."
+                    "code": 400,
+                    "message": "Parámetro inválido: ordering no permitido."
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -592,7 +617,7 @@ class RouteStopView(generics.GenericAPIView):
         return Response(items)
 
 
-class AgencyViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class AgencyViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Agencias de transporte público.
     """
@@ -605,7 +630,7 @@ class AgencyViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, vie
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class StopViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Paradas de transporte público.
     """
@@ -676,7 +701,7 @@ class StopViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, views
         return queryset
 
 
-class GeoStopViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class GeoStopViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Paradas como GeoJSON.
     """
@@ -695,7 +720,7 @@ class GeoStopViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, vi
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class RouteViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class RouteViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Rutas de transporte público.
     """
@@ -716,7 +741,7 @@ class RouteViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, view
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class CalendarViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class CalendarViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Calendarios de transporte público.
     """
@@ -729,7 +754,7 @@ class CalendarViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, v
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class CalendarDateViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class CalendarDateViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Fechas de calendario de transporte público.
     """
@@ -742,7 +767,7 @@ class CalendarDateViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixi
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class ShapeViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class ShapeViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Formas de transporte público.
     """
@@ -755,7 +780,7 @@ class ShapeViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, view
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class GeoShapeViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class GeoShapeViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Formas geográficas de transporte público.
     """
@@ -768,7 +793,7 @@ class GeoShapeViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, v
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class TripViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class TripViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Viajes de transporte público.
     """
@@ -787,7 +812,7 @@ class TripViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, views
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopTimeViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class StopTimeViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Horarios de paradas de transporte público.
     """
@@ -800,7 +825,7 @@ class StopTimeViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, v
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FeedInfoViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class FeedInfoViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Información de alimentación de transporte público.
     """
@@ -923,7 +948,7 @@ class TripTimesView(generics.GenericAPIView):
         return Response(items[offset : offset + limit])
 
 
-class FareAttributeViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class FareAttributeViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Atributos de tarifa de transporte público.
     """
@@ -937,7 +962,7 @@ class FareAttributeViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMix
     # Esto no tiene path con query params ni response schema
 
 
-class FareRuleViewSet(CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class FareRuleViewSet(ErrorEnvelopeMixin, CurrentFeedQuerysetMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Reglas de tarifa de transporte público.
     """
@@ -1185,7 +1210,7 @@ class VehiclePositionViewSet(ErrorEnvelopeMixin, LimitOffsetArrayResponseMixin, 
         return queryset.filter(vehicle_timestamp__gte=dt)
 
 
-class InfoServiceViewSet(LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
+class InfoServiceViewSet(ErrorEnvelopeMixin, LimitOffsetArrayResponseMixin, viewsets.ReadOnlyModelViewSet):
     """
     Aplicaciones conectadas al servidor de datos.
     """

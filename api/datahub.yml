@@ -1763,7 +1763,7 @@ components:
           type: string
           example: 'Massachusetts Bay Transportation Authority'
         description:
-          description: Descripcción del proveedor de datos
+          description: Descripción del proveedor de datos
           type: string
           example: 'La agencia de transporte público de Boston.'
         website:
