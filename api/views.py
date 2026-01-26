@@ -36,7 +36,7 @@ from drf_spectacular.utils import OpenApiExample, extend_schema
 
 from .serializers import *
 from .models import UserData, UserReport, WideAlert
-from .permissions import HasApiKey
+from .permissions import ApiKeyAuthentication
 
 # from .serializers import InfoServiceSerializer, GTFSProviderSerializer, RouteSerializer, TripSerializer
 
@@ -1226,9 +1226,9 @@ class InfoServiceViewSet(ErrorEnvelopeMixin, LimitOffsetArrayResponseMixin, view
 class WideAlertsView(ErrorEnvelopeMixin, generics.GenericAPIView):
     serializer_class = WideAlertSerializer
 
-    def get_permissions(self):
+    def get_authenticators(self):
         if self.request.method.upper() == "POST":
-            return [HasApiKey()]
+            return [ApiKeyAuthentication()]
         return []
 
     @extend_schema(responses=WideAlertSerializer(many=True))
@@ -1246,11 +1246,11 @@ class WideAlertsView(ErrorEnvelopeMixin, generics.GenericAPIView):
 
 
 class UserReportsView(ErrorEnvelopeMixin, generics.GenericAPIView):
-    def get_permissions(self):
+    def get_authenticators(self):
         # GET is public (responses anonymized).
         # POST requires ApiKeyAuth to prevent spam and ensure trusted submissions
         if self.request.method.upper() == "POST":
-            return [HasApiKey()]
+            return [ApiKeyAuthentication()]
         return []
 
     @extend_schema(responses=UserReportSerializer(many=True))
@@ -1317,11 +1317,11 @@ class UserReportsView(ErrorEnvelopeMixin, generics.GenericAPIView):
 class UserDataView(ErrorEnvelopeMixin, generics.GenericAPIView):
     serializer_class = UserDataSerializer
 
-    def get_permissions(self):
+    def get_authenticators(self):
         # POST is protected because it allows writes to a user identifier store.
         # Unauthenticated writes would allow spam and dataset poisoning.
         if self.request.method.upper() == "POST":
-            return [HasApiKey()]
+            return [ApiKeyAuthentication()]
         return []
 
     @extend_schema(responses=UserDataSerializer(many=True))
