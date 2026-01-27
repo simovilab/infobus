@@ -88,11 +88,10 @@ class RouteConsumer(AsyncWebsocketConsumer):
                     return
                 self.direction_id = direction_int
             
-            # Validate route exists in database
-            if not await self.route_exists():
-                logger.warning(f"Route not found: {self.route_id}")
-                await self.close(code=self.ERR_ROUTE_NOT_FOUND)
-                return
+            # NOTE: We don't validate route exists in DB because VehiclePosition 
+            # may have route_ids that aren't in Route table yet (they come from GTFS-RT feed)
+            # The consumer will work with any route_id and just return empty snapshots
+            # if there are no vehicles for that route
             
             # Generate group name based on direction filter
             if self.direction_id is not None:
