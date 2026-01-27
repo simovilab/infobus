@@ -345,7 +345,7 @@
          */
         function connectToRoutes() {
             console.log('[App] Loading active routes from API...');
-            app.setStatus('connecting');
+            updateConnectionStatus();
             
             // Fetch active routes dynamically from API
             fetch('/api/realtime/routes/active/?min_vehicles=1&limit=20')
@@ -358,7 +358,7 @@
                 .then(data => {
                     if (!data.routes || data.routes.length === 0) {
                         console.warn('[App] No active routes found');
-                        app.setStatus('disconnected');
+                        updateConnectionStatus();
                         return;
                     }
                     
@@ -372,7 +372,7 @@
                 })
                 .catch(error => {
                     console.error('[App] Error loading routes:', error);
-                    app.setStatus('disconnected');
+                    updateConnectionStatus();
                 });
         }
         

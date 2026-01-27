@@ -745,30 +745,48 @@ def active_routes(request):
     # Find routes with recent vehicle positions (last 10 minutes)
     cutoff = timezone.now() - timedelta(minutes=10)
     
-    routes_with_vehicles = Route.objects.annotate(
-        vehicle_count=Count(
-            'vehicleposition',
-            filter=Q(vehicleposition__vehicle_timestamp__gte=cutoff)
-        )
+    # Get route_ids with recent vehicles from VehiclePosition
+    # Note: VehiclePosition doesn't have ForeignKey to Route, only vehicle_trip_route_id CharField
+    recent_vehicles = VehiclePosition.objects.filter(
+        vehicle_timestamp__gte=cutoff,
+        vehicle_trip_route_id__isnull=False
+    ).values('vehicle_trip_route_id').annotate(
+        vehicle_count=Count('id')
     ).filter(
         vehicle_count__gte=min_vehicles
     ).order_by('-vehicle_count')[:limit]
     
-    # Build response
+    # Build response with Route details
     routes_data = []
-    for route in routes_with_vehicles:
+    for item in recent_vehicles:
+        route_id = item['vehicle_trip_route_id']
+        vehicle_count = item['vehicle_count']
+        
+        # Try to get Route object for metadata (use first() to avoid MultipleObjectsReturned)
+        route = Route.objects.filter(route_id=route_id).first()
+        
+        if route:
+            route_short_name = route.route_short_name or route_id
+            route_long_name = route.route_long_name or route_id
+            route_type = route.route_type
+        else:
+            # Route not in database, use route_id as fallback
+            route_short_name = route_id
+            route_long_name = route_id
+            route_type = 3  # Default to bus
+        
         # Get last update time
         last_position = VehiclePosition.objects.filter(
-            vehicle_trip_route_id=route.route_id,
+            vehicle_trip_route_id=route_id,
             vehicle_timestamp__gte=cutoff
         ).order_by('-vehicle_timestamp').first()
         
         routes_data.append({
-            'route_id': route.route_id,
-            'route_short_name': route.route_short_name or route.route_id,
-            'route_long_name': route.route_long_name or route.route_id,
-            'route_type': route.route_type,
-            'vehicle_count': route.vehicle_count,
+            'route_id': route_id,
+            'route_short_name': route_short_name,
+            'route_long_name': route_long_name,
+            'route_type': route_type,
+            'vehicle_count': vehicle_count,
             'last_update': last_position.vehicle_timestamp.isoformat() if last_position else None
         })
     
