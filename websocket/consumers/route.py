@@ -152,21 +152,17 @@ class RouteConsumer(AsyncWebsocketConsumer):
         try:
             # Get vehicles from the broadcast (already serialized by Celery task)
             vehicles = event.get('vehicles', [])
-            
-            # Build payload for client
+            sanitized_vehicles = [self.sanitize_vehicle(v) for v in vehicles]
             payload = {
                 'route_id': self.route_id,
                 'direction_id': self.direction_id,
                 'timestamp': timezone.now().isoformat(),
-                'count': len(vehicles),
+                'count': len(sanitized_vehicles),
                 'type': 'route.update',
-                'vehicles': vehicles
+                'vehicles': sanitized_vehicles
             }
-            
-            # Send JSON to client
             await self.send(text_data=json.dumps(payload))
-            logger.debug(f"Sent update for route {self.route_id} with {len(vehicles)} vehicles")
-            
+            logger.debug(f"Sent update for route {self.route_id} with {len(sanitized_vehicles)} vehicles")
         except Exception as e:
             logger.exception(f"Error sending route update: {e}")
             # Don't close connection on serialization errors, just log
@@ -229,41 +225,52 @@ class RouteConsumer(AsyncWebsocketConsumer):
         """
         try:
             vehicles = await self.get_active_vehicles()
-            
-            # Build payload manually (serialize_route_vehicles has sync DB calls)
+            raw_vehicles = [
+                {
+                    "trip": {
+                        "trip_id": v.vehicle_trip_trip_id or "",
+                        "route_id": v.vehicle_trip_route_id or "",
+                        "direction_id": v.vehicle_trip_direction_id if v.vehicle_trip_direction_id is not None else 0,
+                    },
+                    "vehicle": {
+                        "id": v.vehicle_vehicle_id or "",
+                        "label": v.vehicle_vehicle_label or "",
+                        "license_plate": v.vehicle_vehicle_license_plate,
+                    },
+                    "position": {
+                        "latitude": v.vehicle_position_latitude,
+                        "longitude": v.vehicle_position_longitude,
+                        "bearing": v.vehicle_position_bearing,
+                        "speed": v.vehicle_position_speed,
+                    },
+                    "timestamp": v.vehicle_timestamp.isoformat() if v.vehicle_timestamp else None,
+                }
+                for v in vehicles
+            ]
+            sanitized_vehicles = [self.sanitize_vehicle(v) for v in raw_vehicles]
             payload = {
                 'route_id': self.route_id,
                 'direction_id': self.direction_id,
                 'timestamp': timezone.now().isoformat(),
-                'count': len(vehicles),
+                'count': len(sanitized_vehicles),
                 'type': 'route.snapshot',
-                'vehicles': [
-                    {
-                        "trip": {
-                            "trip_id": v.vehicle_trip_trip_id or "",
-                            "route_id": v.vehicle_trip_route_id or "",
-                            "direction_id": v.vehicle_trip_direction_id if v.vehicle_trip_direction_id is not None else 0,
-                        },
-                        "vehicle": {
-                            "id": v.vehicle_vehicle_id or "",
-                            "label": v.vehicle_vehicle_label or "",
-                            "license_plate": v.vehicle_vehicle_license_plate,
-                        },
-                        "position": {
-                            "latitude": v.vehicle_position_latitude,
-                            "longitude": v.vehicle_position_longitude,
-                            "bearing": v.vehicle_position_bearing,
-                            "speed": v.vehicle_position_speed,
-                        },
-                        "timestamp": v.vehicle_timestamp.isoformat() if v.vehicle_timestamp else None,
-                    }
-                    for v in vehicles
-                ]
+                'vehicles': sanitized_vehicles
             }
-            
             await self.send(text_data=json.dumps(payload))
-            logger.debug(f"Sent initial snapshot for route {self.route_id} with {len(vehicles)} vehicles")
-            
+            logger.debug(f"Sent initial snapshot for route {self.route_id} with {len(sanitized_vehicles)} vehicles")
         except Exception as e:
             logger.exception(f"Error sending initial snapshot: {e}")
             await self.close(code=self.ERR_SERVER_ERROR)
+
+    def sanitize_value(self, val):
+        import math
+        if isinstance(val, float) and (math.isnan(val) or math.isinf(val)):
+            return None
+        return val
+
+    def sanitize_vehicle(self, vehicle):
+        if "position" in vehicle:
+            for key in ["latitude", "longitude", "bearing", "speed"]:
+                if key in vehicle["position"]:
+                    vehicle["position"][key] = self.sanitize_value(vehicle["position"][key])
+        return vehicle
