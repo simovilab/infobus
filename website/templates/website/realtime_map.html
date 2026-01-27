@@ -1,0 +1,687 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infobús - Seguimiento en Tiempo Real</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        #map {
+            height: 100vh;
+            width: 100%;
+        }
+        
+        .sidebar {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 400px;
+            height: 100vh;
+            background: white;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar.collapsed {
+            transform: translateX(400px);
+        }
+        
+        .sidebar-toggle {
+            position: absolute;
+            left: -40px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 80px;
+            background: white;
+            border-radius: 8px 0 0 8px;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+        
+        .sidebar-toggle:hover {
+            background-color: #F3F4F6;
+        }
+        
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .status-connected {
+            background-color: #D1FAE5;
+            color: #065F46;
+        }
+        
+        .status-connecting {
+            background-color: #FEF3C7;
+            color: #92400E;
+        }
+        
+        .status-disconnected {
+            background-color: #FEE2E2;
+            color: #991B1B;
+        }
+        
+        .status-reconnecting {
+            background-color: #DBEAFE;
+            color: #1E40AF;
+        }
+        
+        .route-card {
+            background: white;
+            border: 2px solid #E5E7EB;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .route-card:hover {
+            border-color: #3B82F6;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .route-card.active {
+            border-color: #3B82F6;
+            background-color: #EFF6FF;
+        }
+        
+        .vehicle-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+        
+        .vehicle-item {
+            background: #F9FAFB;
+            border: 1px solid #E5E7EB;
+            border-radius: 6px;
+            padding: 8px 12px;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+        
+        .direction-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+        
+        .direction-0 {
+            background-color: #DBEAFE;
+            color: #1E40AF;
+        }
+        
+        .direction-1 {
+            background-color: #D1FAE5;
+            color: #065F46;
+        }
+        
+        .message-log {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #F9FAFB;
+            border-radius: 6px;
+            padding: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+        }
+        
+        .message-entry {
+            margin-bottom: 4px;
+            padding: 4px;
+            border-radius: 3px;
+        }
+        
+        .message-snapshot {
+            background: #DBEAFE;
+            color: #1E40AF;
+        }
+        
+        .message-update {
+            background: #D1FAE5;
+            color: #065F46;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- Map -->
+    <div id="map"></div>
+    
+    <!-- Sidebar -->
+    <div id="sidebar" class="sidebar">
+        <div class="sidebar-toggle" onclick="toggleSidebar()">
+            <svg id="toggle-icon" width="24" height="24" viewBox="0 0 24 24" fill="#6B7280">
+                <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+            </svg>
+        </div>
+        
+        <!-- Header -->
+        <div style="padding: 20px; border-bottom: 1px solid #E5E7EB;">
+            <h1 style="margin: 0 0 8px 0; font-size: 24px; font-weight: 700; color: #1F2937;">
+                🚌 Infobús Live
+            </h1>
+            <p style="margin: 0; color: #6B7280; font-size: 14px;">
+                Seguimiento en tiempo real - MBTA Boston
+            </p>
+        </div>
+        
+        <!-- Connection Status -->
+        <div style="padding: 16px; border-bottom: 1px solid #E5E7EB; background: #F9FAFB;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <span style="font-size: 13px; font-weight: 600; color: #6B7280;">Estado de Conexión</span>
+                <span id="status-badge" class="status-badge status-disconnected">
+                    Desconectado
+                </span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 4px;">
+                <span>Vehículos:</span>
+                <span id="vehicle-count" style="font-weight: 600; color: #1F2937;">0</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280; margin-bottom: 4px;">
+                <span>Rutas Activas:</span>
+                <span id="route-count" style="font-weight: 600; color: #1F2937;">0</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; font-size: 12px; color: #6B7280;">
+                <span>Última Actualización:</span>
+                <span id="last-update" style="font-weight: 600; color: #1F2937;">-</span>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div style="padding: 16px; border-bottom: 1px solid #E5E7EB;">
+            <label style="display: block; font-size: 13px; font-weight: 600; color: #6B7280; margin-bottom: 8px;">
+                Filtrar por Dirección
+            </label>
+            <div style="display: flex; gap: 8px;">
+                <button onclick="setDirectionFilter(null)" 
+                        id="filter-all"
+                        class="filter-button"
+                        style="flex: 1; padding: 8px; background: #3B82F6; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                    Todas
+                </button>
+                <button onclick="setDirectionFilter(0)" 
+                        id="filter-0"
+                        class="filter-button"
+                        style="flex: 1; padding: 8px; background: #E5E7EB; color: #374151; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                    Outbound (0)
+                </button>
+                <button onclick="setDirectionFilter(1)" 
+                        id="filter-1"
+                        class="filter-button"
+                        style="flex: 1; padding: 8px; background: #E5E7EB; color: #374151; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">
+                    Inbound (1)
+                </button>
+            </div>
+        </div>
+        
+        <!-- Route Selection -->
+        <div style="padding: 16px; border-bottom: 1px solid #E5E7EB;">
+            <label style="display: block; font-size: 13px; font-weight: 600; color: #6B7280; margin-bottom: 8px;">
+                Rutas Disponibles
+            </label>
+            <div id="route-list" style="max-height: 200px; overflow-y: auto;">
+                <p style="color: #9CA3AF; font-size: 12px; text-align: center; padding: 20px;">
+                    Conectando...
+                </p>
+            </div>
+        </div>
+        
+        <!-- Vehicle List -->
+        <div class="vehicle-list">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #1F2937;">
+                    Vehículos Activos
+                </h3>
+                <button onclick="toggleVehicleDetails()" 
+                        style="padding: 4px 8px; background: #F3F4F6; border: none; border-radius: 4px; font-size: 11px; color: #6B7280; cursor: pointer;">
+                    <span id="vehicle-details-toggle">Mostrar Detalles</span>
+                </button>
+            </div>
+            <div id="vehicle-items">
+                <p style="color: #9CA3AF; font-size: 12px; text-align: center; padding: 20px;">
+                    No hay vehículos conectados
+                </p>
+            </div>
+        </div>
+        
+        <!-- Debug Log -->
+        <div style="padding: 16px; border-top: 1px solid #E5E7EB; background: #F9FAFB;">
+            <details>
+                <summary style="font-size: 13px; font-weight: 600; color: #6B7280; cursor: pointer; margin-bottom: 8px;">
+                    Registro de Mensajes
+                </summary>
+                <div id="message-log" class="message-log"></div>
+            </details>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <!-- WebSocket Client -->
+    <script src="{% static 'js/websocket-client.js' %}"></script>
+    
+    <!-- Map Controller -->
+    <script src="{% static 'js/map-controller.js' %}"></script>
+    
+    <!-- Main Application -->
+    <script>
+        // State
+        let wsClients = {}; // route_id -> WebSocketClient
+        let mapController = null;
+        let currentDirectionFilter = null;
+        let availableRoutes = new Set();
+        let selectedRoute = null;
+        let showVehicleDetails = false;
+        let vehicles = {}; // vehicle_id -> vehicle data
+        let messageCount = 0;
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[App] Initializing Infobús Live...');
+            
+            // Initialize map
+            mapController = new MapController('map', {
+                center: [42.3601, -71.0589], // Boston
+                zoom: 12
+            });
+            mapController.initialize();
+            
+            // Connect to default routes
+            connectToRoutes();
+        });
+        
+        /**
+         * Connect to WebSocket for popular routes
+         */
+        function connectToRoutes() {
+            console.log('[App] Loading active routes from API...');
+            app.setStatus('connecting');
+            
+            // Fetch active routes dynamically from API
+            fetch('/api/realtime/routes/active/?min_vehicles=1&limit=20')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data.routes || data.routes.length === 0) {
+                        console.warn('[App] No active routes found');
+                        app.setStatus('disconnected');
+                        return;
+                    }
+                    
+                    console.log(`[App] Found ${data.routes.length} active routes:`, 
+                        data.routes.map(r => r.route_id).join(', '));
+                    
+                    // Connect to each route
+                    data.routes.forEach(route => {
+                        connectToRoute(route.route_id);
+                    });
+                })
+                .catch(error => {
+                    console.error('[App] Error loading routes:', error);
+                    app.setStatus('disconnected');
+                });
+        }
+        
+        /**
+         * Connect to specific route WebSocket
+         */
+        function connectToRoute(routeId) {
+            if (wsClients[routeId]) {
+                console.log(`[App] Already connected to route ${routeId}`);
+                return;
+            }
+            
+            const url = `/ws/route/${routeId}/`;
+            const client = new WebSocketClient(url, {
+                maxReconnectAttempts: 5,
+                reconnectDelay: 2000,
+                heartbeatInterval: 30000
+            });
+            
+            // Register event handlers
+            client.on('open', () => {
+                console.log(`[App] Connected to route ${routeId}`);
+                updateConnectionStatus();
+            });
+            
+            client.on('close', () => {
+                console.log(`[App] Disconnected from route ${routeId}`);
+                updateConnectionStatus();
+            });
+            
+            client.on('message', (data) => {
+                handleWebSocketMessage(routeId, data);
+            });
+            
+            client.on('statechange', (newState) => {
+                updateConnectionStatus();
+            });
+            
+            // Connect
+            client.connect();
+            wsClients[routeId] = client;
+        }
+        
+        /**
+         * Handle incoming WebSocket message
+         */
+        function handleWebSocketMessage(routeId, data) {
+            const messageType = data.type;
+            
+            // Log message
+            logMessage(messageType, routeId);
+            
+            if (messageType === 'route.snapshot' || messageType === 'route.update') {
+                const vehiclesData = data.vehicles || [];
+                
+                if (vehiclesData.length > 0) {
+                    availableRoutes.add(routeId);
+                    updateRouteList();
+                }
+                
+                // Update vehicles in state
+                vehiclesData.forEach(vehicle => {
+                    const vehicleId = vehicle.vehicle?.id || vehicle.id;
+                    if (vehicleId) {
+                        vehicles[vehicleId] = {
+                            ...vehicle,
+                            route_id: routeId,
+                            last_update: Date.now()
+                        };
+                    }
+                });
+                
+                // Apply direction filter and update map
+                updateMapAndList();
+                
+                // Update last update time
+                document.getElementById('last-update').textContent = new Date().toLocaleTimeString();
+            }
+        }
+        
+        /**
+         * Update map markers and vehicle list based on filters
+         */
+        function updateMapAndList() {
+            // Filter vehicles
+            let filteredVehicles = Object.values(vehicles);
+            
+            // Apply direction filter
+            if (currentDirectionFilter !== null) {
+                filteredVehicles = filteredVehicles.filter(v => 
+                    v.trip?.direction_id === currentDirectionFilter
+                );
+            }
+            
+            // Apply route filter
+            if (selectedRoute) {
+                filteredVehicles = filteredVehicles.filter(v =>
+                    v.route_id === selectedRoute
+                );
+            }
+            
+            // Update map
+            mapController.clearVehicles();
+            mapController.updateVehicles(filteredVehicles);
+            
+            // Update vehicle list
+            updateVehicleList(filteredVehicles);
+            
+            // Update counters
+            document.getElementById('vehicle-count').textContent = filteredVehicles.length;
+            document.getElementById('route-count').textContent = availableRoutes.size;
+        }
+        
+        /**
+         * Update vehicle list in sidebar
+         */
+        function updateVehicleList(filteredVehicles) {
+            const container = document.getElementById('vehicle-items');
+            
+            if (filteredVehicles.length === 0) {
+                container.innerHTML = '<p style="color: #9CA3AF; font-size: 12px; text-align: center; padding: 20px;">No hay vehículos que coincidan con los filtros</p>';
+                return;
+            }
+            
+            // Sort by route and vehicle ID
+            filteredVehicles.sort((a, b) => {
+                if (a.route_id !== b.route_id) {
+                    return a.route_id.localeCompare(b.route_id);
+                }
+                const idA = a.vehicle?.id || a.id || '';
+                const idB = b.vehicle?.id || b.id || '';
+                return idA.localeCompare(idB);
+            });
+            
+            const html = filteredVehicles.map(vehicle => {
+                const vehicleId = vehicle.vehicle?.id || vehicle.id || 'Unknown';
+                const label = vehicle.vehicle?.label || vehicleId;
+                const routeId = vehicle.route_id || 'N/A';
+                const direction = vehicle.trip?.direction_id;
+                const directionBadge = direction === 0 
+                    ? '<span class="direction-badge direction-0">Out</span>'
+                    : direction === 1
+                    ? '<span class="direction-badge direction-1">In</span>'
+                    : '';
+                
+                let details = '';
+                if (showVehicleDetails) {
+                    const speed = vehicle.position?.speed ? `${Math.round(vehicle.position.speed * 3.6)} km/h` : 'N/A';
+                    const bearing = vehicle.position?.bearing ? `${Math.round(vehicle.position.bearing)}°` : 'N/A';
+                    details = `<div style="margin-top: 4px; font-size: 11px; color: #6B7280;">Speed: ${speed} • Bearing: ${bearing}</div>`;
+                }
+                
+                return `
+                    <div class="vehicle-item">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong style="color: #1F2937;">Route ${routeId}</strong> - ${label}
+                                ${directionBadge}
+                            </div>
+                        </div>
+                        ${details}
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = html;
+        }
+        
+        /**
+         * Update route list in sidebar
+         */
+        function updateRouteList() {
+            const container = document.getElementById('route-list');
+            const routes = Array.from(availableRoutes).sort((a, b) => {
+                const numA = parseInt(a) || 999;
+                const numB = parseInt(b) || 999;
+                return numA - numB;
+            });
+            
+            if (routes.length === 0) {
+                container.innerHTML = '<p style="color: #9CA3AF; font-size: 12px; text-align: center; padding: 20px;">No hay rutas disponibles</p>';
+                return;
+            }
+            
+            const html = routes.map(routeId => {
+                const vehicleCount = Object.values(vehicles).filter(v => v.route_id === routeId).length;
+                const isActive = selectedRoute === routeId;
+                
+                return `
+                    <div class="route-card ${isActive ? 'active' : ''}" onclick="selectRoute('${routeId}')">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="font-weight: 600; color: #1F2937; margin-bottom: 2px;">
+                                    Route ${routeId}
+                                </div>
+                                <div style="font-size: 11px; color: #6B7280;">
+                                    ${vehicleCount} vehicle${vehicleCount !== 1 ? 's' : ''}
+                                </div>
+                            </div>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="${isActive ? '#3B82F6' : '#9CA3AF'}">
+                                <path d="M10 6L8.59 7.41 13.17 12l-4.58 4.59L10 18l6-6z"/>
+                            </svg>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.innerHTML = html;
+        }
+        
+        /**
+         * Select a specific route to view
+         */
+        function selectRoute(routeId) {
+            if (selectedRoute === routeId) {
+                // Deselect
+                selectedRoute = null;
+            } else {
+                selectedRoute = routeId;
+            }
+            
+            updateRouteList();
+            updateMapAndList();
+        }
+        
+        /**
+         * Set direction filter
+         */
+        function setDirectionFilter(direction) {
+            currentDirectionFilter = direction;
+            
+            // Update button styles
+            document.querySelectorAll('.filter-button').forEach(btn => {
+                btn.style.background = '#E5E7EB';
+                btn.style.color = '#374151';
+            });
+            
+            const activeButton = direction === null ? 'filter-all' : `filter-${direction}`;
+            const btn = document.getElementById(activeButton);
+            btn.style.background = '#3B82F6';
+            btn.style.color = 'white';
+            
+            updateMapAndList();
+        }
+        
+        /**
+         * Toggle vehicle details
+         */
+        function toggleVehicleDetails() {
+            showVehicleDetails = !showVehicleDetails;
+            document.getElementById('vehicle-details-toggle').textContent = 
+                showVehicleDetails ? 'Ocultar Detalles' : 'Mostrar Detalles';
+            updateMapAndList();
+        }
+        
+        /**
+         * Update connection status badge
+         */
+        function updateConnectionStatus() {
+            const badge = document.getElementById('status-badge');
+            const connectedCount = Object.values(wsClients).filter(c => c.isConnected()).length;
+            const totalCount = Object.keys(wsClients).length;
+            
+            if (connectedCount === 0) {
+                badge.className = 'status-badge status-disconnected';
+                badge.textContent = 'Desconectado';
+            } else if (connectedCount === totalCount) {
+                badge.className = 'status-badge status-connected';
+                badge.textContent = `Conectado (${connectedCount})`;
+            } else {
+                badge.className = 'status-badge status-connecting';
+                badge.textContent = `Conectando (${connectedCount}/${totalCount})`;
+            }
+        }
+        
+        /**
+         * Toggle sidebar
+         */
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const icon = document.getElementById('toggle-icon');
+            
+            sidebar.classList.toggle('collapsed');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                icon.innerHTML = '<path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6z"/>';
+            } else {
+                icon.innerHTML = '<path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>';
+            }
+        }
+        
+        /**
+         * Log WebSocket message
+         */
+        function logMessage(type, routeId) {
+            const log = document.getElementById('message-log');
+            messageCount++;
+            
+            const entry = document.createElement('div');
+            entry.className = `message-entry message-${type.includes('snapshot') ? 'snapshot' : 'update'}`;
+            entry.textContent = `${messageCount}. [${new Date().toLocaleTimeString()}] ${type} - Route ${routeId}`;
+            
+            log.insertBefore(entry, log.firstChild);
+            
+            // Keep only last 50 messages
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+    </script>
+</body>
+</html>

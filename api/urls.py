@@ -29,6 +29,10 @@ urlpatterns = [
     path("next-trips/", views.NextTripView.as_view(), name="next-trips"),
     path("next-stops/", views.NextStopView.as_view(), name="next-stops"),
     path("route-stops/", views.RouteStopView.as_view(), name="route-stops"),
+    # Real-time tracking API endpoints
+    path('realtime/routes/active/', views.active_routes, name='api_active_routes'),
+    path('realtime/routes/<str:route_id>/', views.route_details, name='api_route_details'),
+    # Auth and docs
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("docs/schema/", views.get_schema, name="schema"),
     path("docs/", SpectacularRedocView.as_view(url_name="schema"), name="api_docs"),

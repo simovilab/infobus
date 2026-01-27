@@ -6,4 +6,5 @@ urlpatterns = [
     path("", views.index, name="index"),
     path("sobre/", views.about, name="about"),
     path("perfil/", views.profile, name="profile"),
+    path("realtime/", views.realtime_map, name="realtime_map"),
 ]

@@ -20,6 +20,7 @@ from shapely import geometry
 from datetime import datetime, timedelta
 import pytz
 from django.conf import settings
+from django.utils import timezone
 
 from .serializers import *
 
@@ -695,3 +696,154 @@ def get_calendar(date, current_feed):
             service_id = calendar.service_id
 
     return service_id
+
+
+# ==========================================
+# Real-time Tracking API Endpoints
+# ==========================================
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.db.models import Count, Q
+from datetime import timedelta
+
+
+@api_view(['GET'])
+def active_routes(request):
+    """
+    Get list of routes with active vehicles.
+    
+    Returns routes that have had vehicle updates in the last 10 minutes,
+    sorted by number of active vehicles descending.
+    
+    Query Parameters:
+        - min_vehicles (int): Minimum number of vehicles (default: 1)
+        - limit (int): Maximum routes to return (default: 20)
+    
+    Response:
+        {
+            "count": 5,
+            "routes": [
+                {
+                    "route_id": "Red",
+                    "route_short_name": "Red Line",
+                    "route_long_name": "Red Line",
+                    "route_type": 1,
+                    "vehicle_count": 10,
+                    "last_update": "2026-01-27T01:45:23Z"
+                },
+                ...
+            ]
+        }
+    """
+    from gtfs.models import VehiclePosition
+    
+    # Get query parameters
+    min_vehicles = int(request.GET.get('min_vehicles', 1))
+    limit = int(request.GET.get('limit', 20))
+    
+    # Find routes with recent vehicle positions (last 10 minutes)
+    cutoff = timezone.now() - timedelta(minutes=10)
+    
+    routes_with_vehicles = Route.objects.annotate(
+        vehicle_count=Count(
+            'vehicleposition',
+            filter=Q(vehicleposition__vehicle_timestamp__gte=cutoff)
+        )
+    ).filter(
+        vehicle_count__gte=min_vehicles
+    ).order_by('-vehicle_count')[:limit]
+    
+    # Build response
+    routes_data = []
+    for route in routes_with_vehicles:
+        # Get last update time
+        last_position = VehiclePosition.objects.filter(
+            vehicle_trip_route_id=route.route_id,
+            vehicle_timestamp__gte=cutoff
+        ).order_by('-vehicle_timestamp').first()
+        
+        routes_data.append({
+            'route_id': route.route_id,
+            'route_short_name': route.route_short_name or route.route_id,
+            'route_long_name': route.route_long_name or route.route_id,
+            'route_type': route.route_type,
+            'vehicle_count': route.vehicle_count,
+            'last_update': last_position.vehicle_timestamp.isoformat() if last_position else None
+        })
+    
+    return Response({
+        'count': len(routes_data),
+        'routes': routes_data
+    })
+
+
+@api_view(['GET'])
+def route_details(request, route_id):
+    """
+    Get details for a specific route.
+    
+    Parameters:
+        - route_id: Route identifier
+    
+    Response:
+        {
+            "route_id": "Red",
+            "route_short_name": "Red Line",
+            "route_long_name": "Red Line",
+            "route_type": 1,
+            "route_type_name": "Subway/Metro",
+            "vehicle_count": 10,
+            "directions": [
+                {"direction_id": 0, "vehicle_count": 5},
+                {"direction_id": 1, "vehicle_count": 5}
+            ]
+        }
+    """
+    from gtfs.models import VehiclePosition
+    
+    try:
+        route = Route.objects.get(route_id=route_id)
+    except Route.DoesNotExist:
+        return Response({'error': 'Route not found'}, status=404)
+    
+    # Route type names
+    route_type_names = {
+        0: "Tram/Light Rail",
+        1: "Subway/Metro",
+        2: "Rail",
+        3: "Bus",
+        4: "Ferry",
+        5: "Cable Car",
+        6: "Gondola",
+        7: "Funicular"
+    }
+    
+    # Count vehicles by direction (last 10 minutes)
+    cutoff = timezone.now() - timedelta(minutes=10)
+    recent_vehicles = VehiclePosition.objects.filter(
+        vehicle_trip_route_id=route_id,
+        vehicle_timestamp__gte=cutoff
+    )
+    
+    total_count = recent_vehicles.count()
+    
+    # Count by direction
+    directions = []
+    for direction_id in [0, 1]:
+        count = recent_vehicles.filter(vehicle_trip_direction_id=direction_id).count()
+        if count > 0:
+            directions.append({
+                'direction_id': direction_id,
+                'vehicle_count': count
+            })
+    
+    return Response({
+        'route_id': route.route_id,
+        'route_short_name': route.route_short_name or route.route_id,
+        'route_long_name': route.route_long_name or route.route_id,
+        'route_type': route.route_type,
+        'route_type_name': route_type_names.get(route.route_type, 'Unknown'),
+        'vehicle_count': total_count,
+        'directions': directions
+    })
