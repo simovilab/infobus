@@ -139,6 +139,18 @@ CELERY_RESULT_BACKEND = "django-db"
 CELERY_CACHE_BACKEND = "django-cache"
 CELERY_RESULTS_EXTENDED = True
 
+# Celery Beat schedule for periodic tasks
+CELERY_BEAT_SCHEDULE = {
+    "get-vehicle-positions-every-30-seconds": {
+        "task": "feed.tasks.get_vehicle_positions",
+        "schedule": 30.0,  # Run every 30 seconds
+    },
+    "get-trip-updates-every-30-seconds": {
+        "task": "feed.tasks.get_trip_updates",
+        "schedule": 30.0,  # Run every 30 seconds
+    },
+}
+
 # REST Framework settings
 
 REST_FRAMEWORK = {

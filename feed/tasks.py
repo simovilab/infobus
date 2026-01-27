@@ -14,6 +14,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
 from gtfs.models import *
+from websocket.serializers.gtfs import serialize_trip_update, serialize_vehicle_position
 
 
 @shared_task
@@ -106,14 +107,14 @@ def get_vehicle_positions():
     for provider in providers:
         vehicle_positions = gtfs_rt.FeedMessage()
         try:
-            vehicle_positions_response = requests.get(provider.vehicle_positions_url)
+            vehicle_positions_response = requests.get(provider.vehicle_positions_url, timeout=10)
             print(f"Fetching vehicle positions from {provider.vehicle_positions_url}")
-        except:
+            vehicle_positions.ParseFromString(vehicle_positions_response.content)
+        except Exception as e:
             print(
-                f"Error fetching vehicle positions from {provider.vehicle_positions_url}"
+                f"Error fetching vehicle positions from {provider.vehicle_positions_url}: {str(e)}"
             )
             continue
-        vehicle_positions.ParseFromString(vehicle_positions_response.content)
 
         # Save feed message to database
         feed_message = FeedMessage(
@@ -185,6 +186,65 @@ def get_vehicle_positions():
         VehiclePosition.objects.bulk_create(objects)
         saved_data = saved_data or True
 
+        # Broadcast VehiclePositions to WebSocket consumers (batched by route)
+        try:
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                # Group vehicles by route_id and direction_id
+                route_vehicles = {}
+                for vehicle in objects:
+                    route_id = vehicle.vehicle_trip_route_id
+                    direction_id = vehicle.vehicle_trip_direction_id
+                    
+                    if route_id:
+                        if route_id not in route_vehicles:
+                            route_vehicles[route_id] = {"all": [], "dir_0": [], "dir_1": []}
+                        
+                        serialized = serialize_vehicle_position(vehicle)
+                        route_vehicles[route_id]["all"].append(serialized)
+                        
+                        if direction_id == 0:
+                            route_vehicles[route_id]["dir_0"].append(serialized)
+                        elif direction_id == 1:
+                            route_vehicles[route_id]["dir_1"].append(serialized)
+                
+                # Send batched broadcasts per route
+                for route_id, vehicles_data in route_vehicles.items():
+                    # Broadcast to general route group (all directions)
+                    if vehicles_data["all"]:
+                        async_to_sync(channel_layer.group_send)(
+                            f"route_{route_id}",
+                            {
+                                "type": "route.update",
+                                "vehicles": vehicles_data["all"]
+                            }
+                        )
+                        logging.info(f"Broadcast sent to route_{route_id} ({len(vehicles_data['all'])} vehicles)")
+                    
+                    # Broadcast to direction-specific groups
+                    if vehicles_data["dir_0"]:
+                        async_to_sync(channel_layer.group_send)(
+                            f"route_{route_id}_dir_0",
+                            {
+                                "type": "route.update",
+                                "vehicles": vehicles_data["dir_0"]
+                            }
+                        )
+                        logging.info(f"Broadcast sent to route_{route_id}_dir_0 ({len(vehicles_data['dir_0'])} vehicles)")
+                    
+                    if vehicles_data["dir_1"]:
+                        async_to_sync(channel_layer.group_send)(
+                            f"route_{route_id}_dir_1",
+                            {
+                                "type": "route.update",
+                                "vehicles": vehicles_data["dir_1"]
+                            }
+                        )
+                        logging.info(f"Broadcast sent to route_{route_id}_dir_1 ({len(vehicles_data['dir_1'])} vehicles)")
+        except Exception as e:
+            # Log but don't fail the task if broadcasting fails
+            logging.warning(f"Failed to broadcast VehiclePositions: {str(e)}")
+
     # Send status update to WebSocket
     message = {}
     message["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -208,18 +268,17 @@ def get_vehicle_positions():
 def get_trip_updates():
     providers = GTFSProvider.objects.filter(is_active=True)
     for provider in providers:
+        # Parse FeedMessage object from Protobuf
+        trip_updates = gtfs_rt.FeedMessage()
         try:
             trip_updates_response = requests.get(provider.trip_updates_url, timeout=10)
             trip_updates_response.raise_for_status()
+            trip_updates.ParseFromString(trip_updates_response.content)
         except requests.RequestException as e:
             print(
                 f"Error fetching trip updates from {provider.trip_updates_url}: {str(e)}"
             )
             continue
-
-        # Parse FeedMessage object from Protobuf
-        trip_updates = gtfs_rt.FeedMessage()
-        trip_updates.ParseFromString(trip_updates_response.content)
 
         # Build FeedMessage object
         feed_message = FeedMessage(
@@ -290,6 +349,23 @@ def get_trip_updates():
             )
             # Save this TripUpdate object
             this_trip_update.save()
+
+            # Broadcast TripUpdate to WebSocket consumers
+            try:
+                channel_layer = get_channel_layer()
+                trip_id = trip_update["trip_update_trip_trip_id"]
+                if trip_id and channel_layer:
+                    payload = serialize_trip_update(this_trip_update, include_stops=False)
+                    payload["type"] = "trip.update"
+                    
+                    async_to_sync(channel_layer.group_send)(
+                        f"trip_{trip_id}",
+                        payload
+                    )
+                    logging.info(f"Broadcast sent to trip_{trip_id}")
+            except Exception as e:
+                # Log but don't fail the task if broadcasting fails
+                logging.warning(f"Failed to broadcast TripUpdate for trip {trip_id}: {str(e)}")
 
             # Build StopTimeUpdate DataFrame
             stop_time_updates_json = str(trip_update["trip_update_stop_time_update"])
