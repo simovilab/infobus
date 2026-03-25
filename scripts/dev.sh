@@ -50,6 +50,13 @@ if [ ! -f ".env.local" ]; then
     cp .env.local.example .env.local
 fi
 
+COMPOSE_FILE="compose.dev.yml"
+if [ ! -f "$COMPOSE_FILE" ]; then
+    echo -e "${RED}❌ Error: $COMPOSE_FILE file not found!${NC}"
+    echo "Please create $COMPOSE_FILE for the development environment."
+    exit 1
+fi
+
 echo -e "${BLUE}🔧 Building development environment...${NC}"
 
 # Try to add the GTFS submodule if not present
@@ -64,9 +71,9 @@ if [ ! -d "gtfs" ] || [ -z "$(ls -A gtfs 2>/dev/null)" ]; then
     fi
 fi
 
-# Use the base docker-compose.yml which is configured for development
+# Use compose.dev.yml for the development environment
 # Docker Compose will automatically load .env, .env.dev, and .env.local in order
-docker compose up --build -d
+docker compose -f "$COMPOSE_FILE" up --build -d
 
 echo ""
 echo -e "${YELLOW}⏳ Waiting for services to be ready...${NC}"
@@ -74,7 +81,7 @@ sleep 5
 
 # Check if services are running
 echo -e "${BLUE}🏥 Checking service status...${NC}"
-if docker compose ps | grep -q "Up"; then
+if docker compose -f "$COMPOSE_FILE" ps | grep -q "Up"; then
     echo -e "${GREEN}✅ Development environment started successfully!${NC}"
 else
     echo -e "${RED}⚠️  Some services may not be running properly. Check logs for details.${NC}"
@@ -91,10 +98,10 @@ echo "  Database: localhost:5432 (postgres/postgres)"
 echo "  Redis: localhost:6379"
 echo ""
 echo -e "${YELLOW}🔧 Development commands:${NC}"
-echo "  View logs: docker compose logs -f"
-echo "  View web logs: docker compose logs -f web"
-echo "  Run migrations: docker compose exec web uv run python manage.py migrate"
-echo "  Create superuser: docker compose exec web uv run python manage.py createsuperuser"
-echo "  Django shell: docker compose exec web uv run python manage.py shell"
+echo "  View logs: docker compose -f $COMPOSE_FILE logs -f"
+echo "  View web logs: docker compose -f $COMPOSE_FILE logs -f web"
+echo "  Run migrations: docker compose -f $COMPOSE_FILE exec web uv run python manage.py migrate"
+echo "  Create superuser: docker compose -f $COMPOSE_FILE exec web uv run python manage.py createsuperuser"
+echo "  Django shell: docker compose -f $COMPOSE_FILE exec web uv run python manage.py shell"
 echo ""
-echo -e "${RED}🛑 To stop: docker compose down${NC}"
+echo -e "${BLUE}To stop: docker compose -f $COMPOSE_FILE down${NC}"

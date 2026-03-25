@@ -10,6 +10,8 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+COMPOSE_FILE="compose.prod.yml"
+
 # Wait for a service to be healthy
 wait_for_service() {
     local service_name="$1"
@@ -19,7 +21,7 @@ wait_for_service() {
     echo -e "${YELLOW}⏳ Waiting for ${service_name} to be ready...${NC}"
     
     while [ $attempt -le $max_attempts ]; do
-        if docker compose -f docker-compose.production.yml ps "$service_name" | grep -q "healthy\|Up"; then
+        if docker compose -f "$COMPOSE_FILE" ps "$service_name" | grep -q "healthy\|Up"; then
             echo -e "${GREEN}✅ ${service_name} is ready!${NC}"
             return 0
         fi
@@ -41,7 +43,7 @@ wait_for_web_ready() {
     echo -e "${YELLOW}⏳ Waiting for web application to respond...${NC}"
     
     while [ $attempt -le $max_attempts ]; do
-        if docker compose -f docker-compose.production.yml $ENV_FILES exec -T web curl -f -s http://localhost:8000/health/ > /dev/null 2>&1; then
+        if docker compose -f "$COMPOSE_FILE" $ENV_FILES exec -T web curl -f -s http://localhost:8000/health/ > /dev/null 2>&1; then
             echo -e "${GREEN}✅ Web application is responding!${NC}"
             return 0
         fi
@@ -158,9 +160,9 @@ if grep -q "django-insecure-CHANGE-THIS-IN-PRODUCTION" .env.prod; then
     fi
 fi
 
-# Check if docker-compose.production.yml exists
-if [ ! -f "docker-compose.production.yml" ]; then
-    echo -e "${RED}❌ Error: docker-compose.production.yml file not found!${NC}"
+# Check if compose.prod.yml exists
+if [ ! -f "$COMPOSE_FILE" ]; then
+    echo -e "${RED}❌ Error: $COMPOSE_FILE file not found!${NC}"
     echo "The production configuration file is missing."
     exit 1
 fi
@@ -301,7 +303,7 @@ ensure_docker_access "$@"
 
 # Phase 1: Start core infrastructure services first
 echo -e "${BLUE}📦 Phase 1: Starting infrastructure services (DB, Redis)...${NC}"
-docker compose -f docker-compose.production.yml $ENV_FILES up --build -d db redis
+docker compose -f "$COMPOSE_FILE" $ENV_FILES up --build -d db redis
 
 # Wait for infrastructure to be healthy
 wait_for_service "db"
@@ -309,18 +311,18 @@ wait_for_service "redis"
 
 # Phase 2: Build and prepare web service (but don't start nginx yet)
 echo -e "${BLUE}🚀 Phase 2: Starting web application...${NC}"
-docker compose -f docker-compose.production.yml $ENV_FILES up --build -d web
+docker compose -f "$COMPOSE_FILE" $ENV_FILES up --build -d web
 
 # Wait for web service container to be up
 wait_for_service "web"
 
 # Phase 3: Run database migrations and setup (only once, from script)
 echo -e "${BLUE}💾 Phase 3: Setting up database...${NC}"
-docker compose -f docker-compose.production.yml $ENV_FILES exec -T web uv run python manage.py migrate --noinput
+docker compose -f "$COMPOSE_FILE" $ENV_FILES exec -T web uv run python manage.py migrate --noinput
 
 # Create superuser if needed (non-interactively)
 echo -e "${BLUE}👤 Creating superuser if needed...${NC}"
-docker compose -f docker-compose.production.yml $ENV_FILES exec -T web uv run python manage.py shell << PYTHONEOF
+docker compose -f "$COMPOSE_FILE" $ENV_FILES exec -T web uv run python manage.py shell << PYTHONEOF
 from django.contrib.auth import get_user_model
 User = get_user_model()
 if not User.objects.filter(is_superuser=True).exists():
@@ -332,18 +334,18 @@ PYTHONEOF
 
 # Collect static files
 echo -e "${BLUE}📁 Collecting static files...${NC}"
-docker compose -f docker-compose.production.yml $ENV_FILES exec -T web uv run python manage.py collectstatic --noinput
+docker compose -f "$COMPOSE_FILE" $ENV_FILES exec -T web uv run python manage.py collectstatic --noinput
 
 # Load any initial data
 echo -e "${BLUE}📊 Loading initial data...${NC}"
-docker compose -f docker-compose.production.yml $ENV_FILES exec -T web uv run python manage.py loaddata --ignorenonexistent || echo "No initial data found"
+docker compose -f "$COMPOSE_FILE" $ENV_FILES exec -T web uv run python manage.py loaddata --ignorenonexistent || echo "No initial data found"
 
 # Phase 4: Wait for web app to be fully ready to serve requests
 wait_for_web_ready
 
 # Phase 5: Start remaining services (Celery workers, beat, nginx)
 echo -e "${BLUE}⚙️  Phase 4: Starting background services and proxy...${NC}"
-docker compose -f docker-compose.production.yml $ENV_FILES --profile production up -d celery-worker celery-beat nginx
+docker compose -f "$COMPOSE_FILE" $ENV_FILES --profile production up -d celery-worker celery-beat nginx
 
 # Wait a moment for nginx to start and resolve service names
 echo -e "${YELLOW}⏳ Allowing nginx to initialize...${NC}"
@@ -368,9 +370,9 @@ done
 if [ $HEALTH_ATTEMPT -gt $MAX_HEALTH_ATTEMPTS ]; then
     echo -e "${RED}⚠️  Application health check failed. Checking logs...${NC}"
     echo -e "${BLUE}Nginx logs:${NC}"
-    docker compose -f docker-compose.production.yml logs --tail 10 nginx
+    docker compose -f "$COMPOSE_FILE" logs --tail 10 nginx
     echo -e "${BLUE}Web logs:${NC}"
-    docker compose -f docker-compose.production.yml logs --tail 10 web
+    docker compose -f "$COMPOSE_FILE" logs --tail 10 web
 else
 
 # Phase 5: Optional SSL Setup
@@ -400,10 +402,10 @@ echo "  Database: localhost:5432 (postgres/postgres)"
 echo "  Redis: localhost:6379"
 echo ""
 echo -e "${YELLOW}🔧 Production commands:${NC}"
-echo "  View Nginx logs: docker compose -f docker-compose.production.yml logs nginx"
-echo "  View app logs: docker compose -f docker-compose.production.yml logs web"
-echo "  View all logs: docker compose -f docker-compose.production.yml logs -f"
-echo "  Run migrations: docker compose -f docker-compose.production.yml $ENV_FILES exec web uv run python manage.py migrate"
-echo "  Create superuser: docker compose -f docker-compose.production.yml $ENV_FILES exec web uv run python manage.py createsuperuser"
+echo "  View Nginx logs: docker compose -f $COMPOSE_FILE logs nginx"
+echo "  View app logs: docker compose -f $COMPOSE_FILE logs web"
+echo "  View all logs: docker compose -f $COMPOSE_FILE logs -f"
+echo "  Run migrations: docker compose -f $COMPOSE_FILE $ENV_FILES exec web uv run python manage.py migrate"
+echo "  Create superuser: docker compose -f $COMPOSE_FILE $ENV_FILES exec web uv run python manage.py createsuperuser"
 echo ""
-echo -e "${RED}🛑 To stop: docker compose -f docker-compose.production.yml down${NC}"
+echo -e "${RED}🛑 To stop: docker compose -f $COMPOSE_FILE down${NC}"

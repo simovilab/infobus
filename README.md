@@ -259,5 +259,6 @@ infobus/
 - **Health Checks**: Monitor `/health/` endpoint in production
 - **Logs**: Use `docker-compose logs -f` for troubleshooting
 
-### Built With Love ❤️
+---
+
 **Universidad de Costa Rica (UCR)** | **Laboratorio SIMOVI** | **Costa Rica**
