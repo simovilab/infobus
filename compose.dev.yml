@@ -18,29 +18,29 @@ services:
       timeout: 5s
       retries: 5
 
-  store:
+  database:
     image: postgis/postgis:15-3.3
     environment:
       - POSTGRES_DB=${DB_NAME:-infobus}
       - POSTGRES_USER=${DB_USER:-postgres}
       - POSTGRES_HOST_AUTH_METHOD=trust
     ports:
-      - "${STORE_PORT:-5432}:5432"
+      - "${DATABASE_PORT:-5432}:5432"
     volumes:
-      - store_data:/var/lib/postgresql/data
+      - database_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${DB_USER:-postgres}", "-d", "${DB_NAME:-infobus}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  state:
+  memory:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
-      - "${STATE_PORT:-6379}:6379"
+      - "${MEMORY_PORT:-6379}:6379"
     volumes:
-      - state_data:/data
+      - memory_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -59,9 +59,9 @@ services:
     volumes:
       - ./backend:/app
     depends_on:
-      store:
+      database:
         condition: service_healthy
-      state:
+      memory:
         condition: service_healthy
 
   tasks:
@@ -72,9 +72,9 @@ services:
     volumes:
       - ./tasks:/app
     depends_on:
-      store:
+      database:
         condition: service_healthy
-      state:
+      memory:
         condition: service_healthy
       broker:
         condition: service_healthy
@@ -87,9 +87,9 @@ services:
     volumes:
       - ./scheduler:/app
     depends_on:
-      store:
+      database:
         condition: service_healthy
-      state:
+      memory:
         condition: service_healthy
       broker:
         condition: service_healthy
@@ -121,8 +121,8 @@ services:
   
 volumes:
   broker_data:
-  store_data:
-  state_data:
+  database_data:
+  memory_data:
 
 networks:
   default:
