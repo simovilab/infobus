@@ -130,10 +130,11 @@ AUTH_PASSWORD_VALIDATORS = [
 
 REDIS_HOST = config("REDIS_HOST")
 REDIS_PORT = config("REDIS_PORT")
+REDIS_CELERY_DB = config("REDIS_CELERY_DB", default=0, cast=int)
 
 # Celery settings
 
-CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
 CELERY_RESULT_BACKEND = "django-db"
 CELERY_CACHE_BACKEND = "django-cache"
 CELERY_RESULTS_EXTENDED = True
@@ -187,34 +188,46 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # HTTPS Security Settings
-SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
-SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
-SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
-SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=False, cast=bool)
-SECURE_CONTENT_TYPE_NOSNIFF = config('SECURE_CONTENT_TYPE_NOSNIFF', default=False, cast=bool)
-SECURE_BROWSER_XSS_FILTER = config('SECURE_BROWSER_XSS_FILTER', default=False, cast=bool)
-SECURE_REFERRER_POLICY = config('SECURE_REFERRER_POLICY', default=None)
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
+SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False, cast=bool
+)
+SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=False, cast=bool)
+SECURE_CONTENT_TYPE_NOSNIFF = config(
+    "SECURE_CONTENT_TYPE_NOSNIFF", default=False, cast=bool
+)
+SECURE_BROWSER_XSS_FILTER = config(
+    "SECURE_BROWSER_XSS_FILTER", default=False, cast=bool
+)
+SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default=None)
 
 # Cookie Security
-SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
-CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
 
 # Proxy SSL Header (for reverse proxy setups like nginx)
 
 # HTTPS Security Settings for Production
 # These are read from environment variables set in .env.prod and .env.local
-SECURE_SSL_REDIRECT = config('SECURE_SSL_REDIRECT', default=False, cast=bool)
-SECURE_HSTS_SECONDS = config('SECURE_HSTS_SECONDS', default=0, cast=int)
-SECURE_HSTS_INCLUDE_SUBDOMAINS = config('SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False, cast=bool)
-SECURE_HSTS_PRELOAD = config('SECURE_HSTS_PRELOAD', default=False, cast=bool)
-SECURE_CONTENT_TYPE_NOSNIFF = config('SECURE_CONTENT_TYPE_NOSNIFF', default=False, cast=bool)
-SECURE_BROWSER_XSS_FILTER = config('SECURE_BROWSER_XSS_FILTER', default=False, cast=bool)
-SECURE_REFERRER_POLICY = config('SECURE_REFERRER_POLICY', default=None)
+SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
+SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=0, cast=int)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
+    "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False, cast=bool
+)
+SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=False, cast=bool)
+SECURE_CONTENT_TYPE_NOSNIFF = config(
+    "SECURE_CONTENT_TYPE_NOSNIFF", default=False, cast=bool
+)
+SECURE_BROWSER_XSS_FILTER = config(
+    "SECURE_BROWSER_XSS_FILTER", default=False, cast=bool
+)
+SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default=None)
 
 # Cookie Security Settings
-SESSION_COOKIE_SECURE = config('SESSION_COOKIE_SECURE', default=False, cast=bool)
-CSRF_COOKIE_SECURE = config('CSRF_COOKIE_SECURE', default=False, cast=bool)
+SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
+CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
 
 # Proxy SSL Header for reverse proxy setups (nginx)
 # This tells Django to trust the X-Forwarded-Proto header from nginx
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
