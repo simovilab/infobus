@@ -1,12 +1,14 @@
+name: infobus-dev
 services:
+
   broker:
     image: rabbitmq:4-management
     ports:
-      - "${MESSAGE_BROKER_AMQP_PORT:-5672}:5672"          # AMQP
-      - "${MESSAGE_BROKER_MANAGEMENT_PORT:-15672}:15672"  # Management UI
-      - "${MESSAGE_BROKER_PROMETHEUS_PORT:-15692}:15692"  # Prometheus
+      - "${BROKER_AMQP_PORT:-5672}:5672"          # AMQP
+      - "${BROKER_MANAGEMENT_PORT:-15672}:15672"  # Management UI
+      - "${BROKER_PROMETHEUS_PORT:-15692}:15692"  # Prometheus
     volumes:
-      - message_broker_data:/var/lib/rabbitmq
+      - broker_data:/var/lib/rabbitmq
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:-guest}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:-guest}
@@ -15,21 +17,23 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
   store:
-    image: postgis/postgis:16-3.4-alpine
+    image: postgis/postgis:15-3.3
     environment:
-      POSTGRES_DB: infobus
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - POSTGRES_DB=${DB_NAME:-infobus}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_HOST_AUTH_METHOD=trust
     ports:
-      - "5432:5432"
+      - "${STORE_PORT:-5432}:5432"
+    volumes:
+      - store_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD", "pg_isready", "-U", "${DB_USER:-postgres}", "-d", "${DB_NAME:-infobus}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
   state:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
@@ -42,70 +46,31 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
   backend:
     build:
       context: ./backend
-      target: development
-    ports:
-      - "8000:8000"
+      target: dev
     env_file:
-      - .env # Base configuration
-      - .env.dev # Development overrides (tracked)
-      - .env.local # Personal secrets and local overrides (git-ignored)
-    environment:
-      # Docker-specific environment variables that override env_file values if needed
-      - DB_HOST=store # Docker service name
-      - REDIS_HOST=state # Docker service name
-      # Development optimizations for hot reload
-      - PYTHONUNBUFFERED=1 # Ensure Python output is not buffered
-      - PYTHONDONTWRITEBYTECODE=1 # Prevent Python from writing .pyc files
-      - WATCHDOG_POLLING=True # Force polling for file changes (better for Docker volumes)
-      # GDAL library path for ARM64 architecture
-      - GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
-      - GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+      - .env
+      - .env.dev
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
-      - .:/app # Mount current directory for live development
-      - /app/.venv # Exclude .venv directory to prevent conflicts
-      - static_volume:/app/staticfiles
-      - media_volume:/app/media
+      - ./backend:/app
     depends_on:
       store:
         condition: service_healthy
       state:
         condition: service_healthy
-    entrypoint: ["/app/docker-entrypoint.sh"]
-    command: ["uv", "run", "python", "manage.py", "runserver", "0.0.0.0:8000"]
-  workers:
+
+  tasks:
     build:
-      context: ./workers
-      dockerfile: Dockerfile
+      context: ./tasks
     env_file:
       - .env
-      - .env.dev
-    command: 
-      [
-        "uv", 
-        "run", 
-        "celery", 
-        "-A", 
-        "publisher", 
-        "worker", 
-        "--loglevel=info"
-      ]
-    environment:
-      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_PASS=${RABBITMQ_PASS:-guest}
-      - RABBITMQ_HOST=${RABBITMQ_HOST:-broker}
-      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
-      - DB_NAME=${DB_NAME:-infobus}
-      - DB_USER=${DB_USER:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-}
-      - DB_HOST=store
-      - DB_PORT=5432
-      - REDIS_HOST=state
-      - REDIS_PORT=6379
     volumes:
-      - ./workers:/app
+      - ./tasks:/app
     depends_on:
       store:
         condition: service_healthy
@@ -113,28 +78,12 @@ services:
         condition: service_healthy
       broker:
         condition: service_healthy
+
   scheduler:
     build:
       context: ./scheduler
-      dockerfile: Dockerfile
     env_file:
       - .env
-      - .env.dev
-    command:
-      [
-        "uv",
-        "run",
-        "celery",
-        "-A",
-        "scheduler",
-        "beat",
-        "--loglevel=info",
-      ]
-    environment:
-      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
-      - RABBITMQ_PASS=${RABBITMQ_PASS:-guest}
-      - RABBITMQ_HOST=${RABBITMQ_HOST:-broker}
-      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
     volumes:
       - ./scheduler:/app
     depends_on:
@@ -144,27 +93,22 @@ services:
         condition: service_healthy
       broker:
         condition: service_healthy
+
   context:
     build:
       context: ./context
       dockerfile: Dockerfile
     ports:
-      - "9876:9876"
+      - "${CONTEXT_PORT:-3278}:3278"
     env_file:
       - .env
       - .env.dev
-    command:
-      [
-        "uv",
-        "run",
-        "main.py",
-      ]
     volumes:
       - ./context:/app
+
   knowledge:
     build:
       context: ./knowledge
-      dockerfile: Dockerfile
       args:
         JENA_VERSION: 5.3.0
     image: fuseki
@@ -176,11 +120,9 @@ services:
       - ./knowledge/databases:/fuseki/databases
   
 volumes:
-  message_broker_data:
-  postgres_data:
+  broker_data:
+  store_data:
   state_data:
-  static_volume:
-  media_volume:
 
 networks:
   default:

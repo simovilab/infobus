@@ -37,3 +37,5 @@ RUN uv sync
 
 # Copy source code
 COPY --chown=app:app . .
+
+CMD ["uv", "run", "celery", "-A", "tasks", "worker", "--loglevel=info"]

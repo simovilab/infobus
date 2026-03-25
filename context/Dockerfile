@@ -1,4 +1,3 @@
-# Minimal Python runtime for Celery-based services
 FROM python:3.14-slim AS base
 
 # Install only essential system dependencies
@@ -37,3 +36,5 @@ RUN uv sync
 
 # Copy source code
 COPY --chown=app:app . .
+
+CMD ["uv", "run", "main.py"]

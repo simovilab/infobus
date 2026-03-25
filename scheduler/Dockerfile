@@ -1,4 +1,3 @@
-# Minimal Python runtime for Celery-based services
 FROM python:3.14-slim AS base
 
 # Install only essential system dependencies
@@ -37,3 +36,7 @@ RUN uv sync
 
 # Copy source code
 COPY --chown=app:app . .
+
+# Run Celery Beat to schedule tasks
+CMD ["uv", "run", "celery", "-A", "scheduler", "beat", "--loglevel=info"]
+

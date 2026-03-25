@@ -1,5 +1,10 @@
 #!/bin/bash
-set -e
+set -euo pipefail
+
+# Ensure virtual environment bin is on PATH if present
+if [ -d "/app/.venv/bin" ]; then
+    export PATH="/app/.venv/bin:$PATH"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -7,84 +12,85 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Detect if this is a Celery service based on the command arguments
-IS_CELERY=false
-if [[ "$*" == *"celery"* ]]; then
-    IS_CELERY=true
+log(){ echo -e "${GREEN}[entrypoint]${NC} $*"; }
+warn(){ echo -e "${YELLOW}[entrypoint][warn]${NC} $*"; }
+err(){ echo -e "${RED}[entrypoint][error]${NC} $*"; }
+
+# Build DATABASE_URL from components if not set
+if [ -z "${DATABASE_URL:-}" ]; then
+    if [[ -n "${DB_USER:-}" && -n "${DB_HOST:-}" && -n "${DB_NAME:-}" ]]; then
+        if [ -n "${DB_PASSWORD:-}" ]; then
+            export DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}"
+        else
+            export DATABASE_URL="postgresql://${DB_USER}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}"
+        fi
+        warn "DATABASE_URL not set; constructed: ${DATABASE_URL}"
+    else
+        warn "DATABASE_URL not set and insufficient components to construct it."
+    fi
 fi
 
-if [ "$IS_CELERY" = true ]; then
-    echo -e "${GREEN}Starting Celery service...${NC}"
-    
-    # Ensure virtual environment exists (install if not present)
-    if [ ! -d "/app/.venv" ]; then
-        echo -e "${YELLOW}Setting up virtual environment...${NC}"
-        uv sync --frozen
-    else
-        echo -e "${GREEN}Virtual environment already exists${NC}"
-    fi
-    
-    # Wait for database to be ready (Celery needs DB for django-celery-beat)
-    echo -e "${YELLOW}Waiting for database connection...${NC}"
-    until uv run python -c "import psycopg2; import os; conn = psycopg2.connect(os.environ['DATABASE_URL']); conn.close(); print('Database is ready!')"; do
-        echo -e "${YELLOW}Database is unavailable - sleeping${NC}"
-        sleep 2
-    done
-    
-    echo -e "${GREEN}Database is ready! Starting Celery...${NC}"
+log "Starting Django application..."
+
+# Ensure virtual environment exists (install if not present)
+if [ ! -d "/app/.venv" ]; then
+warn "Setting up virtual environment (uv sync)..."
+    uv sync --frozen
 else
-    echo -e "${GREEN}Starting Django application...${NC}"
-
-    # Ensure virtual environment exists (install if not present)
-    if [ ! -d "/app/.venv" ]; then
-        echo -e "${YELLOW}Setting up virtual environment...${NC}"
-        uv sync --frozen
-    else
-        echo -e "${GREEN}Virtual environment already exists${NC}"
-    fi
-    
-    # Wait for database to be ready
-    echo -e "${YELLOW}Waiting for database connection...${NC}"
-    until uv run python -c "import psycopg2; import os; conn = psycopg2.connect(os.environ['DATABASE_URL']); conn.close(); print('Database is ready!')"; do
-        echo -e "${YELLOW}Database is unavailable - sleeping${NC}"
-        sleep 2
-    done
-
-    echo -e "${GREEN}Database is ready!${NC}"
-
-    # List of apps to make migrations for
-    APPS_TO_MIGRATE=("website" "gtfs" "feed" "alerts" "api")
-
-    # Make migrations for the registered apps
-    echo -e "${YELLOW}Making migrations for apps...${NC}"
-    uv run python manage.py makemigrations "${APPS_TO_MIGRATE[@]}" || echo -e "${YELLOW}No changes detected for migrations${NC}"
-
-    # Run database migrations
-    echo -e "${YELLOW}Running database migrations...${NC}"
-    uv run python manage.py migrate --noinput
-
-    # Create superuser if it doesn't exist
-    echo -e "${YELLOW}Creating superuser if needed...${NC}"
-    uv run python manage.py shell -c "
-from django.contrib.auth import get_user_model
-User = get_user_model()
-if not User.objects.filter(username='admin').exists():
-    User.objects.create_superuser('admin', 'admin@example.com', 'admin')
-    print('Superuser created: admin/admin')
-else:
-    print('Superuser already exists')
-" || echo -e "${YELLOW}Superuser creation skipped${NC}"
-
-    # Collect static files
-    echo -e "${YELLOW}Collecting static files...${NC}"
-    uv run python manage.py collectstatic --noinput || echo -e "${YELLOW}Static files collection skipped${NC}"
-
-    # Load initial data (if needed)
-    echo -e "${YELLOW}Loading initial data...${NC}"
-    uv run python manage.py loaddata bucr.json 2>/dev/null || echo -e "${YELLOW}No initial data found${NC}"
-
-    echo -e "${GREEN}Django application setup complete!${NC}"
+log "Virtual environment already exists"
 fi
+
+# Wait for database to be ready
+log "Waiting for database connection..."
+until uv run python -c "import psycopg2; import os; conn = psycopg2.connect(os.environ['DATABASE_URL']); conn.close(); print('Database is ready!')"; do
+warn "Database is unavailable - sleeping"
+    sleep 5
+done
+
+log "Database is ready!"
+
+# Make migrations
+APPS_TO_MIGRATE=("gtfs" "feed")
+log "Creating migrations for: ${APPS_TO_MIGRATE[*]}"
+uv run python manage.py makemigrations "${APPS_TO_MIGRATE[@]}" || warn "No changes detected for migrations"
+
+# Run database migrations
+log "Running database migrations..."
+uv run python manage.py migrate --noinput
+
+# Create superuser if it doesn't exist using defaults in development mode
+if [[ "${CREATE_SUPERUSER:-True}" == "True" && ( "${DEBUG:-}" == "True" || "${DEBUG:-}" == "1" ) ]]; then
+    export SUPERUSER_USERNAME="${SUPERUSER_USERNAME:-admin}"
+    export SUPERUSER_PASSWORD="${SUPERUSER_PASSWORD:-admin}"
+    export SUPERUSER_EMAIL="${SUPERUSER_EMAIL:-admin@example.com}"
+    log "Ensuring development superuser '${SUPERUSER_USERNAME}' exists (DEBUG mode)"
+    set +e
+    uv run python manage.py createsuperuser --noinput
+    csu_exit=$?
+    set -e
+    if [ $csu_exit -eq 0 ]; then
+        log "Superuser created: ${SUPERUSER_USERNAME}/${SUPERUSER_PASSWORD}"
+    else
+        warn "Superuser creation skipped (maybe already exists)"
+    fi
+else
+    log "Skipping auto superuser creation (CREATE_SUPERUSER=${CREATE_SUPERUSER:-0} DEBUG=${DEBUG:-})"
+fi
+
+# Collect static files
+log "Collecting static files..."
+uv run python manage.py collectstatic --noinput || warn "Static files collection skipped"
+
+# Load initial data (if needed) 
+if [ -f gtfs/fixtures/gtfs.json ]; then
+    log "Loading initial data fixture gtfs.json"
+    uv run python manage.py loaddata gtfs.json || warn "Initial data load failed"
+else
+    log "No optional initial data fixture gtfs.json present"
+fi
+
+log "Django application setup complete!"
 
 # Execute the main command
+log "Launching: $*"
 exec "$@"

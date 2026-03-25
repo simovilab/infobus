@@ -103,7 +103,8 @@ DATABASES = {
     },
 }
 
-if not (platform.platform() == "Linux" or platform.machine() == "x86_64"):
+# Only set custom library paths on non-Linux systems (like macOS for local dev)
+if platform.system() == "Darwin":
     GDAL_LIBRARY_PATH = config("GDAL_LIBRARY_PATH")
     GEOS_LIBRARY_PATH = config("GEOS_LIBRARY_PATH")
 

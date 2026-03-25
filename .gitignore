@@ -191,3 +191,13 @@ certbot/
 # Environment files
 .env.ssl
 *.env.ssl
+
+# Apache Jena Fuseki / TDB runtime data
+knowledge/logs/*
+knowledge/databases/**/tdb.lock
+knowledge/databases/**/Backups/
+knowledge/databases/**/Data-*/
+knowledge/databases/**/*.bpt
+knowledge/databases/**/*.dat
+knowledge/databases/**/*.idn
+knowledge/databases/**/*.jrnl
