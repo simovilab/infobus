@@ -73,7 +73,7 @@ services:
         "-p",
         "8000",
         "--proxy-headers",
-        "datahub.asgi:application",
+        "infobus.asgi:application",
       ]
 
   # Celery Worker (Production)
@@ -103,7 +103,7 @@ services:
         condition: service_started
     entrypoint: ["/app/docker-entrypoint.sh"]
     command:
-      ["uv", "run", "celery", "-A", "datahub", "worker", "--loglevel=info"]
+      ["uv", "run", "celery", "-A", "infobus", "worker", "--loglevel=info"]
 
   # Celery Beat (Production)
   celery-beat:
@@ -139,7 +139,7 @@ services:
         "run",
         "celery",
         "-A",
-        "datahub",
+        "infobus",
         "beat",
         "--loglevel=info",
         "--scheduler=django_celery_beat.schedulers:DatabaseScheduler",

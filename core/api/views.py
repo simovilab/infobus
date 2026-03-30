@@ -664,9 +664,9 @@ class InfoServiceViewSet(viewsets.ModelViewSet):
 
 
 def get_schema(request):
-    file_path = settings.BASE_DIR / "api" / "datahub.yml"
+    file_path = settings.BASE_DIR / "api" / "infobus.yml"
     return FileResponse(
-        open(file_path, "rb"), as_attachment=True, filename="datahub.yml"
+        open(file_path, "rb"), as_attachment=True, filename="infobus.yml"
     )
 
 

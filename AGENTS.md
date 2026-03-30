@@ -173,10 +173,10 @@ uv run python manage.py migrate
 uv run python manage.py runserver
 
 # Start Celery worker
-uv run celery -A datahub worker --loglevel=info
+uv run celery -A infobus worker --loglevel=info
 
 # Start Celery beat scheduler
-uv run celery -A datahub beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
+uv run celery -A infobus beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
 ```
 
 ### 📦 **Git Submodules**

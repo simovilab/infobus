@@ -207,7 +207,7 @@ docker compose down
 infobus/
 ├── 📁 scripts/          # Management scripts (dev.sh, prod.sh)
 ├── 📁 nginx/            # Nginx configuration
-├── 📁 datahub/          # Django project settings
+├── 📁 infobus/          # Django project settings
 ├── 📁 website/          # Main web application
 ├── 📁 alerts/           # Display and alert management
 ├── 📁 gtfs/             # GTFS data processing (submodule)

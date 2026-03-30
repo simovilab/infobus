@@ -1,6 +1,72 @@
 name: infobus-dev
 services:
 
+  backend:
+    build:
+      context: ./core
+      target: dev
+    environment:
+      - RUN_MIGRATIONS=True
+      - CREATE_SUPERUSER=True
+      - LOAD_FIXTURES=True
+    env_file:
+      - .env
+      - .env.dev
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      - ./core:/app
+      - lake_data:/app/data
+    depends_on:
+      database:
+        condition: service_healthy
+      memory:
+        condition: service_healthy
+
+  tasks:
+    build:
+      context: ./core
+      target: tasks
+    environment:
+      - RUN_MIGRATIONS=False
+      - CREATE_SUPERUSER=False
+      - LOAD_FIXTURES=False
+    env_file:
+      - .env
+      - .env.dev
+    volumes:
+      - ./core:/app
+      - lake_data:/app/data
+    depends_on:
+      database:
+        condition: service_healthy
+      memory:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
+  scheduler:
+    build:
+      context: ./core
+      target: scheduler
+    environment:
+      - RUN_MIGRATIONS=False
+      - CREATE_SUPERUSER=False
+      - LOAD_FIXTURES=False
+    env_file:
+      - .env
+      - .env.dev
+    volumes:
+      - ./core:/app
+      - lake_data:/app/data
+    depends_on:
+      database:
+        condition: service_healthy
+      memory:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+
   broker:
     image: rabbitmq:4-management
     ports:
@@ -47,53 +113,6 @@ services:
       timeout: 5s
       retries: 5
 
-  backend:
-    build:
-      context: ./backend
-      target: dev
-    env_file:
-      - .env
-      - .env.dev
-    ports:
-      - "${BACKEND_PORT:-8000}:8000"
-    volumes:
-      - ./backend:/app
-    depends_on:
-      database:
-        condition: service_healthy
-      memory:
-        condition: service_healthy
-
-  tasks:
-    build:
-      context: ./tasks
-    env_file:
-      - .env
-    volumes:
-      - ./tasks:/app
-    depends_on:
-      database:
-        condition: service_healthy
-      memory:
-        condition: service_healthy
-      broker:
-        condition: service_healthy
-
-  scheduler:
-    build:
-      context: ./scheduler
-    env_file:
-      - .env
-    volumes:
-      - ./scheduler:/app
-    depends_on:
-      database:
-        condition: service_healthy
-      memory:
-        condition: service_healthy
-      broker:
-        condition: service_healthy
-
   context:
     build:
       context: ./context
@@ -123,6 +142,7 @@ volumes:
   broker_data:
   database_data:
   memory_data:
+  lake_data:
 
 networks:
   default:

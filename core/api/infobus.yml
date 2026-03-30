@@ -12,7 +12,7 @@ info:
     name: MIT
     url: 'https://opensource.org/license/mit/'
 servers:
-  - url: https://datahub.bucr.digital/api
+  - url: https://infobus.bucr.digital/api
 
 paths:
   /gtfs-providers:

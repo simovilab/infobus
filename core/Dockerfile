@@ -40,6 +40,9 @@ COPY --chown=app:app . .
 # Ensure entrypoint script is executable
 RUN chmod +x $ENTRYPOINT_PATH
 
+# Execute entrypoint script to handle setup tasks before running the main command
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+
 # Switch to app user before installing dependencies to avoid permission issues
 USER app
 
@@ -56,6 +59,16 @@ CMD ["uv", "run", "python", "manage.py", "runserver", "0.0.0.0:8000"]
 FROM base AS prod
 # ---------------------
 
-# Install dependencies in production mode
-RUN uv sync --frozen --no-dev
-CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "realtime.asgi:application"]
+CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "infobus.asgi:application"]
+
+# -- Celery Worker
+FROM base AS tasks
+# ----------------
+
+CMD ["uv", "run", "celery", "-A", "infobus", "worker", "--loglevel=info"]
+
+# -------- Celery Beat
+FROM base AS scheduler
+# --------------------
+
+CMD ["uv", "run", "celery", "-A", "infobus", "beat", "--loglevel=info"]

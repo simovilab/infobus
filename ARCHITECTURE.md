@@ -1,5 +1,7 @@
 # Infobús Architecture
 
+`core` is a folder with the codebase for `backend`, `tasks` and `scheduler`. It contains the Django project and the Celery Worker and Celery Beat apps. This way, `tasks` has access to the Django models and utilities.
+
 ```mermaid
 flowchart LR
     subgraph GTFS

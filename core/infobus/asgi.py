@@ -1,5 +1,5 @@
 """
-ASGI config for datahub project.
+ASGI config for infobus project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -14,7 +14,7 @@ from django.core.asgi import get_asgi_application
 
 from feed.routing import websocket_urlpatterns
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "datahub.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "infobus.settings")
 
 application = ProtocolTypeRouter(
     {

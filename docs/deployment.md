@@ -8,8 +8,8 @@ On a Linux Ubuntu 22.04 LTS server, this is the configuration of Celery and Cele
 
 Preliminaries:
 
-- The Django project is in `/home/bucr/datahub`
-- The virtual environment is in `/home/bucr/datahub/datahubenv/bin`
+- The Django project is in `/home/bucr/infobus`
+- The virtual environment is in `/home/bucr/infobus/infobusenv/bin`
 - The user is `bucr` and belongs to the group `bucr`
 
 The environment variables are located in the file `/etc/conf.d/celery`, as shown below.
@@ -19,10 +19,10 @@ The environment variables are located in the file `/etc/conf.d/celery`, as shown
 CELERYD_NODES="w1"
 
 # Absolute or relative path to the 'celery' command:
-CELERY_BIN="/home/bucr/datahub/datahubenv/bin/celery"
+CELERY_BIN="/home/bucr/infobus/infobusenv/bin/celery"
 
 # App instance to use
-CELERY_APP="datahub"
+CELERY_APP="infobus"
 
 # How to call manage.py
 CELERYD_MULTI="multi"
@@ -64,7 +64,7 @@ Type=forking
 User=bucr
 Group=bucr
 EnvironmentFile=/etc/conf.d/celery
-WorkingDirectory=/home/bucr/datahub/
+WorkingDirectory=/home/bucr/infobus/
 RuntimeDirectory=celery
 ExecStart=/bin/sh -c '${CELERY_BIN} --app $CELERY_APP multi start $CELERYD_NODES \
     --pidfile=${CELERYD_PID_FILE} \
@@ -111,7 +111,7 @@ Type=simple
 User=bucr
 Group=bucr
 EnvironmentFile=/etc/conf.d/celery
-WorkingDirectory=/home/bucr/datahub/
+WorkingDirectory=/home/bucr/infobus/
 ExecStart=/bin/sh -c '${CELERY_BIN} --app ${CELERY_APP} beat \
     --pidfile=${CELERYBEAT_PID_FILE} \
     --logfile=${CELERYBEAT_LOG_FILE} \

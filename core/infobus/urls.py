@@ -1,5 +1,5 @@
 """
-URL configuration for datahub project.
+URL configuration for infobus project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.0/topics/http/urls/
@@ -19,9 +19,11 @@ from django.contrib import admin
 from django.urls import path, include
 from django.http import HttpResponse
 
+
 def health_check(request):
     """Simple health check endpoint for container health monitoring."""
     return HttpResponse("OK", content_type="text/plain")
+
 
 urlpatterns = [
     path("health/", health_check, name="health_check"),

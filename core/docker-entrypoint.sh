@@ -16,7 +16,10 @@ log(){ echo -e "${GREEN}[entrypoint]${NC} $*"; }
 warn(){ echo -e "${YELLOW}[entrypoint][warn]${NC} $*"; }
 err(){ echo -e "${RED}[entrypoint][error]${NC} $*"; }
 
-# Build DATABASE_URL from components if not set
+# -----------------------------------------
+log "Building DATABASE_URL from components"
+# -----------------------------------------
+
 if [ -z "${DATABASE_URL:-}" ]; then
     if [[ -n "${DB_USER:-}" && -n "${DB_HOST:-}" && -n "${DB_NAME:-}" ]]; then
         if [ -n "${DB_PASSWORD:-}" ]; then
@@ -24,13 +27,15 @@ if [ -z "${DATABASE_URL:-}" ]; then
         else
             export DATABASE_URL="postgresql://${DB_USER}@${DB_HOST}:${DB_PORT:-5432}/${DB_NAME}"
         fi
-        warn "DATABASE_URL not set; constructed: ${DATABASE_URL}"
+        warn "DATABASE_URL not set; constructed as: ${DATABASE_URL}"
     else
         warn "DATABASE_URL not set and insufficient components to construct it."
     fi
 fi
 
+# ----------------------------------
 log "Starting Django application..."
+# ----------------------------------
 
 # Ensure virtual environment exists (install if not present)
 if [ ! -d "/app/.venv" ]; then
@@ -40,26 +45,38 @@ else
 log "Virtual environment already exists"
 fi
 
-# Wait for database to be ready
+# --------------------------------------
 log "Waiting for database connection..."
+# --------------------------------------
+
 until uv run python -c "import psycopg2; import os; conn = psycopg2.connect(os.environ['DATABASE_URL']); conn.close(); print('Database is ready!')"; do
 warn "Database is unavailable - sleeping"
     sleep 5
 done
-
 log "Database is ready!"
 
-# Make migrations
-APPS_TO_MIGRATE=("gtfs" "feed")
-log "Creating migrations for: ${APPS_TO_MIGRATE[*]}"
-uv run python manage.py makemigrations "${APPS_TO_MIGRATE[@]}" || warn "No changes detected for migrations"
+# -------------------------------------
+log "Making migrations (if enabled)..."
+# -------------------------------------
 
-# Run database migrations
-log "Running database migrations..."
-uv run python manage.py migrate --noinput
+if [[ "${RUN_MIGRATIONS:-False}" == "True" ]]; then
+    # Make migrations
+    APPS_TO_MIGRATE=("gtfs" "feed")
+    log "Creating migrations for: ${APPS_TO_MIGRATE[*]}"
+    uv run python manage.py makemigrations "${APPS_TO_MIGRATE[@]}" || warn "No changes detected for migrations"
 
-# Create superuser if it doesn't exist using defaults in development mode
-if [[ "${CREATE_SUPERUSER:-True}" == "True" && ( "${DEBUG:-}" == "True" || "${DEBUG:-}" == "1" ) ]]; then
+    # Run database migrations
+    log "Running database migrations..."
+    uv run python manage.py migrate --noinput
+else
+    log "Skipping migrations (RUN_MIGRATIONS=${RUN_MIGRATIONS:-False})"
+fi
+
+# --------------------------------------------------------
+log "Creating superuser (if enabled and in debug mode)..."
+# --------------------------------------------------------
+
+if [[ "${CREATE_SUPERUSER:-False}" == "True" && ( "${DEBUG:-}" == "True" || "${DEBUG:-}" == "1" ) ]]; then
     export SUPERUSER_USERNAME="${SUPERUSER_USERNAME:-admin}"
     export SUPERUSER_PASSWORD="${SUPERUSER_PASSWORD:-admin}"
     export SUPERUSER_EMAIL="${SUPERUSER_EMAIL:-admin@example.com}"
@@ -77,19 +94,30 @@ else
     log "Skipping auto superuser creation (CREATE_SUPERUSER=${CREATE_SUPERUSER:-0} DEBUG=${DEBUG:-})"
 fi
 
-# Collect static files
+# ------------------------------
 log "Collecting static files..."
+# ------------------------------
+
 uv run python manage.py collectstatic --noinput || warn "Static files collection skipped"
 
-# Load initial data (if needed) 
-if [ -f gtfs/fixtures/gtfs.json ]; then
-    log "Loading initial data fixture gtfs.json"
-    uv run python manage.py loaddata gtfs.json || warn "Initial data load failed"
+# ----------------------------------------
+log "Loading initial data (if present)..."
+# ----------------------------------------
+
+if [[ "${LOAD_FIXTURES:-False}" == "True" ]]; then
+    if [ -f gtfs/fixtures/gtfs.json ]; then
+        log "Loading initial data fixture gtfs.json"
+        uv run python manage.py loaddata gtfs.json || warn "Initial data load failed"
+    else
+        log "No optional initial data fixture gtfs.json present"
+    fi
 else
-    log "No optional initial data fixture gtfs.json present"
+    log "Skipping fixture loading (LOAD_FIXTURES=${LOAD_FIXTURES:-False})"
 fi
 
+# --------------------------------------
 log "Django application setup complete!"
+# --------------------------------------
 
 # Execute the main command
 log "Launching: $*"
