@@ -28,23 +28,27 @@ flowchart LR
     broker(("broker<br/>(RabbitMQ)"))
     scheduler(("scheduler<br/>(Celery Beat)"))
     memory(("memory<br/>(Redis)"))
-    database(("database<br/>(PostgreSQL)"))
+    database@{ shape: db, label: "database<br/>(PostgreSQL)" }
     context(("context<br/>(FastMCP)"))
     knowledge(("knowledge<br/>(Jena Fuseki)"))
-    trips(("trips<br/>(OpenTripPlanner)"))
+    trips(("trips<br/>(OTP)"))
+
+    lake@{ shape: docs, label: "Data Lake" }
 
     schedule --> tasks
     realtime --> tasks
-    tasks <--"commands / results or events"--> broker
-    tasks <--"status updates / snapshots"--> memory
-    tasks <--"writes / reads"--> database
-    scheduler --"commands (triggers)"--> broker
-    backend <--"commands / results or events"--> broker
-    backend <--"status updates / snapshots"--> memory
-    backend <--"writes / reads"--> database
-    backend --"queries"--> trips
-    context --"queries"--> knowledge
-    context --"queries"--> backend
+    tasks <-."receives commands /<br/> publishes events".-> broker
+    tasks <-."reads state / writes state".-> memory
+    tasks <-."reads / writes".-> database
+    tasks -."saves".-> lake
+    backend <-."receives events /<br/> sends commands".-> broker
+    backend <-."reads state / writes state".-> memory
+    backend <-."reads / writes".-> database
+    backend -."saves".-> lake
+    scheduler -."schedules commands".-> broker
+    backend -."queries".-> trips
+    context -."queries".-> knowledge
+    context -."queries".-> backend
     mcp --> context
     sparql --> knowledge
     api --> backend
@@ -53,5 +57,4 @@ flowchart LR
     sse --> backend
     tp --> backend
     eta --> backend
-
 ```
