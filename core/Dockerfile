@@ -17,7 +17,8 @@ ENV ENTRYPOINT_PATH="/app/docker-entrypoint.sh" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT="/home/app/.venv"
 
 # Create app user
 RUN groupadd --gid 1000 app && \
@@ -27,7 +28,8 @@ RUN groupadd --gid 1000 app && \
 WORKDIR /app
 
 # Change ownership of /app directory to user "app"
-RUN chown -R app:app /app
+RUN mkdir -p /home/app/.venv && \
+    chown -R app:app /app /home/app
 
 # Copy dependency files
 COPY --chown=app:app pyproject.toml uv.lock ./
@@ -49,21 +51,21 @@ USER app
 # Expose port for Django development server
 EXPOSE 8000
 
-# ---- Development stage
+# ---- Django development stage
 FROM base AS dev
-# ----------------------
+# -----------------------------
 
 CMD ["uv", "run", "python", "manage.py", "runserver", "0.0.0.0:8000"]
 
-# ---- Production stage
+# ---- Django production stage
 FROM base AS prod
-# ---------------------
+# ----------------------------
 
 CMD ["uv", "run", "daphne", "-b", "0.0.0.0", "-p", "8000", "infobus.asgi:application"]
 
-# -- Celery Worker
-FROM base AS tasks
-# ----------------
+# --- Celery Worker
+FROM base AS engine
+# -----------------
 
 CMD ["uv", "run", "celery", "-A", "infobus", "worker", "--loglevel=info"]
 

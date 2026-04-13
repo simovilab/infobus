@@ -1,6 +1,6 @@
 # Infobús Architecture
 
-`core` is a folder with the codebase for `backend`, `tasks` and `scheduler`. It contains the Django project and the Celery Worker and Celery Beat apps. This way, `tasks` has access to the Django models and utilities.
+`core` is a folder with the codebase for `backend`, `engine` and `scheduler`. It contains the Django project and the Celery Worker and Celery Beat apps. This way, `engine` has access to the Django models and utilities.
 
 ```mermaid
 flowchart LR
@@ -26,7 +26,7 @@ flowchart LR
     end
     
     backend(("backend<br/>(Django)"))
-    tasks(("tasks<br/>(Celery)"))
+    engine(("engine<br/>(Celery)"))
     broker(("broker<br/>(RabbitMQ)"))
     scheduler(("scheduler<br/>(Celery Beat)"))
     memory(("memory<br/>(Redis)"))
@@ -37,12 +37,12 @@ flowchart LR
 
     lake@{ shape: docs, label: "Data Lake" }
 
-    schedule --> tasks
-    realtime --> tasks
-    tasks <-."receives commands /<br/> publishes events".-> broker
-    tasks <-."reads state / writes state".-> memory
-    tasks <-."reads / writes".-> database
-    tasks -."saves".-> lake
+    schedule --"HTTP polling"--> engine
+    realtime --"HTTP polling"--> engine
+    engine <-."receives commands /<br/> publishes events".-> broker
+    engine <-."reads state / writes state".-> memory
+    engine <-."reads / writes".-> database
+    engine -."saves".-> lake
     backend <-."receives events /<br/> sends commands".-> broker
     backend <-."reads state / writes state".-> memory
     backend <-."reads / writes".-> database
