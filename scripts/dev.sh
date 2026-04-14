@@ -137,31 +137,31 @@ if [ $UP_EXIT -ne 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Wait for backend
+# Wait for orchestrator
 # ---------------------------------------------------------------------------
 
 echo ""
-echo -e "${YELLOW}Waiting for backend on: ${BACKEND_PORT}...${NC}"
+echo -e "${YELLOW}Waiting for orchestrator on: ${BACKEND_PORT}...${NC}"
 echo -e "${GRAY}(First run may take 1-2 minutes while database extensions and Django setup run)${NC}"
 
 MAX_WAIT=180
 ELAPSED=0
-BACKEND_OK=false
+ORCHESTRATOR_OK=false
 
 while [ $ELAPSED -lt $MAX_WAIT ]; do
     if curl -sf --max-time 3 "http://localhost:${BACKEND_PORT}" >/dev/null 2>&1; then
-        BACKEND_OK=true
+        ORCHESTRATOR_OK=true
         break
     fi
 
-    # Every 15s: print container status + last backend log lines
+    # Every 15s: print container status + last orchestrator log lines
     if [ $(( ELAPSED % 15 )) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
         echo ""
         echo -e "${GRAY}  [${ELAPSED}s] Containers:${NC}"
         docker compose -f "$COMPOSE_FILE" ps --format "table {{.Name}}\t{{.Status}}" 2>/dev/null \
             | while IFS= read -r line; do echo -e "${GRAY}    ${line}${NC}"; done
-        echo -e "${GRAY}  [${ELAPSED}s] Last backend lines:${NC}"
-        docker compose -f "$COMPOSE_FILE" logs --tail=5 backend 2>/dev/null \
+        echo -e "${GRAY}  [${ELAPSED}s] Last orchestrator lines:${NC}"
+        docker compose -f "$COMPOSE_FILE" logs --tail=5 orchestrator 2>/dev/null \
             | while IFS= read -r line; do echo -e "${GRAY}    ${line}${NC}"; done
     else
         echo -e "${GRAY}  . [${ELAPSED}s]${NC}"
@@ -171,14 +171,14 @@ while [ $ELAPSED -lt $MAX_WAIT ]; do
     ELAPSED=$(( ELAPSED + 3 ))
 done
 
-if [ "$BACKEND_OK" = true ]; then
+if [ "$ORCHESTRATOR_OK" = true ]; then
     echo ""
-    echo -e "${GREEN}Backend responding after ${ELAPSED}s.${NC}"
+    echo -e "${GREEN}Orchestrator responding after ${ELAPSED}s.${NC}"
 else
     echo ""
-    echo -e "${RED}Backend did not respond within ${MAX_WAIT}s.${NC}"
-    echo -e "${YELLOW}Last backend logs:${NC}"
-    docker compose -f "$COMPOSE_FILE" logs --tail=30 backend
+    echo -e "${RED}Orchestrator did not respond within ${MAX_WAIT}s.${NC}"
+    echo -e "${YELLOW}Last orchestrator logs:${NC}"
+    docker compose -f "$COMPOSE_FILE" logs --tail=30 orchestrator
 fi
 
 # ---------------------------------------------------------------------------
@@ -216,7 +216,7 @@ done
 
 print_section "$CYAN" "Docker volumes"
 
-for vol in database_data memory_data broker_data lake_data core_venv; do
+for vol in database_data memory_data broker_data lake_data backend_venv; do
     full_name="infobus-dev_${vol}"
     if docker volume inspect "$full_name" >/dev/null 2>&1; then
         mp=$(docker volume inspect --format='{{.Mountpoint}}' "$full_name" 2>/dev/null || echo "?")
@@ -233,7 +233,7 @@ done
 
 print_section "$GREEN" "Development URLs"
 
-echo "  Backend / API        http://localhost:${BACKEND_PORT}"
+echo "  Orchestrator / API   http://localhost:${BACKEND_PORT}"
 echo "  Django admin         http://localhost:${BACKEND_PORT}/admin"
 echo "  REST API             http://localhost:${BACKEND_PORT}/api/"
 echo "  RabbitMQ management  http://localhost:${BROKER_MANAGEMENT_PORT}"
@@ -249,9 +249,9 @@ echo "  RabbitMQ AMQP          localhost:${BROKER_AMQP_PORT}"
 print_section "$YELLOW" "Useful commands"
 
 echo "  Stream logs:          docker compose -f $COMPOSE_FILE logs -f"
-echo "  Backend logs:         docker compose -f $COMPOSE_FILE logs -f backend"
-echo "  Run migrations:       docker compose -f $COMPOSE_FILE exec backend uv run python manage.py migrate"
-echo "  Create superuser:     docker compose -f $COMPOSE_FILE exec backend uv run python manage.py createsuperuser"
-echo "  Django shell:         docker compose -f $COMPOSE_FILE exec -it backend uv run python manage.py shell"
+echo "  Orchestrator logs:    docker compose -f $COMPOSE_FILE logs -f orchestrator"
+echo "  Run migrations:       docker compose -f $COMPOSE_FILE exec orchestrator uv run python manage.py migrate"
+echo "  Create superuser:     docker compose -f $COMPOSE_FILE exec orchestrator uv run python manage.py createsuperuser"
+echo "  Django shell:         docker compose -f $COMPOSE_FILE exec -it orchestrator uv run python manage.py shell"
 echo "  Stop all:             docker compose -f $COMPOSE_FILE down"
 echo ""

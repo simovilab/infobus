@@ -1,9 +1,9 @@
 name: infobus-dev
 services:
 
-  backend:
+  orchestrator:
     build:
-      context: ./core
+      context: ./backend
       target: dev
     environment:
       - DJANGO_SETUP=True
@@ -14,8 +14,8 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
-      - ./core:/app
-      - core_venv:/home/app/.venv
+      - ./backend:/app
+      - backend_venv:/home/app/.venv
       - lake_data:/app/data
     depends_on:
       database:
@@ -25,7 +25,7 @@ services:
 
   engine:
     build:
-      context: ./core
+      context: ./backend
       target: engine
     environment:
       - DJANGO_SETUP=False
@@ -34,8 +34,8 @@ services:
       - .env
       - .env.dev
     volumes:
-      - ./core:/app
-      - core_venv:/home/app/.venv
+      - ./backend:/app
+      - backend_venv:/home/app/.venv
       - lake_data:/app/data
     depends_on:
       database:
@@ -47,7 +47,7 @@ services:
 
   scheduler:
     build:
-      context: ./core
+      context: ./backend
       target: scheduler
     environment:
       - DJANGO_SETUP=False
@@ -56,8 +56,8 @@ services:
       - .env
       - .env.dev
     volumes:
-      - ./core:/app
-      - core_venv:/home/app/.venv
+      - ./backend:/app
+      - backend_venv:/home/app/.venv
       - lake_data:/app/data
     depends_on:
       database:
@@ -139,7 +139,7 @@ services:
   
 volumes:
   broker_data:
-  core_venv:
+  backend_venv:
   database_data:
   memory_data:
   lake_data:
