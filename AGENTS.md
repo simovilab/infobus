@@ -20,7 +20,7 @@ This is a Django 5.2+ project with modern containerized infrastructure:
 - `website`: Main site pages, user management, and public interfaces
 - `alerts`: Screen management, real-time data display via WebSockets
 - `gtfs`: GTFS Schedule and Realtime data management (submodule: django-app-gtfs)
-- `feed`: Information service providers and WebSocket consumers
+- `engine`: Information service providers and WebSocket consumers
 - `api`: RESTful API endpoints with DRF integration
 
 ### 🛠️ **Technology Stack**
@@ -195,7 +195,7 @@ docker-compose exec web uv run python manage.py test
 
 # Run specific app tests
 docker-compose exec web uv run python manage.py test alerts
-docker-compose exec web uv run python manage.py test feed
+docker-compose exec web uv run python manage.py test engine
 
 # Code security scan
 gitleaks detect --source . --verbose

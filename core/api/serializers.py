@@ -1,4 +1,4 @@
-from feed.models import InfoService
+from engine.models import InfoService
 from gtfs.models import *
 from alerts.models import *
 from rest_framework import serializers

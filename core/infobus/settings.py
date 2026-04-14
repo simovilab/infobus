@@ -38,7 +38,7 @@ INSTALLED_APPS = [
     "channels",
     "website.apps.WebsiteConfig",
     "gtfs.apps.GtfsConfig",
-    "feed.apps.FeedConfig",
+    "engine.apps.EngineConfig",
     "alerts.apps.AlertsConfig",
     "api.apps.ApiConfig",
     "rest_framework",
