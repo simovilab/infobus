@@ -6,9 +6,7 @@ services:
       context: ./core
       target: dev
     environment:
-      - RUN_MIGRATIONS=True
-      - CREATE_SUPERUSER=True
-      - LOAD_FIXTURES=True
+      - DJANGO_SETUP=True
       - UV_PROJECT_ENVIRONMENT=/home/app/.venv
     env_file:
       - .env
@@ -30,9 +28,7 @@ services:
       context: ./core
       target: engine
     environment:
-      - RUN_MIGRATIONS=False
-      - CREATE_SUPERUSER=False
-      - LOAD_FIXTURES=False
+      - DJANGO_SETUP=False
       - UV_PROJECT_ENVIRONMENT=/home/app/.venv
     env_file:
       - .env
@@ -54,9 +50,7 @@ services:
       context: ./core
       target: scheduler
     environment:
-      - RUN_MIGRATIONS=False
-      - CREATE_SUPERUSER=False
-      - LOAD_FIXTURES=False
+      - DJANGO_SETUP=False
       - UV_PROJECT_ENVIRONMENT=/home/app/.venv
     env_file:
       - .env
@@ -91,13 +85,14 @@ services:
       retries: 5
 
   database:
-    image: postgis/postgis:15-3.3
+    build:
+      context: ./database
     environment:
       - POSTGRES_DB=${DB_NAME:-infobus}
       - POSTGRES_USER=${DB_USER:-postgres}
       - POSTGRES_HOST_AUTH_METHOD=trust
     volumes:
-      - database_data:/var/lib/postgresql/data
+      - database_data:/var/lib/postgresql    
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${DB_USER:-postgres}", "-d", "${DB_NAME:-infobus}"]
       interval: 10s
