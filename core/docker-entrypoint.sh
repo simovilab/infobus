@@ -110,7 +110,7 @@ log "Making migrations (if enabled)..."
 
 if [[ "${RUN_MIGRATIONS:-False}" == "True" ]]; then
     # Make migrations
-    APPS_TO_MIGRATE=("gtfs" "feed")
+    APPS_TO_MIGRATE=("gtfs" "engine")
     log "Creating migrations for: ${APPS_TO_MIGRATE[*]}"
     uv run python manage.py makemigrations "${APPS_TO_MIGRATE[@]}" || warn "No changes detected for migrations"
 

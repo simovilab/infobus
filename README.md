@@ -185,7 +185,7 @@ docker compose down
 - **`website`**: Main site pages, user management, and public interfaces
 - **`alerts`**: Screen management, real-time data display via WebSockets
 - **`gtfs`**: GTFS Schedule and Realtime data management (submodule: django-app-gtfs)
-- **`feed`**: Information service providers and WebSocket consumers
+- **`engine`**: Information service providers and WebSocket consumers
 - **`api`**: RESTful API endpoints with DRF integration
 
 ## 📚 API Documentation
@@ -198,7 +198,7 @@ docker compose down
 
 ### WebSocket Endpoints
 - **`/ws/alerts/`** - Real-time screen updates
-- **`/ws/feed/`** - Live transit data streaming
+- **`/ws/status/`** - Live transit data streaming
 
 ## 🛠️ Development
 
@@ -211,7 +211,7 @@ infobus/
 ├── 📁 website/          # Main web application
 ├── 📁 alerts/           # Display and alert management
 ├── 📁 gtfs/             # GTFS data processing (submodule)
-├── 📁 feed/             # Data feed management
+├── 📁 engine/           # Information service providers and WebSocket consumers
 ├── 📁 api/              # REST API endpoints
 ├── 📦 docker-compose.yml              # Development environment
 ├── 📦 docker-compose.production.yml   # Production environment

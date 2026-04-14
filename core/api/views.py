@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.http import FileResponse
-from feed.models import InfoService
+from engine.models import InfoService
 from gtfs.models import (
     GTFSProvider,
     Route,
