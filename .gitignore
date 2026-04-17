@@ -1,3 +1,6 @@
+# Zensical documentation build artifacts
+site/
+
 # Configuration files
 *.cfg
 
