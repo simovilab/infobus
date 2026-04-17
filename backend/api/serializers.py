@@ -1,5 +1,5 @@
 from engine.models import InfoService
-from gtfs.models import *
+from gtfs_compat import *
 from alerts.models import *
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeometryField

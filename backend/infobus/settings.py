@@ -36,8 +36,8 @@ ALLOWED_HOSTS = config("ALLOWED_HOSTS", cast=Csv())
 INSTALLED_APPS = [
     "daphne",
     "channels",
+    "gtfs",
     "website.apps.WebsiteConfig",
-    "gtfs.apps.GtfsConfig",
     "engine.apps.EngineConfig",
     "alerts.apps.AlertsConfig",
     "api.apps.ApiConfig",

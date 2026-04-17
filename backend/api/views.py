@@ -2,14 +2,12 @@ from django.conf import settings
 from django.http import FileResponse
 from engine.models import InfoService
 from gtfs.models import (
-    GTFSProvider,
-    Route,
-    RouteStop,
-    Trip,
-    FeedMessage,
-    TripUpdate,
-    StopTime,
-    StopTimeUpdate,
+    BaseAgency,
+    BaseStop,
+    BaseRoute,
+    BaseTrip,
+    BaseStopTime,
+    BaseFeedInfo,
 )
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
@@ -24,6 +22,17 @@ from django.conf import settings
 from .serializers import *
 
 # from .serializers import InfoServiceSerializer, GTFSProviderSerializer, RouteSerializer, TripSerializer
+
+
+
+from gtfs_compat import (
+    BaseAgency,
+    BaseStop,
+    BaseRoute,
+    BaseTrip,
+    BaseStopTime,
+    BaseFeedInfo,
+)
 
 
 class FilterMixin:

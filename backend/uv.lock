@@ -544,6 +544,18 @@ wheels = [
 ]
 
 [[package]]
+name = "gtfs-django"
+version = "0.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5f/b9/0699376bb4eee937d2c03fe80d961cf607d80e011a99990e1f209b5a5860/gtfs_django-0.2.0.tar.gz", hash = "sha256:c84c99fc266ee2b8ba77894f21f3f4dd7d1a56e9a0c06806bf4be9ad932d1500", size = 74699, upload-time = "2026-04-16T16:38:56.223Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ca/e0/a623c53a8f5bcee7834146238f94a2f9ec1c9b32d9d446d053244deb4ff8/gtfs_django-0.2.0-py3-none-any.whl", hash = "sha256:2e64c25e9237128a7236a7564f58fcdb1de1a853f33dd432a599d0cbf288016a", size = 88278, upload-time = "2026-04-16T16:38:54.89Z" },
+]
+
+[[package]]
 name = "gtfs-realtime-bindings"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -635,6 +647,7 @@ dependencies = [
     { name = "djangorestframework-gis" },
     { name = "drf-spectacular" },
     { name = "flower" },
+    { name = "gtfs-django" },
     { name = "gtfs-realtime-bindings" },
     { name = "gunicorn" },
     { name = "mkdocs-material" },
@@ -671,6 +684,7 @@ requires-dist = [
     { name = "djangorestframework-gis", specifier = ">=1.2.0" },
     { name = "drf-spectacular", specifier = ">=0.28.0" },
     { name = "flower", specifier = ">=2.0.1" },
+    { name = "gtfs-django" },
     { name = "gtfs-realtime-bindings", specifier = ">=1.0.0" },
     { name = "gunicorn", specifier = ">=23.0.0" },
     { name = "mkdocs-material", specifier = ">=9.6.20" },

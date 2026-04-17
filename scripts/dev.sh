@@ -87,24 +87,6 @@ if [ ! -f "$COMPOSE_FILE" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# GTFS submodule
-# ---------------------------------------------------------------------------
-
-GTFS_DIR="gtfs"
-if [ ! -d "$GTFS_DIR" ] || [ -z "$(ls -A "$GTFS_DIR" 2>/dev/null)" ]; then
-    echo -e "${YELLOW}Initializing GTFS submodule (${GTFS_DIR})...${NC}"
-    if git submodule update --init --recursive; then
-        echo -e "${GREEN}GTFS submodule ready.${NC}"
-    else
-        echo -e "${RED}Failed to initialize GTFS submodule.${NC}"
-        echo "Try manually: git submodule update --init --recursive"
-        exit 1
-    fi
-else
-    echo -e "${GREEN}GTFS submodule already present at ${GTFS_DIR}.${NC}"
-fi
-
-# ---------------------------------------------------------------------------
 # Jena Fuseki persistent storage directories
 # ---------------------------------------------------------------------------
 
