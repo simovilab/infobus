@@ -1,15 +1,13 @@
 from django.conf import settings
 from django.http import FileResponse
 from engine.models import InfoService
-from gtfs.models import (
-    GTFSProvider,
+from feed.models import (
+    Agency,
+    Stop,
     Route,
-    RouteStop,
     Trip,
-    FeedMessage,
-    TripUpdate,
     StopTime,
-    StopTimeUpdate,
+    FeedInfo,
 )
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView

@@ -109,6 +109,24 @@ if [ -d "${VENV_DIR}/bin" ]; then
     export PATH="${VENV_DIR}/bin:$PATH"
 fi
 
+# In dev mode, replace the PyPI-installed gtfs-django with an editable install
+# pointing at a local clone. This requires UV_NO_SYNC=1 in the container env so
+# subsequent `uv run` calls don't revert the editable install back to PyPI.
+# Note: toggling GTFS_DJANGO_DEV between runs requires removing the backend_venv
+# volume, otherwise setup_virtualenv's fast path skips uv sync and the previous
+# mode's install sticks around.
+enable_local_gtfs_django() {
+    if [ ! -d "gtfs-django/.git" ]; then
+        log "Cloning gtfs-django repository..."
+        git clone https://github.com/simovilab/gtfs-django.git gtfs-django
+    else
+        log "gtfs-django directory already present; skipping clone"
+    fi
+
+    log "Installing gtfs-django as editable from local clone"
+    uv add --editable ./gtfs-django
+}
+
 wait_for_database() {
     # Explicitly fail if DATABASE_URL is still missing after construction step.
     if [ -z "${DATABASE_URL:-}" ]; then
@@ -162,7 +180,7 @@ collect_static_files() {
 }
 
 load_initial_data() {
-    if [ -f gtfs/fixtures/gtfs.json ]; then
+    if [ -f feed/fixtures/gtfs.json ]; then
         log "Loading initial data fixture gtfs.json"
         uv run python manage.py loaddata gtfs.json || warn "Initial data load failed"
     else
@@ -172,6 +190,9 @@ load_initial_data() {
 
 run_django_setup() {
     section "Starting Django setup..."
+
+    section "Enabling local gtfs-django package for development..."
+    enable_local_gtfs_django
 
     section "Running makemigrations (DEBUG only)..."
     run_makemigrations

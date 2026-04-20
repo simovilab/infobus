@@ -1,6 +1,9 @@
 # Zensical documentation build artifacts
 site/
 
+# gtfs-django
+gtfs-django/
+
 # Configuration files
 *.cfg
 

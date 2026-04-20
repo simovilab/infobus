@@ -1,5 +1,5 @@
 from engine.models import InfoService
-from gtfs.models import *
+from feed.models import *
 from alerts.models import *
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeometryField
@@ -61,7 +61,6 @@ class RoutesAtStopSerializer(serializers.Serializer):
 
 
 class RouteStopPropertiesSerializer(serializers.Serializer):
-
     route_id = serializers.CharField()
     shape_id = serializers.CharField()
     stop_id = serializers.CharField()
@@ -96,7 +95,6 @@ class RouteStopSerializer(serializers.Serializer):
 
 
 class AgencySerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -105,7 +103,6 @@ class AgencySerializer(serializers.HyperlinkedModelSerializer):
 
 
 class StopSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -114,7 +111,6 @@ class StopSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class GeoStopSerializer(GeoFeatureModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
     stop_point = GeometryField()
 
@@ -125,7 +121,6 @@ class GeoStopSerializer(GeoFeatureModelSerializer):
 
 
 class RouteSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -134,7 +129,6 @@ class RouteSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class CalendarSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -143,7 +137,6 @@ class CalendarSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class CalendarDateSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -152,7 +145,6 @@ class CalendarDateSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class ShapeSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -161,7 +153,6 @@ class ShapeSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class GeoShapeSerializer(GeoFeatureModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
     geometry = GeometryField()
 
@@ -172,7 +163,6 @@ class GeoShapeSerializer(GeoFeatureModelSerializer):
 
 
 class TripSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -181,7 +171,6 @@ class TripSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class StopTimeSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -190,7 +179,6 @@ class StopTimeSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FeedInfoSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -199,7 +187,6 @@ class FeedInfoSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FareAttributeSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -208,7 +195,6 @@ class FareAttributeSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FareRuleSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -217,7 +203,6 @@ class FareRuleSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class ServiceAlertSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -226,7 +211,6 @@ class ServiceAlertSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class WeatherSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -235,7 +219,6 @@ class WeatherSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class SocialSerializer(serializers.HyperlinkedModelSerializer):
-
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -244,7 +227,6 @@ class SocialSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FeedMessageSerializer(serializers.HyperlinkedModelSerializer):
-
     provider = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -253,7 +235,6 @@ class FeedMessageSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class TripUpdateSerializer(serializers.HyperlinkedModelSerializer):
-
     feed_message = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -262,7 +243,6 @@ class TripUpdateSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class StopTimeUpdateSerializer(serializers.HyperlinkedModelSerializer):
-
     trip_update = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -271,7 +251,6 @@ class StopTimeUpdateSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class VehiclePositionSerializer(serializers.HyperlinkedModelSerializer):
-
     feed_message = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
