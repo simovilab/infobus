@@ -116,16 +116,6 @@ fi
 # volume, otherwise setup_virtualenv's fast path skips uv sync and the previous
 # mode's install sticks around.
 enable_local_gtfs_django() {
-    if ! is_true "${GTFS_DJANGO_DEV:-False}"; then
-        log "Using PyPI gtfs-django (GTFS_DJANGO_DEV=${GTFS_DJANGO_DEV:-False})"
-        return
-    fi
-
-    if [ "${UV_NO_SYNC:-}" != "1" ]; then
-        warn "GTFS_DJANGO_DEV=True but UV_NO_SYNC is not set to 1;"
-        warn "subsequent 'uv run' calls will undo the editable install."
-    fi
-
     if [ ! -d "gtfs-django/.git" ]; then
         log "Cloning gtfs-django repository..."
         git clone https://github.com/simovilab/gtfs-django.git gtfs-django
@@ -134,7 +124,7 @@ enable_local_gtfs_django() {
     fi
 
     log "Installing gtfs-django as editable from local clone"
-    uv pip install --editable ./gtfs-django --no-deps
+    uv add --editable ./gtfs-django
 }
 
 wait_for_database() {
@@ -190,7 +180,7 @@ collect_static_files() {
 }
 
 load_initial_data() {
-    if [ -f gtfs/fixtures/gtfs.json ]; then
+    if [ -f feed/fixtures/gtfs.json ]; then
         log "Loading initial data fixture gtfs.json"
         uv run python manage.py loaddata gtfs.json || warn "Initial data load failed"
     else

@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "daphne",
     "channels",
     "gtfs",
+    "feed.apps.FeedConfig",
     "website.apps.WebsiteConfig",
     "engine.apps.EngineConfig",
     "alerts.apps.AlertsConfig",
