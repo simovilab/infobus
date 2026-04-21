@@ -1,0 +1,28 @@
+site_name: Sistema de pantallas en tiempo real
+
+nav:
+  - Inicio: index.md
+  - Arquitectura: architecture.md
+  - Métricas: metrics.md
+  - Desarrollo: development.md
+  - Sobre el proyecto: about.md
+
+extra_css:
+  - stylesheets/extra.css
+
+theme:
+  name: material
+  language: es
+  palette:
+    scheme: ucr
+  logo: assets/b.png
+  favicon: assets/b.png
+  features:
+    - navigation.expand
+    - navigation.tabs
+    - toc.integrate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences

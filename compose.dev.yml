@@ -117,7 +117,7 @@ services:
       context: ./context
       dockerfile: Dockerfile
     ports:
-      - "${CONTEXT_PORT:-3278}:3278"
+      - "${CONTEXT_PORT:-3278}:${CONTEXT_PORT:-3278}"
     env_file:
       - .env
       - .env.dev
@@ -136,13 +136,33 @@ services:
     volumes:
       - ./knowledge/logs:/fuseki/logs
       - ./knowledge/databases:/fuseki/databases
-  
+
+  user-interface:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - NUXT_PUBLIC_API_BASE=http://orchestrator:8000
+      - NUXT_PORT=3000
+    env_file:
+      - .env
+      - .env.dev
+    ports:
+      - "${USER_INTERFACE_PORT:-3000}:3000"
+    volumes:
+      - ./frontend:/app
+      - ui_node_modules:/app/node_modules
+    depends_on:
+      orchestrator:
+        condition: service_started
+
 volumes:
-  broker_data:
-  backend_venv:
   database_data:
   memory_data:
   lake_data:
+  broker_data:
+  ui_node_modules:
+  backend_venv:
 
 networks:
   default:
