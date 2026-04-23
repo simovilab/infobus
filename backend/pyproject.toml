@@ -17,6 +17,7 @@ dependencies = [
     "djangorestframework-gis>=1.2.0",
     "drf-spectacular>=0.28.0",
     "flower>=2.0.1",
+    "gtfs-io",
     "gtfs-django",
     "gtfs-realtime-bindings>=1.0.0",
     "gunicorn>=23.0.0",
@@ -38,8 +39,10 @@ dev = ["pytest>=8.4.2", "ruff>=0.13.0", "watchdog>=6.0.0"]
 
 [tool.uv.workspace]
 members = [
+    "gtfs-io",
     "gtfs-django",
 ]
 
 [tool.uv.sources]
 gtfs-django = { workspace = true, editable = true }
+gtfs-io = { workspace = true, editable = true }

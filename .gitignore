@@ -6,6 +6,10 @@ node_modules/
 # Zensical documentation build artifacts
 site/
 
+# gtfs-io
+gtfs-io/
+backend/.gtfs-io-clone.lockdir
+
 # gtfs-django
 gtfs-django/
 
