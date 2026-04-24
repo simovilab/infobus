@@ -1,3 +1,4 @@
+from datetime import timedelta
 import os
 
 from celery import Celery
@@ -20,3 +21,15 @@ app.autodiscover_tasks()
 @app.task(bind=True, ignore_result=True)
 def debug_task(self):
     print(f"Celery request: {self.request!r}")
+
+
+# --------------------
+# Celery Beat Schedule
+# --------------------
+
+app.conf.beat_schedule = {
+    "hello-world-every-20s": {
+        "task": "engine.tasks.hello_world",
+        "schedule": timedelta(seconds=20),
+    },
+}

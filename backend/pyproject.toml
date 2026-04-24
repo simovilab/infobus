@@ -5,11 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "celery[redis]>=5.5.3",
-    "channels>=4.3.1",
-    "channels-redis>=4.3.0",
     "daphne>=4.2.1",
-    "django>=5.2.6",
     "django-celery-beat>=2.8.1",
     "django-celery-results>=2.6.0",
     "django-filter>=25.1",
@@ -21,17 +17,20 @@ dependencies = [
     "gtfs-django",
     "gtfs-realtime-bindings>=1.0.0",
     "gunicorn>=23.0.0",
-    "mkdocs-material>=9.6.20",
     "openpyxl>=3.1.5",
     "pandas>=3.0.2",
     "pillow>=11.3.0",
     "psycopg2-binary>=2.9.10",
     "python-decouple>=3.8",
-    "pytz>=2025.2",
-    "redis>=5.2.1",
-    "requests>=2.32.5",
     "shapely>=2.1.2",
     "whitenoise>=6.9.0",
+    "celery[librabbitmq]>=5.6.3",
+    "django>=6.0.4",
+    "channels>=4.3.2",
+    "channels-redis>=4.3.0",
+    "redis>=6.4.0",
+    "pytz>=2026.1.post1",
+    "requests>=2.33.1",
 ]
 
 [dependency-groups]
