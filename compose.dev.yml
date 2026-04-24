@@ -87,6 +87,8 @@ services:
   database:
     build:
       context: ./database
+    env_file:
+      - .env
     environment:
       - POSTGRES_DB=${DB_NAME:-infobus}
       - POSTGRES_USER=${DB_USER:-postgres}

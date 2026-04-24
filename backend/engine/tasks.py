@@ -17,6 +17,11 @@ from gtfs.models import *
 
 
 @shared_task
+def hello_world():
+    return "Hello, World!"
+
+
+@shared_task
 def get_schedule():
 
     # Logging configuration
@@ -174,7 +179,9 @@ def get_vehicle_positions():
         vehicle_positions_df["vehicle_current_stop_sequence"].fillna(-1, inplace=True)
         # Create vehicle position point
         vehicle_positions_df["vehicle_position_point"] = vehicle_positions_df.apply(
-            lambda x: f"POINT ({x.vehicle_position_longitude} {x.vehicle_position_latitude})",
+            lambda x: (
+                f"POINT ({x.vehicle_position_longitude} {x.vehicle_position_latitude})"
+            ),
             axis=1,
         )
         # Save to database
