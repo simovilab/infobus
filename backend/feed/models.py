@@ -835,78 +835,140 @@ class VehiclePosition(models.Model):
 
 
 class Alert(models.Model):
-    """Alerts and warnings about the service.
-    Maps to alerts.txt in the GTFS feed.
-
-    TODO: ajustar con Alerts de GTFS Realtime
-    """
-
     id = models.BigAutoField(primary_key=True)
-    feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
-    alert_id = models.CharField(
-        max_length=255, help_text="Identificador único de la alerta."
+    entity_id = models.CharField(max_length=127)
+    feed_message = models.ForeignKey(
+        FeedMessage, on_delete=models.CASCADE, blank=True, null=True
     )
-    route_id = models.CharField(max_length=255, help_text="Identificador de la ruta.")
-    trip_id = models.CharField(max_length=255, help_text="Identificador del viaje.")
-    service_date = models.DateField(
-        help_text="Fecha del servicio descrito por la alerta."
-    )
-    service_start_time = models.TimeField(
-        help_text="Hora de inicio del servicio descrito por la alerta."
-    )
-    service_end_time = models.TimeField(
-        help_text="Hora de finalización del servicio descrito por la alerta."
-    )
-    alert_header = models.CharField(
-        max_length=255, help_text="Encabezado de la alerta."
-    )
-    alert_description = models.TextField(help_text="Descripción de la alerta.")
-    alert_url = models.URLField(blank=True, null=True, help_text="URL de la alerta.")
-    cause = models.PositiveIntegerField(
+    cause = models.IntegerField(
+        blank=True,
+        null=True,
         choices=(
-            (1, "Otra causa"),
-            (2, "Accidente"),
-            (3, "Congestión"),
-            (4, "Evento"),
-            (5, "Mantenimiento"),
-            (6, "Planificado"),
-            (7, "Huelga"),
-            (8, "Manifestación"),
-            (9, "Demora"),
-            (10, "Cierre"),
+            (1, "UNKNOWN_CAUSE"),
+            (2, "OTHER_CAUSE"),
+            (3, "TECHNICAL_PROBLEM"),
+            (4, "STRIKE"),
+            (5, "DEMONSTRATION"),
+            (6, "ACCIDENT"),
+            (7, "HOLIDAY"),
+            (8, "WEATHER"),
+            (9, "MAINTENANCE"),
+            (10, "CONSTRUCTION"),
+            (11, "POLICE_ACTIVITY"),
+            (12, "MEDICAL_EMERGENCY"),
         ),
-        help_text="Causa de la alerta.",
     )
-    effect = models.PositiveIntegerField(
+    effect = models.IntegerField(
+        blank=True,
+        null=True,
         choices=(
-            (1, "Otro efecto"),
-            (2, "Desviación"),
-            (3, "Adelanto"),
-            (4, "Cancelación"),
-            (5, "Cierre"),
-            (6, "Desvío"),
-            (7, "Detención"),
-            (8, "Desconocido"),
+            (1, "NO_SERVICE"),
+            (2, "REDUCED_SERVICE"),
+            (3, "SIGNIFICANT_DELAYS"),
+            (4, "DETOUR"),
+            (5, "ADDITIONAL_SERVICE"),
+            (6, "MODIFIED_SERVICE"),
+            (7, "OTHER_EFFECT"),
+            (8, "UNKNOWN_EFFECT"),
+            (9, "STOP_MOVED"),
+            (10, "NO_EFFECT"),
+            (11, "ACCESSIBILITY_ISSUE"),
         ),
-        help_text="Efecto de la alerta.",
     )
-    severity = models.PositiveIntegerField(
+    severity_level = models.IntegerField(
+        blank=True,
+        null=True,
         choices=(
-            (1, "Desconocido"),
-            (2, "Información"),
-            (3, "Advertencia"),
-            (4, "Grave"),
-            (5, "Muy grave"),
+            (1, "UNKNOWN_SEVERITY"),
+            (2, "INFO"),
+            (3, "WARNING"),
+            (4, "SEVERE"),
         ),
-        help_text="Severidad de la alerta.",
     )
-    published = models.DateTimeField(
-        help_text="Fecha y hora de publicación de la alerta."
-    )
-    updated = models.DateTimeField(
-        help_text="Fecha y hora de actualización de la alerta."
-    )
-    informed_entity = models.JSONField(help_text="Entidades informadas por la alerta.")
 
-    def __str__(self):
-        return self.alert_id
+
+class ActivePeriod(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
+    start = models.DateTimeField(blank=True, null=True)
+    end = models.DateTimeField(blank=True, null=True)
+
+
+class InformedEntity(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
+    agency_id = models.CharField(max_length=255, blank=True, null=True)
+    route_id = models.CharField(max_length=255, blank=True, null=True)
+    route_type = models.IntegerField(blank=True, null=True)
+    direction_id = models.IntegerField(blank=True, null=True)
+    stop_id = models.CharField(max_length=255, blank=True, null=True)
+
+
+class TripDescriptor(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    informed_entity = models.ForeignKey(
+        InformedEntity, on_delete=models.CASCADE, blank=True, null=True
+    )
+    trip_id = models.CharField(max_length=255, blank=True, null=True)
+    route_id = models.CharField(max_length=255, blank=True, null=True)
+    direction_id = models.IntegerField(blank=True, null=True)
+    start_time = models.DurationField(blank=True, null=True)
+    start_date = models.DateField(blank=True, null=True)
+    schedule_relationship = models.IntegerField(
+        blank=True,
+        null=True,
+        choices=(
+            (0, "SCHEDULED"),
+            (1, "ADDED"),
+            (2, "UNSCHEDULED"),
+            (3, "CANCELED"),
+            (4, "REPLACEMENT"),
+            (5, "DUPLICATED"),
+            (6, "NEW"),
+            (7, "DELETED"),
+        ),
+    )
+
+
+class ModifiedTripSelector(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    trip_descriptor = models.ForeignKey(
+        TripDescriptor, on_delete=models.CASCADE, blank=True, null=True
+    )
+    modifications_id = models.CharField(max_length=255, blank=True, null=True)
+    affected_trip_id = models.CharField(max_length=255, blank=True, null=True)
+    start_time = models.DurationField(blank=True, null=True)
+    start_date = models.DateField(blank=True, null=True)
+
+
+class TranslatedString(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
+    field_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=(
+            ("cause_detail", "Cause detail"),
+            ("effect_detail", "Effect detail"),
+            ("url", "URL"),
+            ("header_text", "Header text"),
+            ("description_text", "Description text"),
+            ("tts_header_text", "TTS header text"),
+            ("tts_description_text", "TTS description text"),
+            ("image_alternative_text", "Image alternative text"),
+        ),
+    )
+    language = models.CharField(max_length=15, blank=True, null=True)
+    text = models.TextField(blank=True, null=True)
+
+
+class TranslatedImage(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
+    field_name = models.CharField(
+        max_length=255, blank=True, null=True, choices=(("image", "Image"),)
+    )
+    url = models.URLField(blank=True, null=True)
+    media_type = models.CharField(max_length=255, blank=True, null=True)
+    language = models.CharField(max_length=15, blank=True, null=True)
