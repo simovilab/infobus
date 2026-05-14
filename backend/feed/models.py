@@ -25,21 +25,61 @@ def validate_no_spaces_or_special_symbols(value):
         )
 
 
-class GTFSProvider(models.Model):
-    """A provider provides transportation services GTFS data.
+# --------------
+# Transit system
+# --------------
+
+
+class TransitSystem(models.Model):
+    """A transit system is a collection of GTFS providers that serve a common purpose, for example, the public transportation system of a city or country."""
+
+    name = models.CharField(
+        max_length=255, help_text="Nombre del sistema de transporte."
+    )
+    description = models.TextField(
+        blank=True, null=True, help_text="Descripción del sistema de transporte."
+    )
+
+    def __str__(self):
+        return self.name
+
+
+class FeedPublisher(models.Model):
+    """A feed publisher provides transportation services GTFS data.
 
     It might or might not be the same as the agency in the GTFS feed. A GTFS provider can serve multiple agencies.
     """
 
-    provider_id = models.BigAutoField(primary_key=True)
+    transit_system = models.ForeignKey(
+        TransitSystem,
+        blank=True,
+        null=True,
+        help_text="Sistema de transporte al que sirve el proveedor de datos.",
+        on_delete=models.SET_NULL,
+    )
     code = models.CharField(
         max_length=31,
         help_text="Código (típicamente el acrónimo) de la empresa. No debe tener espacios ni símbolos especiales.",
         validators=[validate_no_spaces_or_special_symbols],
+        unique=True,
     )
     name = models.CharField(max_length=255, help_text="Nombre de la empresa.")
     description = models.TextField(
         blank=True, null=True, help_text="Descripción de la institución o empresa."
+    )
+    lang = models.CharField(
+        max_length=15,
+        blank=True,
+        null=True,
+        help_text="Idioma de los datos proporcionados por el proveedor, en formato ISO 639-1 alpha-2 o alpha-3. Ejemplo: es, en, fr.",
+    )
+    contact_email = models.EmailField(
+        blank=True,
+        null=True,
+        help_text="Correo electrónico de contacto del proveedor de datos.",
+    )
+    contact_url = models.URLField(
+        blank=True, null=True, help_text="URL de contacto del proveedor de datos."
     )
     website = models.URLField(
         blank=True, null=True, help_text="Sitio web de la empresa."
@@ -59,7 +99,7 @@ class GTFSProvider(models.Model):
         null=True,
         help_text="URL del suministro (FeedMessage) de la entidad GTFS Realtime VehiclePositions (.pb).",
     )
-    service_alerts_url = models.URLField(
+    alerts_url = models.URLField(
         blank=True,
         null=True,
         help_text="URL del suministro (FeedMessage) de la entidad GTFS Realtime ServiceAlerts (.pb).",
@@ -77,16 +117,18 @@ class GTFSProvider(models.Model):
         return f"{self.name} ({self.code})"
 
 
-# -------------
-# GTFS Schedule
-# -------------
-
-
 class Feed(models.Model):
+    """
+    A GTFS Schedule feed.
+    """
+
     feed_id = models.CharField(max_length=100, primary_key=True, unique=True)
-    gtfs_provider = models.ForeignKey(
-        GTFSProvider, on_delete=models.SET_NULL, blank=True, null=True
+    feed_publisher = models.ForeignKey(
+        FeedPublisher, on_delete=models.SET_NULL, blank=True, null=True
     )
+    start_date = models.DateField(blank=True, null=True)
+    end_date = models.DateField(blank=True, null=True)
+    version = models.CharField(max_length=255, blank=True, null=True)
     http_etag = models.CharField(max_length=1023, blank=True, null=True)
     http_last_modified = models.DateTimeField(blank=True, null=True)
     is_current = models.BooleanField(blank=True, null=True)
@@ -94,6 +136,38 @@ class Feed(models.Model):
 
     def __str__(self):
         return self.feed_id
+
+
+class FeedMessage(models.Model):
+    """
+    A GTFS Realtime feed message.
+    """
+
+    ENTITY_TYPE_CHOICES = (
+        ("trip_update", "TripUpdate"),
+        ("vehicle", "VehiclePosition"),
+        ("alert", "Alert"),
+    )
+
+    feed_message_id = models.CharField(max_length=63, primary_key=True)
+    publisher = models.ForeignKey(
+        FeedPublisher, on_delete=models.SET_NULL, blank=True, null=True
+    )
+    entity_type = models.CharField(max_length=63, choices=ENTITY_TYPE_CHOICES)
+    timestamp = models.DateTimeField(auto_now=True)
+    incrementality = models.CharField(max_length=15)
+    gtfs_realtime_version = models.CharField(max_length=15)
+
+    class Meta:
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.entity_type} ({self.timestamp})"
+
+
+# -------------
+# GTFS Schedule
+# -------------
 
 
 class Agency(BaseAgency):
@@ -149,7 +223,13 @@ class Stop(BaseStop):
             self.stop_lat = self.stop_point.y
             self.stop_lon = self.stop_point.x
         else:
-            self.stop_point = Point(self.stop_lon, self.stop_lat)
+            if self.stop_lon is not None and self.stop_lat is not None:
+                try:
+                    self.stop_point = Point(float(self.stop_lon), float(self.stop_lat))
+                except (TypeError, ValueError):
+                    self.stop_point = None
+            else:
+                self.stop_point = None
         super(Stop, self).save(*args, **kwargs)
 
     def __str__(self):
@@ -212,6 +292,8 @@ class CalendarDate(BaseCalendarDate):
     )
     holiday_name = models.CharField(
         max_length=255,
+        blank=True,
+        null=True,
         default="Feriado",
         help_text="Nombre de la festividad o feriado.",
     )
@@ -557,35 +639,6 @@ class TripTime(models.Model):
 # -------------
 
 
-class FeedMessage(models.Model):
-    """
-    Header of a GTFS Realtime FeedMessage.
-
-    This is metadata to link records of other models to a retrieved FeedMessage containing several entities, typically (necessarily, in this implementation) of a single kind.
-    """
-
-    ENTITY_TYPE_CHOICES = (
-        ("trip_update", "TripUpdate"),
-        ("vehicle", "VehiclePosition"),
-        ("alert", "Alert"),
-    )
-
-    feed_message_id = models.CharField(max_length=63, primary_key=True)
-    provider = models.ForeignKey(
-        GTFSProvider, on_delete=models.SET_NULL, blank=True, null=True
-    )
-    entity_type = models.CharField(max_length=63, choices=ENTITY_TYPE_CHOICES)
-    timestamp = models.DateTimeField(auto_now=True)
-    incrementality = models.CharField(max_length=15)
-    gtfs_realtime_version = models.CharField(max_length=15)
-
-    class Meta:
-        ordering = ["-timestamp"]
-
-    def __str__(self):
-        return f"{self.entity_type} ({self.timestamp})"
-
-
 class TripUpdate(models.Model):
     """
     GTFS Realtime TripUpdate entity v2.0 (normalized).
@@ -635,9 +688,6 @@ class StopTimeUpdate(models.Model):
     """
 
     id = models.BigAutoField(primary_key=True)
-
-    # Foreign key to FeedMessage and TripUpdate models
-    feed_message = models.ForeignKey(FeedMessage, on_delete=models.CASCADE)
     trip_update = models.ForeignKey(TripUpdate, on_delete=models.CASCADE)
 
     # Stop ID (string)
@@ -653,9 +703,6 @@ class StopTimeUpdate(models.Model):
     departure_delay = models.IntegerField(blank=True, null=True)
     departure_time = models.DateTimeField(blank=True, null=True)
     departure_uncertainty = models.IntegerField(blank=True, null=True)
-
-    # OccupancyStatus (enum)
-    departure_occupancy_status = models.CharField(max_length=255, blank=True, null=True)
 
     # ScheduleRelationship (enum)
     schedule_relationship = models.CharField(max_length=255, blank=True, null=True)
@@ -680,60 +727,107 @@ class VehiclePosition(models.Model):
     )
 
     # TripDescriptor (message)
-    vehicle_trip_trip_id = models.CharField(max_length=255)
-    vehicle_trip_route_id = models.CharField(max_length=255, blank=True, null=True)
-    vehicle_trip_direction_id = models.IntegerField(blank=True, null=True)
-    vehicle_trip_start_time = models.DurationField(blank=True, null=True)
-    vehicle_trip_start_date = models.DateField(blank=True, null=True)
-    vehicle_trip_schedule_relationship = models.CharField(
-        max_length=31, blank=True, null=True
+    trip_trip_id = models.CharField(max_length=255)
+    trip_route_id = models.CharField(max_length=255, blank=True, null=True)
+    trip_direction_id = models.IntegerField(blank=True, null=True)
+    trip_start_time = models.DurationField(blank=True, null=True)
+    trip_start_date = models.DateField(blank=True, null=True)
+    trip_schedule_relationship = models.IntegerField(
+        blank=True,
+        null=True,
+        choices=(
+            (0, "SCHEDULED"),
+            (1, "ADDED"),
+            (2, "UNSCHEDULED"),
+            (3, "CANCELED"),
+            (4, "REPLACEMENT"),
+            (5, "DUPLICATED"),
+            (6, "NEW"),
+            (7, "DELETED"),
+        ),
     )  # (enum)
 
     # VehicleDescriptor (message)
-    vehicle_vehicle_id = models.CharField(max_length=255, blank=True, null=True)
-    vehicle_vehicle_label = models.CharField(max_length=255, blank=True, null=True)
-    vehicle_vehicle_license_plate = models.CharField(
-        max_length=255, blank=True, null=True
-    )
-    vehicle_vehicle_wheelchair_accessible = models.CharField(
+    vehicle_id = models.CharField(max_length=255, blank=True, null=True)
+    vehicle_label = models.CharField(max_length=255, blank=True, null=True)
+    vehicle_license_plate = models.CharField(max_length=255, blank=True, null=True)
+    vehicle_wheelchair_accessible = models.CharField(
         max_length=31, blank=True, null=True
     )  # (enum)
 
     # Position (message)
-    vehicle_position_latitude = models.FloatField(blank=True, null=True)
-    vehicle_position_longitude = models.FloatField(blank=True, null=True)
-    vehicle_position_point = models.PointField(srid=4326, blank=True, null=True)
-    vehicle_position_bearing = models.FloatField(blank=True, null=True)
-    vehicle_position_odometer = models.FloatField(blank=True, null=True)
-    vehicle_position_speed = models.FloatField(blank=True, null=True)  # (meters/second)
+    position_latitude = models.FloatField(blank=True, null=True)
+    position_longitude = models.FloatField(blank=True, null=True)
+    position_point = models.PointField(srid=4326, blank=True, null=True)
+    position_bearing = models.FloatField(blank=True, null=True)
+    position_odometer = models.FloatField(blank=True, null=True)
+    position_speed = models.FloatField(blank=True, null=True)  # (meters/second)
 
     # Current stop sequence (uint32)
-    vehicle_current_stop_sequence = models.IntegerField(blank=True, null=True)
+    current_stop_sequence = models.IntegerField(blank=True, null=True)
 
     # Stop ID (string)
-    vehicle_stop_id = models.CharField(max_length=255, blank=True, null=True)
+    stop_id = models.CharField(max_length=255, blank=True, null=True)
 
     # VehicleStopStatus (enum)
-    vehicle_current_status = models.CharField(max_length=255, blank=True, null=True)
+    current_status = models.IntegerField(
+        blank=True,
+        null=True,
+        choices=(
+            (0, "INCOMING_AT"),
+            (1, "STOPPED_AT"),
+            (2, "IN_TRANSIT_TO"),
+        ),
+    )
 
     # Timestamp (uint64)
-    vehicle_timestamp = models.DateTimeField(blank=True, null=True)
+    timestamp = models.DateTimeField(blank=True, null=True)
 
     # CongestionLevel (enum)
-    vehicle_congestion_level = models.CharField(max_length=255, blank=True, null=True)
+    congestion_level = models.IntegerField(
+        blank=True,
+        null=True,
+        choices=(
+            (0, "UNKNOWN_CONGESTION_LEVEL"),
+            (1, "RUNNING_SMOOTHLY"),
+            (2, "STOP_AND_GO"),
+            (3, "CONGESTION"),
+            (4, "SEVERE_CONGESTION"),
+        ),
+    )
 
     # OccupancyStatus (enum)
-    vehicle_occupancy_status = models.CharField(max_length=255, blank=True, null=True)
+    occupancy_status = models.IntegerField(
+        blank=True,
+        null=True,
+        choices=(
+            (0, "EMPTY"),
+            (1, "MANY_SEATS_AVAILABLE"),
+            (2, "FEW_SEATS_AVAILABLE"),
+            (3, "STANDING_ROOM_ONLY"),
+            (4, "CRUSHED_STANDING_ROOM_ONLY"),
+            (5, "FULL"),
+            (6, "NOT_ACCEPTING_PASSENGERS"),
+            (7, "NO_DATA_AVAILABLE"),
+            (8, "NOT_BOARDABLE"),
+        ),
+    )
 
     # OccupancyPercentage (uint32)
-    vehicle_occupancy_percentage = models.FloatField(blank=True, null=True)
+    occupancy_percentage = models.IntegerField(blank=True, null=True)
 
     # CarriageDetails (message): not implemented
 
     def save(self, *args, **kwargs):
-        self.vehicle_position_point = Point(
-            self.vehicle_position_longitude, self.vehicle_position_latitude
-        )
+        if self.position_longitude is not None and self.position_latitude is not None:
+            try:
+                self.position_point = Point(
+                    float(self.position_longitude), float(self.position_latitude)
+                )
+            except (TypeError, ValueError):
+                self.position_point = None
+        else:
+            self.position_point = None
         super(VehiclePosition, self).save(*args, **kwargs)
 
     def __str__(self):
