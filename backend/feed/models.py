@@ -160,6 +160,12 @@ class FeedMessage(models.Model):
 
     class Meta:
         ordering = ["-timestamp"]
+        indexes = [
+            models.Index(
+                fields=["publisher", "entity_type"],
+                name="feedmessage_publisher_type_idx",
+            ),
+        ]
 
     def __str__(self):
         return f"{self.entity_type} ({self.timestamp})"
@@ -192,24 +198,26 @@ class Stop(BaseStop):
     Maps to stops.txt in the GTFS feed.
     """
 
-    STOP_HEADING_CHOICES = (
-        ("N", "norte"),
-        ("NE", "noreste"),
-        ("E", "este"),
-        ("SE", "sureste"),
-        ("S", "sur"),
-        ("SW", "suroeste"),
-        ("W", "oeste"),
-        ("NW", "noroeste"),
-    )
-
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
     stop_point = models.PointField(
-        blank=True, null=True, help_text="Punto georreferenciado de la parada."
+        blank=True,
+        null=True,
     )
     stop_heading = models.CharField(
-        max_length=2, blank=True, null=True, choices=STOP_HEADING_CHOICES
+        max_length=2,
+        blank=True,
+        null=True,
+        choices=(
+            ("N", "north"),
+            ("NE", "northeast"),
+            ("E", "east"),
+            ("SE", "southeast"),
+            ("S", "south"),
+            ("SW", "southwest"),
+            ("W", "west"),
+            ("NW", "northwest"),
+        ),
     )
 
     class Meta:
@@ -244,20 +252,11 @@ class Route(BaseRoute):
     """
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
-    linked_agency = models.ForeignKey(
-        Agency, on_delete=models.CASCADE, blank=True, null=True
-    )
 
     class Meta:
         constraints = [
             UniqueConstraint(fields=["feed", "route_id"], name="unique_route_in_feed")
         ]
-
-    def save(self, *args, **kwargs):
-        self.linked_agency = Agency.objects.get(
-            feed=self.feed, agency_id=self.agency_id
-        )
-        super(Route, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.route_short_name}: {self.route_long_name}"
@@ -287,9 +286,6 @@ class CalendarDate(BaseCalendarDate):
     """
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
-    linked_service = models.ForeignKey(
-        Calendar, on_delete=models.CASCADE, blank=True, null=True
-    )
     holiday_name = models.CharField(
         max_length=255,
         blank=True,
@@ -304,12 +300,6 @@ class CalendarDate(BaseCalendarDate):
                 fields=["feed", "service_id", "date"], name="unique_date_in_feed"
             )
         ]
-
-    def save(self, *args, **kwargs):
-        self.linked_service = Calendar.objects.get(
-            feed=self.feed, service_id=self.service_id
-        )
-        super(CalendarDate, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.holiday_name} ({self.service_id})"
@@ -340,27 +330,11 @@ class Trip(BaseTrip):
     """
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
-    linked_route = models.ForeignKey(
-        Route, on_delete=models.CASCADE, blank=True, null=True
-    )
-    linked_service = models.ForeignKey(
-        Calendar, on_delete=models.CASCADE, blank=True, null=True
-    )
-    geoshape = models.ForeignKey(
-        "GeoShape", on_delete=models.SET_NULL, blank=True, null=True
-    )
 
     class Meta:
         constraints = [
             UniqueConstraint(fields=["feed", "trip_id"], name="unique_trip_in_feed")
         ]
-
-    def save(self, *args, **kwargs):
-        self.linked_route = Route.objects.get(feed=self.feed, route_id=self.route_id)
-        self.linked_service = Calendar.objects.get(
-            feed=self.feed, service_id=self.service_id
-        )
-        super(Trip, self).save(*args, **kwargs)
 
     def __str__(self):
         return self.trip_id
@@ -372,12 +346,6 @@ class StopTime(BaseStopTime):
     """
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
-    linked_trip = models.ForeignKey(
-        Trip, on_delete=models.CASCADE, blank=True, null=True
-    )
-    linked_stop = models.ForeignKey(
-        Stop, on_delete=models.CASCADE, blank=True, null=True
-    )
 
     class Meta:
         constraints = [
@@ -386,11 +354,6 @@ class StopTime(BaseStopTime):
                 name="unique_stoptime_in_feed",
             )
         ]
-
-    def save(self, *args, **kwargs):
-        self.linked_trip = Trip.objects.get(feed=self.feed, trip_id=self.trip_id)
-        self.linked_stop = Stop.objects.get(feed=self.feed, stop_id=self.stop_id)
-        super(StopTime, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.trip_id}: {self.stop_id} ({self.stop_sequence})"
@@ -402,9 +365,6 @@ class FareAttribute(BaseFareAttribute):
     """
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
-    linked_agency = models.ForeignKey(
-        Agency, on_delete=models.CASCADE, blank=True, null=True
-    )
 
     class Meta:
         constraints = [
@@ -412,13 +372,6 @@ class FareAttribute(BaseFareAttribute):
                 fields=["feed", "fare_id"], name="unique_fareattribute_in_feed"
             )
         ]
-
-    def save(self, *args, **kwargs):
-        if self.agency_id:
-            self.linked_agency = Agency.objects.get(
-                feed=self.feed, agency_id=self.agency_id
-            )
-        super(FareAttribute, self).save(*args, **kwargs)
 
     def __str__(self):
         return self.fare_id
@@ -430,12 +383,6 @@ class FareRule(BaseFareRule):
     """
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
-    linked_fare = models.ForeignKey(
-        FareAttribute, on_delete=models.CASCADE, blank=True, null=True
-    )
-    linked_route = models.ForeignKey(
-        Route, on_delete=models.CASCADE, blank=True, null=True
-    )
 
     class Meta:
         constraints = [
@@ -451,13 +398,6 @@ class FareRule(BaseFareRule):
                 name="unique_fare_rule_in_feed",
             )
         ]
-
-    def save(self, *args, **kwargs):
-        self.linked_fare = FareAttribute.objects.get(
-            feed=self.feed, fare_id=self.fare_id
-        )
-        self.linked_route = Route.objects.get(feed=self.feed, route_id=self.route_id)
-        super(FareRule, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.fare_id}: {self.route_id}"
@@ -647,7 +587,7 @@ class TripUpdate(models.Model):
     """
 
     id = models.BigAutoField(primary_key=True)
-    entity_id = models.CharField(max_length=127)
+    entity_id = models.CharField(max_length=127, db_index=True)
 
     # Foreign key to FeedMessage model
     feed_message = models.ForeignKey("FeedMessage", on_delete=models.CASCADE)
@@ -675,6 +615,12 @@ class TripUpdate(models.Model):
 
     # Delay (int32)
     delay = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["trip_trip_id"], name="tripupdate_trip_id_idx"),
+            models.Index(fields=["trip_route_id"], name="tripupdate_route_id_idx"),
+        ]
 
     def __str__(self):
         return f"{self.entity_id} ({self.feed_message})"
@@ -719,7 +665,7 @@ class VehiclePosition(models.Model):
     """
 
     id = models.BigAutoField(primary_key=True)
-    entity_id = models.CharField(max_length=127)
+    entity_id = models.CharField(max_length=127, db_index=True)
 
     # Foreign key to FeedMessage model
     feed_message = models.ForeignKey(
@@ -818,6 +764,13 @@ class VehiclePosition(models.Model):
 
     # CarriageDetails (message): not implemented
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["trip_route_id"], name="vehiclepos_route_id_idx"),
+            models.Index(fields=["trip_trip_id"], name="vehiclepos_trip_id_idx"),
+            models.Index(fields=["timestamp"], name="vehiclepos_timestamp_idx"),
+        ]
+
     def save(self, *args, **kwargs):
         if self.position_longitude is not None and self.position_latitude is not None:
             try:
@@ -835,7 +788,7 @@ class VehiclePosition(models.Model):
 
 
 class Alert(models.Model):
-    entity_id = models.CharField(max_length=127)
+    entity_id = models.CharField(max_length=127, db_index=True)
     feed_message = models.ForeignKey(
         FeedMessage, on_delete=models.CASCADE, blank=True, null=True
     )

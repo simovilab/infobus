@@ -35,6 +35,7 @@ from feed.models import (
     TranslatedImage,
     LocalizedImage,
 )
+from django.contrib.gis.geos import Point
 
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
@@ -188,16 +189,46 @@ def get_schedule():
                         keep_default_na=False,
                         na_values="",
                     )
+
+                    if table_name == "feed_info" and not table.empty:
+                        feed_info_row = table.iloc[0]
+                        feed_updates = {}
+
+                        start_date = gtfs_date(
+                            normalize_gtfs_value(feed_info_row.get("feed_start_date"))
+                        )
+                        if start_date is not None:
+                            feed_updates["start_date"] = start_date
+
+                        end_date = gtfs_date(
+                            normalize_gtfs_value(feed_info_row.get("feed_end_date"))
+                        )
+                        if end_date is not None:
+                            feed_updates["end_date"] = end_date
+
+                        version = normalize_gtfs_value(
+                            feed_info_row.get("feed_version")
+                        )
+                        if version is not None:
+                            feed_updates["version"] = version
+
+                        if feed_updates:
+                            for field, value in feed_updates.items():
+                                setattr(feed, field, value)
+                            feed.save(update_fields=list(feed_updates.keys()))
+
                     table = table[[col for col in fields if col in table.columns]]
                     table["feed"] = feed
-                    for row in table.to_dict(orient="records"):
-                        instance = model(
+                    instances = [
+                        model(
                             **{
                                 key: normalize_gtfs_value(value)
                                 for key, value in row.items()
                             }
                         )
-                        instance.save()
+                        for row in table.to_dict(orient="records")
+                    ]
+                    model.objects.bulk_create(instances, batch_size=2000)
                     logging.info(f"{file} imported successfully")
 
             logging.info("Schedule updated successfully")
@@ -273,6 +304,10 @@ def get_vehicle_positions():
                     else None,
                     position_longitude=v.position.longitude
                     if v.position.HasField("longitude")
+                    else None,
+                    position_point=Point(v.position.longitude, v.position.latitude)
+                    if v.position.HasField("longitude")
+                    and v.position.HasField("latitude")
                     else None,
                     position_bearing=v.position.bearing
                     if v.position.HasField("bearing")
