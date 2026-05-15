@@ -1,6 +1,38 @@
 from django.contrib.gis import admin
 
-from .models import *
+from .models import (
+    Agency,
+    Alert,
+    Calendar,
+    CalendarDate,
+    EntitySelector,
+    FareAttribute,
+    FareRule,
+    Feed,
+    FeedInfo,
+    FeedMessage,
+    FeedPublisher,
+    GeoShape,
+    LocalizedImage,
+    ModifiedTripSelector,
+    Route,
+    RouteStop,
+    Shape,
+    Stop,
+    StopTime,
+    StopTimeUpdate,
+    TimeRange,
+    TransitSystem,
+    TranslatedImage,
+    TranslatedString,
+    Translation,
+    Trip,
+    TripDescriptor,
+    TripDuration,
+    TripTime,
+    TripUpdate,
+    VehiclePosition,
+)
 
 # Register your models here.
 
@@ -31,3 +63,12 @@ admin.site.register(FeedMessage)
 admin.site.register(TripUpdate)
 admin.site.register(StopTimeUpdate)
 admin.site.register(VehiclePosition, admin.GISModelAdmin)
+admin.site.register(Alert)
+admin.site.register(TimeRange)
+admin.site.register(EntitySelector)
+admin.site.register(TripDescriptor)
+admin.site.register(ModifiedTripSelector)
+admin.site.register(TranslatedString)
+admin.site.register(Translation)
+admin.site.register(TranslatedImage)
+admin.site.register(LocalizedImage)

@@ -835,7 +835,6 @@ class VehiclePosition(models.Model):
 
 
 class Alert(models.Model):
-    id = models.BigAutoField(primary_key=True)
     entity_id = models.CharField(max_length=127)
     feed_message = models.ForeignKey(
         FeedMessage, on_delete=models.CASCADE, blank=True, null=True
@@ -887,16 +886,26 @@ class Alert(models.Model):
     )
 
 
-class ActivePeriod(models.Model):
-    id = models.BigAutoField(primary_key=True)
+class TimeRange(models.Model):
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
+    field_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=(("active_period", "Active period"),),
+    )
     start = models.DateTimeField(blank=True, null=True)
     end = models.DateTimeField(blank=True, null=True)
 
 
-class InformedEntity(models.Model):
-    id = models.BigAutoField(primary_key=True)
+class EntitySelector(models.Model):
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
+    field_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=(("informed_entity", "Informed entity"),),
+    )
     agency_id = models.CharField(max_length=255, blank=True, null=True)
     route_id = models.CharField(max_length=255, blank=True, null=True)
     route_type = models.IntegerField(blank=True, null=True)
@@ -905,9 +914,14 @@ class InformedEntity(models.Model):
 
 
 class TripDescriptor(models.Model):
-    id = models.BigAutoField(primary_key=True)
-    informed_entity = models.ForeignKey(
-        InformedEntity, on_delete=models.CASCADE, blank=True, null=True
+    entity_selector = models.ForeignKey(
+        EntitySelector, on_delete=models.CASCADE, blank=True, null=True
+    )
+    field_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=(("trip", "Trip"),),
     )
     trip_id = models.CharField(max_length=255, blank=True, null=True)
     route_id = models.CharField(max_length=255, blank=True, null=True)
@@ -931,9 +945,14 @@ class TripDescriptor(models.Model):
 
 
 class ModifiedTripSelector(models.Model):
-    id = models.BigAutoField(primary_key=True)
     trip_descriptor = models.ForeignKey(
         TripDescriptor, on_delete=models.CASCADE, blank=True, null=True
+    )
+    field_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=(("modified_trip", "Modified trip"),),
     )
     modifications_id = models.CharField(max_length=255, blank=True, null=True)
     affected_trip_id = models.CharField(max_length=255, blank=True, null=True)
@@ -942,7 +961,6 @@ class ModifiedTripSelector(models.Model):
 
 
 class TranslatedString(models.Model):
-    id = models.BigAutoField(primary_key=True)
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
     field_name = models.CharField(
         max_length=255,
@@ -959,15 +977,38 @@ class TranslatedString(models.Model):
             ("image_alternative_text", "Image alternative text"),
         ),
     )
-    language = models.CharField(max_length=15, blank=True, null=True)
+
+
+class Translation(models.Model):
+    translated_string = models.ForeignKey(
+        TranslatedString, on_delete=models.CASCADE, blank=True, null=True
+    )
+    field_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=(("translation", "Translation"),),
+    )
     text = models.TextField(blank=True, null=True)
+    language = models.CharField(max_length=15, blank=True, null=True)
 
 
 class TranslatedImage(models.Model):
-    id = models.BigAutoField(primary_key=True)
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
     field_name = models.CharField(
         max_length=255, blank=True, null=True, choices=(("image", "Image"),)
+    )
+
+
+class LocalizedImage(models.Model):
+    translated_image = models.ForeignKey(
+        TranslatedImage, on_delete=models.CASCADE, blank=True, null=True
+    )
+    field_name = models.CharField(
+        max_length=255,
+        blank=True,
+        null=True,
+        choices=(("localized_image", "Localized image"),),
     )
     url = models.URLField(blank=True, null=True)
     media_type = models.CharField(max_length=255, blank=True, null=True)
