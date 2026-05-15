@@ -2,7 +2,7 @@ from django.conf import settings
 from django.http import FileResponse
 from engine.models import InfoService
 from feed.models import (
-    GTFSProvider,
+    FeedPublisher,
     Agency,
     Stop,
     Route,
@@ -22,7 +22,7 @@ from django.conf import settings
 
 from .serializers import *
 
-# from .serializers import InfoServiceSerializer, GTFSProviderSerializer, RouteSerializer, TripSerializer
+# from .serializers import InfoServiceSerializer, FeedPublisherSerializer, RouteSerializer, TripSerializer
 
 
 class FilterMixin:
@@ -37,13 +37,13 @@ class FilterMixin:
         return queryset.filter(**filter_args)
 
 
-class GTFSProviderViewSet(viewsets.ModelViewSet):
+class FeedPublisherViewSet(viewsets.ModelViewSet):
     """
     Proveedores de datos GTFS.
     """
 
-    queryset = GTFSProvider.objects.all()
-    serializer_class = GTFSProviderSerializer
+    queryset = FeedPublisher.objects.all()
+    serializer_class = FeedPublisherSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["code", "name"]
     # permission_classes = [permissions.IsAuthenticated]

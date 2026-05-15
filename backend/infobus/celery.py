@@ -28,8 +28,8 @@ def debug_task(self):
 # --------------------
 
 app.conf.beat_schedule = {
-    "hello-world-every-20s": {
+    "hello-world-every-180s": {
         "task": "engine.tasks.hello_world",
-        "schedule": timedelta(seconds=20),
+        "schedule": timedelta(seconds=180),
     },
 }

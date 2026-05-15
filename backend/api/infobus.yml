@@ -1,8 +1,8 @@
-openapi: '3.0.2'
+openapi: "3.0.2"
 info:
   title: Infobús API
   description: "Un servidor para recopilar datos desde diversas fuentes, incluyendo desde servidores en tiempo real con datos GTFS Realtime, y para distribución de información a servicios como páginas web, pantallas, aplicaciones, análisis de datos y otros.\n\n**Autores**\n\n Fabián Abarca Calderón, David Segura Cruz, Josué Vargas Céspedes \n\n *Escuela de Ingeniería Eléctrica, Universidad de Costa Rica*"
-  version: '1.0'
+  version: "1.0"
   contact:
     email: tropicalizacion@ucr.ac.cr
   x-logo:
@@ -10,12 +10,12 @@ info:
     altText: Logo bUCR
   license:
     name: MIT
-    url: 'https://opensource.org/license/mit/'
+    url: "https://opensource.org/license/mit/"
 servers:
   - url: https://infobus.bucr.digital/api
 
 paths:
-  /gtfs-providers:
+  /feed-publishers:
     get:
       summary: Proveedores de datos GTFS
       description: Información sobre los proveedores de datos GTFS del servicio de transporte público.
@@ -24,21 +24,21 @@ paths:
           name: code
           schema:
             type: string
-          description: 'Búsqueda de proveedor de datos GTFS por código identificador.'
+          description: "Búsqueda de proveedor de datos GTFS por código identificador."
         - in: query
           name: name
           schema:
             type: string
-          description: 'Búsqueda de proveedor de datos GTFS por nombre.'
+          description: "Búsqueda de proveedor de datos GTFS por nombre."
       tags:
         - Schedule
       responses:
-        '200':
+        "200":
           description: Solicitud procesada
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GTFSProvider'
+                $ref: "#/components/schemas/FeedPublisher"
   /agencies:
     get:
       summary: Agencias operadoras del servicio
@@ -48,21 +48,21 @@ paths:
           name: agency_id
           schema:
             type: string
-          description: 'Búsqueda de agencia operadora por identificador.'
+          description: "Búsqueda de agencia operadora por identificador."
         - in: query
           name: agency_name
           schema:
             type: string
-          description: 'Búsqueda de agencia operadora por nombre.'
+          description: "Búsqueda de agencia operadora por nombre."
       tags:
         - Schedule
       responses:
-        '200':
+        "200":
           description: Solicitud procesada
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Agency'
+                $ref: "#/components/schemas/Agency"
   /stops:
     get:
       summary: Datos sobre las paradas
@@ -70,53 +70,53 @@ paths:
       tags:
         - Schedule
       parameters:
-      - in: query
-        name: route_id
-        schema:
-          type: string
-        description: 'Búsqueda de paradas que pertenecen a una ruta particular.'
-      - in: query
-        name: location_type
-        schema:
-          type: integer
-          enum: [0, 1]
-        description: 'El tipo de parada, donde 0 es una parada o plataforma y 1 es una estación.'
-      - in: query
-        name: wheelchair_boarding
-        schema:
-          type: integer
-          enum: [0, 1, 2]
-        description: 'Indica si la parada permite el abordaje de sillas de ruedas, donde 0 es desconocido, 1 es accesible y 2 es no accesible.'
-      - in: query
-        name: located_within
-        schema:
-          type: string
-          example: 'POLYGON ((-85 9, -85 11, -83 11, -83 9, -85 9))'
-          format: WKT
-        description: 'Búsqueda de paradas dentro de un región, especificada como un polígono en formato WKT.'
-      - in: query
-        name: close_to
-        schema:
-          type: string
-          example: 'POINT (-84 9)'
-          format: WKT
-        description: 'Búsqueda de paradas cercanas a una ubicación, especificada como un punto en formato WKT.'
-      - in: query
-        name: distance
-        schema:
-          type: integer
-          example: 400
-          default: 800
-        description: 'Distancia en metros para la búsqueda de paradas cercanas a un punto.'
+        - in: query
+          name: route_id
+          schema:
+            type: string
+          description: "Búsqueda de paradas que pertenecen a una ruta particular."
+        - in: query
+          name: location_type
+          schema:
+            type: integer
+            enum: [0, 1]
+          description: "El tipo de parada, donde 0 es una parada o plataforma y 1 es una estación."
+        - in: query
+          name: wheelchair_boarding
+          schema:
+            type: integer
+            enum: [0, 1, 2]
+          description: "Indica si la parada permite el abordaje de sillas de ruedas, donde 0 es desconocido, 1 es accesible y 2 es no accesible."
+        - in: query
+          name: located_within
+          schema:
+            type: string
+            example: "POLYGON ((-85 9, -85 11, -83 11, -83 9, -85 9))"
+            format: WKT
+          description: "Búsqueda de paradas dentro de un región, especificada como un polígono en formato WKT."
+        - in: query
+          name: close_to
+          schema:
+            type: string
+            example: "POINT (-84 9)"
+            format: WKT
+          description: "Búsqueda de paradas cercanas a una ubicación, especificada como un punto en formato WKT."
+        - in: query
+          name: distance
+          schema:
+            type: integer
+            example: 400
+            default: 800
+          description: "Distancia en metros para la búsqueda de paradas cercanas a un punto."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Stops'
+                  $ref: "#/components/schemas/Stops"
   /shapes:
     get:
       summary: Trayectorias de las rutas
@@ -126,19 +126,19 @@ paths:
           name: shape_id
           schema:
             type: string
-            example: 'desde_educacion'
-          description: 'Búsqueda de trayectorias que pertenecen a una trayectoria particular.'
+            example: "desde_educacion"
+          description: "Búsqueda de trayectorias que pertenecen a una trayectoria particular."
       tags:
         - Schedule
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Shapes'
+                  $ref: "#/components/schemas/Shapes"
   /calendar:
     get:
       summary: Días de operación de las rutas
@@ -150,17 +150,17 @@ paths:
           name: service_id
           schema:
             type: string
-            example: 'entresemana'
-          description: 'Búsqueda de días de operación en un servicio particular.'
+            example: "entresemana"
+          description: "Búsqueda de días de operación en un servicio particular."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Calendar'
+                  $ref: "#/components/schemas/Calendar"
   /calendar-dates:
     get:
       summary: Excepciones de operación de las rutas
@@ -172,17 +172,17 @@ paths:
           name: service_id
           schema:
             type: string
-            example: 'entresemana'
-          description: 'Búsqueda de excepciones de operación en un servicio particular.'
+            example: "entresemana"
+          description: "Búsqueda de excepciones de operación en un servicio particular."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/CalendarDates'
+                  $ref: "#/components/schemas/CalendarDates"
   /routes:
     get:
       summary: Datos de las rutas
@@ -194,24 +194,24 @@ paths:
           name: route_id
           schema:
             type: string
-            example: 'bUCR-L1'
-          description: 'Búsqueda por identificador de ruta.'
+            example: "bUCR-L1"
+          description: "Búsqueda por identificador de ruta."
         - in: query
           name: route_type
           schema:
             type: integer
             enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-          description: 'Tipo de ruta, según GTFS, donde 3 es autobús.'
+          description: "Tipo de ruta, según GTFS, donde 3 es autobús."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Routes'
-  /trips:  
+                  $ref: "#/components/schemas/Routes"
+  /trips:
     get:
       summary: Datos de los viajes
       description: Datos sobre los viajes, como la hora de inicio, la fecha de inicio y la relación con el horario.
@@ -222,41 +222,41 @@ paths:
           name: trip_id
           schema:
             type: string
-            example: 'NROD7888'
-          description: 'Búsqueda por identificador de viaje.'
+            example: "NROD7888"
+          description: "Búsqueda por identificador de viaje."
         - in: query
           name: route_id
           schema:
             type: string
-            example: 'bUCR-L1'
-          description: 'Búsqueda de viajes que pertenecen a una ruta particular.'
+            example: "bUCR-L1"
+          description: "Búsqueda de viajes que pertenecen a una ruta particular."
         - in: query
           name: direction_id
           schema:
             type: integer
             enum: [0, 1]
-          description: 'Búsqueda de viajes en una dirección particular.'
+          description: "Búsqueda de viajes en una dirección particular."
         - in: query
           name: service_id
           schema:
             type: string
-            example: 'entresemana'
-          description: 'Búsqueda de viajes en días de operación particulares.'
+            example: "entresemana"
+          description: "Búsqueda de viajes en días de operación particulares."
         - in: query
           name: shape_id
           schema:
             type: string
-            example: 'desde_educacion'
-          description: 'Búsqueda de viajes en una trayectoria particular.'
+            example: "desde_educacion"
+          description: "Búsqueda de viajes en una trayectoria particular."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Trips'
+                  $ref: "#/components/schemas/Trips"
   /stop-times:
     get:
       summary: Horarios de llegada a las paradas
@@ -268,23 +268,23 @@ paths:
           name: trip_id
           schema:
             type: string
-            example: 'JFH367'
-          description: 'Búsqueda de horarios de paradas en un viaje particular.'
+            example: "JFH367"
+          description: "Búsqueda de horarios de paradas en un viaje particular."
         - in: query
           name: stop_id
           schema:
             type: string
-            example: 'bUCR-0-03'
-          description: 'Búsqueda de horarios de paradas en una parada particular.'
+            example: "bUCR-0-03"
+          description: "Búsqueda de horarios de paradas en una parada particular."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/StopTimes'
+                  $ref: "#/components/schemas/StopTimes"
   /frequencies:
     get:
       summary: Frecuencias de los viajes
@@ -296,17 +296,17 @@ paths:
           name: trip_id
           schema:
             type: string
-            example: 'JFH367'
-          description: 'Búsqueda de frecuencias de viajes en un viaje particular.'
+            example: "JFH367"
+          description: "Búsqueda de frecuencias de viajes en un viaje particular."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Frequencies'
+                  $ref: "#/components/schemas/Frequencies"
   /feed-info:
     get:
       summary: Información del feed
@@ -318,17 +318,17 @@ paths:
           name: feed_publisher_name
           schema:
             type: string
-            example: 'bUCR'
-          description: 'Búsqueda de información del feed por nombre del proveedor.'
+            example: "bUCR"
+          description: "Búsqueda de información del feed por nombre del proveedor."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/FeedInfo'
+                  $ref: "#/components/schemas/FeedInfo"
   /route-stops:
     get:
       summary: Paradas de las rutas
@@ -340,17 +340,17 @@ paths:
           name: route_id
           schema:
             type: string
-            example: 'bUCR-L1'
-          description: 'Búsqueda de paradas en una ruta particular.'
+            example: "bUCR-L1"
+          description: "Búsqueda de paradas en una ruta particular."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/RouteStops'
+                  $ref: "#/components/schemas/RouteStops"
   /geoshapes:
     get:
       summary: Trayectorias de las rutas en formato GeoJSON
@@ -362,17 +362,17 @@ paths:
           name: shape_id
           schema:
             type: string
-            example: 'desde_educacion'
-          description: 'Búsqueda de una trayectoria particular.'
+            example: "desde_educacion"
+          description: "Búsqueda de una trayectoria particular."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/geo+json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/GeoShapes'
+                  $ref: "#/components/schemas/GeoShapes"
   /trip-times:
     get:
       summary: Horarios de salida los viajes
@@ -384,17 +384,17 @@ paths:
           name: trip_id
           schema:
             type: string
-            example: 'JFH367'
-          description: 'Búsqueda de horarios de un viaje particular.'
+            example: "JFH367"
+          description: "Búsqueda de horarios de un viaje particular."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TripTimes'     
+                  $ref: "#/components/schemas/TripTimes"
   /next-trips:
     get:
       summary: Próximos viajes
@@ -406,28 +406,28 @@ paths:
           name: stop_id
           schema:
             type: string
-            example: 'bUCR-0-03'
-          description: 'Búsqueda de próximos viajes en una parada particular.'
+            example: "bUCR-0-03"
+          description: "Búsqueda de próximos viajes en una parada particular."
           required: true
         - in: query
           name: route_id
           schema:
             type: string
-          description: 'Búsqueda de próximos viajes filtrada por parada y por ruta.'
+          description: "Búsqueda de próximos viajes filtrada por parada y por ruta."
         - in: query
           name: timestamp
           schema:
             type: string
-            example: '2024-07-31T16:12:25'
-          description: 'Fecha y hora de referencia en el futuro para buscar próximos viajes a partir de ese momento. Será asumida la zona horaria de la agencia. Parámetro opcional, por defecto es el momento actual.'
+            example: "2024-07-31T16:12:25"
+          description: "Fecha y hora de referencia en el futuro para buscar próximos viajes a partir de ese momento. Será asumida la zona horaria de la agencia. Parámetro opcional, por defecto es el momento actual."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NextTrips'
-        '400':
+                $ref: "#/components/schemas/NextTrips"
+        "400":
           description: Bad Request - Es necesario especificar el stop_id como parámetro de la solicitud.
   /next-stops:
     get:
@@ -440,31 +440,31 @@ paths:
           name: trip_id
           schema:
             type: string
-            example: 'JFH367'
-          description: 'Búsqueda de próximas paradas en un viaje particular.'
+            example: "JFH367"
+          description: "Búsqueda de próximas paradas en un viaje particular."
           required: true
         - in: query
           name: start_date
           schema:
             type: string
-            example: '2024-07-31'
-          description: 'Fecha de salida del viaje.'
+            example: "2024-07-31"
+          description: "Fecha de salida del viaje."
           required: true
         - in: query
           name: start_time
           schema:
             type: string
-            example: '16:12:25'
-          description: 'Hora de salida del viaje.'
+            example: "16:12:25"
+          description: "Hora de salida del viaje."
           required: true
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/NextStops'
-        '400':
+                $ref: "#/components/schemas/NextStops"
+        "400":
           description: Bad Request - Es necesario especificar todos los parámetros de la solicitud, trip_id, start_date y start_time.
   /vehicle-positions:
     get:
@@ -472,73 +472,81 @@ paths:
       description: Datos sobre las posiciones de los vehículos, como la ubicación, la velocidad y la dirección.
       tags:
         - Realtime
-      parameters: 
+      parameters:
         - in: query
           name: vehicle_vehicle_id
           schema:
             type: string
-          description: 'Búsqueda de posiciones de vehículos por identificador.'
+          description: "Búsqueda de posiciones de vehículos por identificador."
         - in: query
           name: vehicle_trip_route_id
           schema:
             type: string
-          description: 'Búsqueda de posiciones de vehículos por ruta.'
+          description: "Búsqueda de posiciones de vehículos por ruta."
         - in: query
           name: vehicle_trip_trip_id
           schema:
             type: string
-          description: 'Búsqueda de posiciones de vehículos por viaje.'
+          description: "Búsqueda de posiciones de vehículos por viaje."
         - in: query
           name: vehicle_trip_schedule_relationship
           schema:
             type: string
-            enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
-          description: 'Búsqueda de posiciones de vehículos por relación con el horario.'
+            enum:
+              [
+                "SCHEDULED",
+                "ADDED",
+                "UNSCHEDULED",
+                "CANCELED",
+                "DUPLICATED",
+                "DELETED",
+              ]
+          description: "Búsqueda de posiciones de vehículos por relación con el horario."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/VehiclePositions'
+                  $ref: "#/components/schemas/VehiclePositions"
   /trip-updates:
     get:
       summary: Actualizaciones de los viajes
       description: Obtiene las horas de llegada y salida de las paradas en tiempo real.
       tags:
         - Realtime
-      parameters: 
+      parameters:
         - in: query
           name: trip_trip_id
           schema:
             type: string
-          description: 'Búsqueda de actualizaciones de viajes por identificador.'
+          description: "Búsqueda de actualizaciones de viajes por identificador."
         - in: query
           name: trip_route_id
           schema:
             type: string
-          description: 'Búsqueda de actualizaciones de viajes por ruta.'
+          description: "Búsqueda de actualizaciones de viajes por ruta."
         - in: query
           name: trip_start_time
           schema:
             type: string
-          description: 'Búsqueda de actualizaciones de viajes por hora de salida.'
+          description: "Búsqueda de actualizaciones de viajes por hora de salida."
         - in: query
           name: vehicle_id
           schema:
             type: string
-          description: 'Búsqueda de actualizaciones de viajes por identificador de vehículo.'
+          description: "Búsqueda de actualizaciones de viajes por identificador de vehículo."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/TripUpdates'
+                  $ref: "#/components/schemas/TripUpdates"
   /service-alerts:
     get:
       summary: Alertas del servicio
@@ -550,36 +558,36 @@ paths:
           name: alert_id
           schema:
             type: string
-          description: 'Búsqueda de alertas por identificador de servicio.'
+          description: "Búsqueda de alertas por identificador de servicio."
         - in: query
           name: route_id
           schema:
             type: string
-          description: 'Búsqueda de alertas por ruta.'
+          description: "Búsqueda de alertas por ruta."
         - in: query
           name: trip_id
           schema:
             type: string
-          description: 'Búsqueda de alertas por viaje.'
+          description: "Búsqueda de alertas por viaje."
         - in: query
           name: service_start_time
           schema:
             type: string
-          description: 'Búsqueda de alertas por hora de inicio.'
+          description: "Búsqueda de alertas por hora de inicio."
         - in: query
           name: service_date
           schema:
             type: string
-          description: 'Búsqueda de alertas por fecha de inicio.'
+          description: "Búsqueda de alertas por fecha de inicio."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/ServiceAlerts'
+                  $ref: "#/components/schemas/ServiceAlerts"
   /weather:
     get:
       summary: Datos meteorológicos
@@ -591,21 +599,21 @@ paths:
           name: weather_location
           schema:
             type: string
-          description: 'Búsqueda de datos meteorológicos por ubicación.'
+          description: "Búsqueda de datos meteorológicos por ubicación."
         - in: query
           name: weather_condition
           schema:
             type: string
-          description: 'Búsqueda de datos meteorológicos por condición.'
+          description: "Búsqueda de datos meteorológicos por condición."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Weather'
+                  $ref: "#/components/schemas/Weather"
   /social:
     get:
       summary: Redes sociales
@@ -617,26 +625,26 @@ paths:
           name: social_media
           schema:
             type: string
-          description: 'Búsqueda de redes sociales por nombre.'
+          description: "Búsqueda de redes sociales por nombre."
         - in: query
           name: social_location
           schema:
             type: string
-          description: 'Búsqueda de redes sociales por ubicación.'
+          description: "Búsqueda de redes sociales por ubicación."
         - in: query
           name: social_content
           schema:
             type: string
-          description: 'Búsqueda de redes sociales por contenido.'
+          description: "Búsqueda de redes sociales por contenido."
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Social'
+                  $ref: "#/components/schemas/Social"
   /user-reports:
     get:
       summary: Reportes de personas usuarias
@@ -644,21 +652,21 @@ paths:
       tags:
         - External
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/UserReports'
+                  $ref: "#/components/schemas/UserReports"
     post:
       summary: Reportes de personas usuarias
       description: Publica reportes de personas usuarias sobre el servicio.
       tags:
         - External
       responses:
-        '200':
+        "200":
           description: OK
   /user-data:
     get:
@@ -667,21 +675,21 @@ paths:
       tags:
         - External
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/UserData'
+                  $ref: "#/components/schemas/UserData"
     post:
       summary: Datos de personas usuarias
       description: Publica datos de personas usuarias del servicio.
       tags:
         - External
       responses:
-        '200':
+        "200":
           description: OK
   /wide-alerts:
     get:
@@ -690,7 +698,7 @@ paths:
       tags:
         - External
       responses:
-        '200':
+        "200":
           description: OK
     post:
       summary: Alertas generales
@@ -698,14 +706,14 @@ paths:
       tags:
         - External
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/WideAlerts'
+                  $ref: "#/components/schemas/WideAlerts"
   /info-service:
     get:
       summary: Servicios de información
@@ -715,65 +723,74 @@ paths:
           name: type
           schema:
             type: string
-            enum: ['website', 'screens', 'app', 'analysis', 'chatbot', 'social', 'other']
-          description: 'Búsqueda por tipo de servicios de información.'
+            enum:
+              [
+                "website",
+                "screens",
+                "app",
+                "analysis",
+                "chatbot",
+                "social",
+                "other",
+              ]
+          description: "Búsqueda por tipo de servicios de información."
         - in: query
           name: name
           schema:
             type: string
-          description: 'Búsqueda por nombre de servicios de información.'
+          description: "Búsqueda por nombre de servicios de información."
       tags:
         - External
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/InfoService'
+                  $ref: "#/components/schemas/InfoService"
 
 components:
   schemas:
-    GTFSProvider:
+    FeedPublisher:
       type: object
       properties:
         code:
           description: Identificador del proveedor de datos
           type: string
-          example: 'MBTA'
+          example: "MBTA"
         name:
           description: Nombre del proveedor de datos
           type: string
-          example: 'Massachusetts Bay Transportation Authority'
+          example: "Massachusetts Bay Transportation Authority"
         description:
           description: Descrippción del proveedor de datos
           type: string
-          example: 'La agencia de transporte público de Boston.'
+          example: "La agencia de transporte público de Boston."
         website:
           description: Sitio web del proveedor de datos
           type: string
-          example: 'https://www.mbta.com/'
+          example: "https://www.mbta.com/"
         schedule_url:
           description: URL del GTFS Schedule
           type: string
-          example: 'https://cdn.mbta.com/MBTA_GTFS.zip'
+          example: "https://cdn.mbta.com/MBTA_GTFS.zip"
         trip_updates_url:
           description: URL de actualizaciones de viajes
           type: string
-          example: 'https://cdn.mbta.com/realtime/TripUpdates.pb'
+          example: "https://cdn.mbta.com/realtime/TripUpdates.pb"
         vehicle_positions_url:
           description: URL de posiciones de vehículos
           type: string
-          example: 'https://cdn.mbta.com/realtime/VehiclePositions.pb'
+          example: "https://cdn.mbta.com/realtime/VehiclePositions.pb"
         service_alerts_url:
           description: URL de alertas de servicio
           type: string
-          example: 'https://cdn.mbta.com/realtime/Alerts.pb'
+          example: "https://cdn.mbta.com/realtime/Alerts.pb"
         timezone:
           description: Zona horaria del proveedor de datos
           type: string
-          example: 'America/New_York'
+          example: "America/New_York"
         is_active:
           description: Estado de activación del proveedor de datos
           type: boolean
@@ -784,50 +801,50 @@ components:
         agency_id:
           description: Identificador de la agencia según GTFS Schedule
           type: string
-          example: 'bUCR'
+          example: "bUCR"
         agency_name:
           description: Nombre de la agencia
           type: string
-          example: 'bUCR'
+          example: "bUCR"
         agency_url:
           description: URL de la agencia
           type: string
-          example: 'https://bucr.digital'
+          example: "https://bucr.digital"
         agency_timezone:
           description: Zona horaria de la agencia
           type: string
-          example: 'America/Costa_Rica'
+          example: "America/Costa_Rica"
         agency_lang:
           description: Lenguaje de la agencia
           type: string
-          example: 'es'
+          example: "es"
         agency_phone:
           description: Teléfono de la agencia
           type: string
-          example: '+506 2511-0000'
+          example: "+506 2511-0000"
         agency_fare_url:
           description: URL de tarifas de la agencia
           type: string
-          example: 'https://bucr.digital/tarifas'
+          example: "https://bucr.digital/tarifas"
         agency_email:
           description: Correo electrónico de la agencia
           type: string
-          example: 'bus@ucr.ac.cr'
+          example: "bus@ucr.ac.cr"
     Stops:
       type: object
       properties:
         stop_id:
           description: Identificador único de la parada
           type: string
-          example: 'bUCR-0-03'
+          example: "bUCR-0-03"
         stop_name:
           description: Nombre de la parada
           type: string
-          example: 'Facultad de Ingeniería'
+          example: "Facultad de Ingeniería"
         stop_desc:
           description: Descripción de la parada
           type: string
-          example: 'Facultad de Ingeniería en la Ciudad de la Investigación de la Universidad de Costa Rica'
+          example: "Facultad de Ingeniería en la Ciudad de la Investigación de la Universidad de Costa Rica"
         stop_lat:
           description: Latitud de la parada
           type: number
@@ -841,7 +858,7 @@ components:
         stop_url:
           description: URL de la parada
           type: string
-          example: 'https://bucr.digital/paradas/bUCR-0-03'
+          example: "https://bucr.digital/paradas/bUCR-0-03"
         location_type:
           description: Tipo de ubicación
           type: integer
@@ -858,7 +875,7 @@ components:
         shape_id:
           description: Identificador de la trayectoria
           type: string
-          example: 'desde_educacion'
+          example: "desde_educacion"
         shape_pt_lat:
           description: Latitud de la forma
           type: number
@@ -884,7 +901,7 @@ components:
         service_id:
           description: Identificador del servicio
           type: string
-          example: 'entresemana'
+          example: "entresemana"
         monday:
           description: Operación los lunes
           type: integer
@@ -923,22 +940,22 @@ components:
         start_date:
           description: Fecha de inicio de operación
           type: string
-          example: '2024-05-03'
+          example: "2024-05-03"
         end_date:
           description: Fecha de fin de operación
           type: string
-          example: '2024-12-31'
+          example: "2024-12-31"
     CalendarDates:
       type: object
       properties:
         service_id:
           description: Identificador del servicio
           type: string
-          example: 'entresemana'
+          example: "entresemana"
         date:
           description: Fecha de excepción
           type: string
-          example: '2024-08-15'
+          example: "2024-08-15"
         exception_type:
           description: Tipo de excepción
           type: integer
@@ -947,26 +964,26 @@ components:
         holiday_name:
           description: Nombre del feriado
           type: string
-          example: 'Día de la Madre'
+          example: "Día de la Madre"
     Routes:
       type: object
       properties:
         route_id:
           description: Identificador de la ruta
           type: string
-          example: 'bUCR-L1'
+          example: "bUCR-L1"
         route_short_name:
           description: Nombre corto de la ruta
           type: string
-          example: 'L1'
+          example: "L1"
         route_long_name:
           description: Nombre largo de la ruta
           type: string
-          example: 'Línea 1'
+          example: "Línea 1"
         route_desc:
           description: Descripción de la ruta
           type: string
-          example: 'Línea 1 de buses de la Universidad de Costa Rica'
+          example: "Línea 1 de buses de la Universidad de Costa Rica"
         route_type:
           description: Tipo de ruta
           type: integer
@@ -975,57 +992,57 @@ components:
         route_url:
           description: URL de la ruta
           type: string
-          example: 'https://bucr.digital/rutas/L1'
+          example: "https://bucr.digital/rutas/L1"
     Trips:
       type: object
       properties:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
-          example: 'JFH367'
+          example: "JFH367"
         route_id:
           description: Identificador de la ruta según GTFS Schedule
           type: string
-          example: 'bUCR-L1'
+          example: "bUCR-L1"
         direction_id:
           description: Identificador de la dirección del viaje según GTFS Schedule
           type: integer
           example: 0
-      #  start_time:
-      #    description: Hora de inicio del viaje
-      #    type: string
-      #    example: '07:15:00'
-      #  start_date:
-      #    description: Fecha de inicio del viaje
-      #    type: string
-      #    example: '2024-05-03'
-      #  schedule_relationship:
-      #    description: Relación con el horario
-      #    type: string
-      #    enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
+        #  start_time:
+        #    description: Hora de inicio del viaje
+        #    type: string
+        #    example: '07:15:00'
+        #  start_date:
+        #    description: Fecha de inicio del viaje
+        #    type: string
+        #    example: '2024-05-03'
+        #  schedule_relationship:
+        #    description: Relación con el horario
+        #    type: string
+        #    enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
         trip_headsign:
           description: Letrero del viaje
           type: string
-          example: 'Facultad de Ingeniería'
+          example: "Facultad de Ingeniería"
     StopTimes:
       type: object
       properties:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
-          example: 'JFH367'
+          example: "JFH367"
         arrival_time:
           description: Hora de llegada a la parada
           type: string
-          example: '07:15:00'
+          example: "07:15:00"
         departure_time:
           description: Hora de salida de la parada
           type: string
-          example: '07:15:00'
+          example: "07:15:00"
         stop_id:
           description: Identificador de la parada según GTFS Schedule
           type: string
-          example: 'bUCR-0-03'
+          example: "bUCR-0-03"
         stop_sequence:
           description: Secuencia de la parada
           type: integer
@@ -1033,7 +1050,7 @@ components:
         stop_headsign:
           description: Letrero de la parada
           type: string
-          example: 'Facultad de Ingeniería'
+          example: "Facultad de Ingeniería"
         pickup_type:
           description: Tipo de abordaje
           type: integer
@@ -1055,15 +1072,15 @@ components:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
-          example: 'JFH367'
+          example: "JFH367"
         start_time:
           description: Hora de inicio de la frecuencia
           type: string
-          example: '07:15:00'
+          example: "07:15:00"
         end_time:
           description: Hora de fin de la frecuencia
           type: string
-          example: '07:15:00'
+          example: "07:15:00"
         headway_secs:
           description: Intervalo de tiempo entre viajes
           type: integer
@@ -1074,34 +1091,34 @@ components:
         feed_publisher_name:
           description: Nombre del proveedor de datos
           type: string
-          example: 'bUCR'
+          example: "bUCR"
         feed_publisher_url:
           description: URL del proveedor de datos
           type: string
-          example: 'https://bucr.digital'
+          example: "https://bucr.digital"
         feed_lang:
           description: Lenguaje del feed
           type: string
-          example: 'es'
+          example: "es"
         feed_start_date:
           description: Fecha de inicio del feed
           type: string
-          example: '2024-05-03'
+          example: "2024-05-03"
         feed_end_date:
           description: Fecha de fin del feed
           type: string
-          example: '2024-12-31'
+          example: "2024-12-31"
         feed_version:
           description: Versión del feed
           type: string
-          example: '1.0.0'
+          example: "1.0.0"
     RouteStops:
       type: object
       properties:
         route_id:
           description: Identificador de la ruta
           type: string
-          example: 'bUCR-L1'
+          example: "bUCR-L1"
         stop_sequence:
           description: Secuencia de la parada
           type: integer
@@ -1109,11 +1126,11 @@ components:
         stop_id:
           description: Identificador de la parada
           type: string
-          example: 'bUCR-0-03'
+          example: "bUCR-0-03"
         stop_name:
           description: Nombre de la parada
           type: string
-          example: 'Facultad de Ingeniería'
+          example: "Facultad de Ingeniería"
         stop_lat:
           description: Latitud de la parada
           type: number
@@ -1127,7 +1144,7 @@ components:
         stop_url:
           description: URL de la parada
           type: string
-          example: 'https://bucr.digital/paradas/bUCR-0-03'
+          example: "https://bucr.digital/paradas/bUCR-0-03"
         location_type:
           description: Tipo de ubicación
           type: integer
@@ -1156,7 +1173,7 @@ components:
           properties:
             type:
               type: string
-              enum: [LineString] 
+              enum: [LineString]
             coordinates:
               type: array
               items:
@@ -1164,7 +1181,7 @@ components:
                 items:
                   type: number
                   format: float
-                minItems: 2  
+                minItems: 2
                 maxItems: 3
               minItems: 2
               example: [[-84.051, 9.937], [-84.052, 9.938]]
@@ -1174,7 +1191,7 @@ components:
             shape_id:
               description: Identificador de la trayectoria
               type: string
-              example: 'desde_educacion'
+              example: "desde_educacion"
             has_altitude:
               description: Indica si la trayectoria tiene datos de altitud
               type: boolean
@@ -1185,15 +1202,15 @@ components:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
-          example: 'JFH367'
+          example: "JFH367"
         start_time:
           description: Hora de inicio del viaje
           type: string
-          example: '07:15:00'
+          example: "07:15:00"
         end_time:
           description: Hora de fin del viaje
           type: string
-          example: '07:15:00'
+          example: "07:15:00"
         duration:
           description: Duración del viaje
           type: integer
@@ -1204,11 +1221,11 @@ components:
         stop_id:
           description: Identificador de la parada según GTFS Schedule
           type: string
-          example: 'bUCR-0-03'
+          example: "bUCR-0-03"
         timestamp:
           description: Hora de referencia para buscar próximos viajes
           type: string
-          example: '2024-07-31T16:12:25-06:00'
+          example: "2024-07-31T16:12:25-06:00"
         next_arrivals:
           type: array
           items:
@@ -1217,36 +1234,42 @@ components:
               trip_id:
                 description: Identificador del viaje según GTFS Schedule
                 type: string
-                example: 'JFH367'
+                example: "JFH367"
               route_id:
                 description: Identificador de la ruta según GTFS Schedule
                 type: string
-                example: 'bUCR-L1'
+                example: "bUCR-L1"
               route_short_name:
                 description: Nombre corto de la ruta
                 type: string
-                example: 'L1'
+                example: "L1"
               route_long_name:
                 description: Nombre largo de la ruta
                 type: string
-                example: 'Línea 1'
+                example: "Línea 1"
               trip_headsign:
                 description: Destino del viaje
                 type: string
-                example: 'Facultad de Ingeniería'
+                example: "Facultad de Ingeniería"
               wheelchair_accessible:
                 description: Accesibilidad para sillas de ruedas
                 type: string
-                enum: ['NO_VALUE', 'UNKNOWN', 'WHEELCHAIR_ACCESSIBLE', 'WHEELCHAIR_INACCESSIBLE']
-                example: 'WHEELCHAIR_ACCESSIBLE'
+                enum:
+                  [
+                    "NO_VALUE",
+                    "UNKNOWN",
+                    "WHEELCHAIR_ACCESSIBLE",
+                    "WHEELCHAIR_INACCESSIBLE",
+                  ]
+                example: "WHEELCHAIR_ACCESSIBLE"
               arrival_time:
                 description: Hora de llegada a la parada
                 type: string
-                example: '07:15:00'
+                example: "07:15:00"
               departure_time:
                 description: Hora de salida de la parada
                 type: string
-                example: '07:15:00'
+                example: "07:15:00"
               in_progress:
                 description: Indica si el viaje está en progreso
                 type: boolean
@@ -1269,27 +1292,38 @@ components:
                   current_status:
                     description: Estado actual del vehículo en relación con la parada
                     type: string
-                    enum: ['INCOMING_AT', 'STOPPED_AT', 'IN_TRANSIT_TO']
-                    example: 'STOPPED_AT'
+                    enum: ["INCOMING_AT", "STOPPED_AT", "IN_TRANSIT_TO"]
+                    example: "STOPPED_AT"
                   occupancy_status:
                     description: Estado de ocupación del vehículo
                     type: string
-                    enum: ['EMPTY', 'MANY_SEATS_AVAILABLE', 'FEW_SEATS_AVAILABLE', 'STANDING_ROOM_ONLY', 'CRUSHED_STANDING_ROOM_ONLY', 'FULL', 'NOT_ACCEPTING_PASSENGERS', 'NO_DATA_AVAILABLE', 'NOT_BOARDABLE']
+                    enum:
+                      [
+                        "EMPTY",
+                        "MANY_SEATS_AVAILABLE",
+                        "FEW_SEATS_AVAILABLE",
+                        "STANDING_ROOM_ONLY",
+                        "CRUSHED_STANDING_ROOM_ONLY",
+                        "FULL",
+                        "NOT_ACCEPTING_PASSENGERS",
+                        "NO_DATA_AVAILABLE",
+                        "NOT_BOARDABLE",
+                      ]
     NextStops:
       type: object
       properties:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
-          example: 'JFH367'
+          example: "JFH367"
         start_date:
           description: Fecha de inicio del viaje
           type: string
-          example: '2024-07-31'
+          example: "2024-07-31"
         start_time:
           description: Hora de inicio del viaje
           type: string
-          example: '16:12:25'
+          example: "16:12:25"
         next_stop_sequence:
           type: array
           items:
@@ -1302,11 +1336,11 @@ components:
               stop_id:
                 description: Identificador de la parada según GTFS Schedule
                 type: string
-                example: 'bUCR-0-03'
+                example: "bUCR-0-03"
               stop_name:
                 description: Nombre de la parada
                 type: string
-                example: 'Facultad de Ingeniería'
+                example: "Facultad de Ingeniería"
               stop_lat:
                 description: Latitud de la parada
                 type: number
@@ -1320,29 +1354,29 @@ components:
               arrival:
                 description: Día y hora de llegada a la parada en formato ISO 8601
                 type: string
-                example: '2024-07-31T16:12:25-06:00'
+                example: "2024-07-31T16:12:25-06:00"
               departure:
                 description: Día y hora de salida de la parada en formato ISO 8601
                 type: string
-                example: '2024-07-31T16:12:25-06:00'
+                example: "2024-07-31T16:12:25-06:00"
     VehiclePositions:
       type: object
       properties:
         vehicle:
-          $ref: '#/components/schemas/Vehicle'
+          $ref: "#/components/schemas/Vehicle"
         schedule:
-          $ref: '#/components/schemas/Schedule'
+          $ref: "#/components/schemas/Schedule"
         loading:
-          $ref: '#/components/schemas/Loading'
+          $ref: "#/components/schemas/Loading"
         equipment:
-          $ref: '#/components/schemas/Equipment'
+          $ref: "#/components/schemas/Equipment"
     TripUpdates:
       type: object
       properties:
         trip_id:
           description: Identificador del viaje según GTFS Schedule
           type: string
-          example: 'JFH367'
+          example: "JFH367"
         stop_time_update:
           type: array
           items:
@@ -1351,58 +1385,72 @@ components:
               stop_id:
                 description: Identificador de la parada según GTFS Schedule
                 type: string
-                example: 'bUCR-0-03'
+                example: "bUCR-0-03"
               arrival:
                 description: Hora de llegada a la parada
                 type: string
-                example: '07:15:00'
+                example: "07:15:00"
               departure:
                 description: Hora de salida de la parada
                 type: string
-                example: '07:15:00'
+                example: "07:15:00"
               schedule_relationship:
                 description: Relación con el horario
                 type: string
-                enum: ['SCHEDULED', 'ADDED', 'UNSCHEDULED', 'CANCELED', 'DUPLICATED', 'DELETED']
+                enum:
+                  [
+                    "SCHEDULED",
+                    "ADDED",
+                    "UNSCHEDULED",
+                    "CANCELED",
+                    "DUPLICATED",
+                    "DELETED",
+                  ]
     ServiceAlerts:
       type: object
       properties:
         alert_id:
           description: Identificador de la alerta
           type: string
-          example: 'bUCR-001'
+          example: "bUCR-001"
         alert_header:
           description: Encabezado de la alerta
           type: string
-          example: 'Cierre de vías'
+          example: "Cierre de vías"
         alert_description:
           description: Descripción de la alerta
           type: string
-          example: 'Cierre de vías en la Ciudad de la Investigación'
+          example: "Cierre de vías en la Ciudad de la Investigación"
         alert_url:
           description: URL de la alerta
           type: string
-          example: 'https://bucr.digital/alertas/bUCR-001'
+          example: "https://bucr.digital/alertas/bUCR-001"
     Vehicle:
       type: object
       properties:
         id:
           description: Identificador del vehículo
           type: string
-          example: 'MEYS-8236'
+          example: "MEYS-8236"
         label:
           description: Etiqueta del vehículo
           type: string
-          example: 'MEYS-8236'
+          example: "MEYS-8236"
         license_plate:
           description: Placa del vehículo
           type: string
-          example: 'SJB 9876'
+          example: "SJB 9876"
         wheelchair_accessible:
           description: Accesibilidad para sillas de ruedas
           type: string
-          enum: ['NO_VALUE', 'UNKNOWN', 'WHEELCHAIR_ACCESSIBLE', 'WHEELCHAIR_INACCESSIBLE']
-          example: 'WHEELCHAIR_ACCESSIBLE'
+          enum:
+            [
+              "NO_VALUE",
+              "UNKNOWN",
+              "WHEELCHAIR_ACCESSIBLE",
+              "WHEELCHAIR_INACCESSIBLE",
+            ]
+          example: "WHEELCHAIR_ACCESSIBLE"
     Schedule:
       type: object
       properties:
@@ -1413,25 +1461,43 @@ components:
         stop_id:
           description: Identificador de la parada
           type: string
-          example: 'bUCR-0-03'
+          example: "bUCR-0-03"
         current_status:
           description: Estado actual del vehículo
           type: string
-          enum: ['INCOMING_AT', 'STOPPED_AT', 'IN_TRANSIT_TO']
-          example: 'STOPPED_AT'
+          enum: ["INCOMING_AT", "STOPPED_AT", "IN_TRANSIT_TO"]
+          example: "STOPPED_AT"
         congestion_level:
           description: Nivel de congestión vehicular en la vía
           type: string
-          enum: ['UNKNOWN_CONGESTION_LEVEL', 'RUNNING_SMOOTHLY', 'STOP_AND_GO', 'CONGESTION', 'SEVERE_CONGESTION']
-          example: 'SEVERE_CONGESTION'
+          enum:
+            [
+              "UNKNOWN_CONGESTION_LEVEL",
+              "RUNNING_SMOOTHLY",
+              "STOP_AND_GO",
+              "CONGESTION",
+              "SEVERE_CONGESTION",
+            ]
+          example: "SEVERE_CONGESTION"
     Loading:
       type: object
       properties:
         occupancy_status:
           description: Estado de la ocupación de la parada
           type: string
-          enum: ['EMPTY', 'MANY_SEATS_AVAILABLE', 'FEW_SEATS_AVAILABLE', 'STANDING_ROOM_ONLY', 'CRUSHED_STANDING_ROOM_ONLY', 'FULL', 'NOT_ACCEPTING_PASSENGERS', 'NO_DATA_AVAILABLE', 'NOT_BOARDABLE']
-          example: 'CRUSHED_STANDING_ROOM_ONLY'
+          enum:
+            [
+              "EMPTY",
+              "MANY_SEATS_AVAILABLE",
+              "FEW_SEATS_AVAILABLE",
+              "STANDING_ROOM_ONLY",
+              "CRUSHED_STANDING_ROOM_ONLY",
+              "FULL",
+              "NOT_ACCEPTING_PASSENGERS",
+              "NO_DATA_AVAILABLE",
+              "NOT_BOARDABLE",
+            ]
+          example: "CRUSHED_STANDING_ROOM_ONLY"
         occupancy_percentage:
           description: Porcentaje de ocupación del vehículo según capacidad de carga
           type: integer
@@ -1442,23 +1508,23 @@ components:
         serial_number:
           description: Número de serie del equipo
           type: string
-          example: 'MEYS-8236'
+          example: "MEYS-8236"
         brand:
           description: Marca del equipo
           type: string
-          example: 'MEYS'
+          example: "MEYS"
         model:
           description: Modelo del equipo
           type: string
-          example: 'MEYS-8236'
+          example: "MEYS-8236"
         software_version:
           description: Versión del software del equipo
           type: string
-          example: '1.0.0'
+          example: "1.0.0"
         owner:
           description: Propietario del equipo
           type: string
-          example: 'bUCR'
+          example: "bUCR"
     Weather:
       type: object
       properties:
@@ -1508,88 +1574,97 @@ components:
         facebook:
           description: URL de la página de Facebook
           type: string
-          example: 'https://www.facebook.com/bUCR'
+          example: "https://www.facebook.com/bUCR"
         twitter:
           description: URL de la cuenta de Twitter
           type: string
-          example: 'https://twitter.com/bUCR'
+          example: "https://twitter.com/bUCR"
         instagram:
           description: URL de la cuenta de Instagram
           type: string
-          example: 'https://www.instagram.com/bUCR'
+          example: "https://www.instagram.com/bUCR"
         youtube:
           description: URL del canal de YouTube
           type: string
-          example: 'https://www.youtube.com/bUCR'
+          example: "https://www.youtube.com/bUCR"
     UserReports:
       type: object
       properties:
         user_id:
           description: Identificador de la persona usuaria
           type: string
-          example: '123456'
+          example: "123456"
         user_name:
           description: Nombre de la persona usuaria
           type: string
-          example: 'Juan Pérez'
+          example: "Juan Pérez"
         user_email:
           description: Correo electrónico de la persona usuaria
           type: string
-          example: 'ejemplo@ejemplo.com'
+          example: "ejemplo@ejemplo.com"
     UserData:
       type: object
       properties:
         user_id:
           description: Identificador de la persona usuaria
           type: string
-          example: '123456'
+          example: "123456"
         user_name:
           description: Nombre de la persona usuaria
           type: string
-          example: 'Juan Pérez'
+          example: "Juan Pérez"
         user_email:
           description: Correo electrónico de la persona usuaria
           type: string
-          example: 'persona@ejemplo.com'
+          example: "persona@ejemplo.com"
     WideAlerts:
       type: object
       properties:
         alert_id:
           description: Identificador de la alerta
           type: string
-          example: 'bUCR-001'
+          example: "bUCR-001"
         alert_header:
           description: Encabezado de la alerta
           type: string
-          example: 'Cierre de vías'
+          example: "Cierre de vías"
         alert_description:
           description: Descripción de la alerta
           type: string
-          example: 'Cierre de vías en la Ciudad de la Investigación'
+          example: "Cierre de vías en la Ciudad de la Investigación"
         alert_url:
           description: URL de la alerta
           type: string
-          example: 'https://bucr.digital/alertas/bUCR-001'
+          example: "https://bucr.digital/alertas/bUCR-001"
     InfoService:
       type: object
       properties:
         name:
           description: Identificador del servicio
           type: string
-          example: 'Infobús Pantallas'
+          example: "Infobús Pantallas"
         description:
           description: Descripción del servicio
           type: string
-          example: 'Servicio de pantallas informativas en la Universidad de Costa Rica'
+          example: "Servicio de pantallas informativas en la Universidad de Costa Rica"
         type:
           description: Tipo de servicio de información
           type: string
-          enum: ['website', 'screens', 'app', 'analysis', 'chatbot', 'social', 'other']
-          example: 'screens'
+          enum:
+            [
+              "website",
+              "screens",
+              "app",
+              "analysis",
+              "chatbot",
+              "social",
+              "other",
+            ]
+          example: "screens"
         provider:
           description: Proveedor del servicio
           type: string
-          example: 'Infobús S.A.'
+          example: "Infobús S.A."
 
 tags:
   - name: Schedule
