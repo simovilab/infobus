@@ -683,11 +683,15 @@ class VehiclePositionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = VehiclePositionSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
-        "vehicle_vehicle_id",
-        "vehicle_trip_route_id",
-        "vehicle_trip_trip_id",
-        "vehicle_trip_schedule_relationship",
-    ]
+    "entity_id",
+    "feed_message",
+    "trip_trip_id",
+    "trip_route_id",
+    "trip_schedule_relationship",
+    "vehicle_id",
+    "stop_id",
+    "timestamp",
+]
 
     # permission_classes = [permissions.IsAuthenticated]
 

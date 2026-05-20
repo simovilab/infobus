@@ -21,6 +21,13 @@ router.register(r"fare-attributes", views.FareAttributeViewSet)
 router.register(r"fare-rules", views.FareRuleViewSet)
 router.register(r"feed-info", views.FeedInfoViewSet)
 
+# GTFS Realtime
+router.register(r"feed-messages", views.FeedMessageViewSet)
+router.register(r"trip-updates", views.TripUpdateViewSet)
+router.register(r"stop-time-updates", views.StopTimeUpdateViewSet)
+router.register(r"vehicle-positions", views.VehiclePositionViewSet)
+router.register(r"service-alerts", views.ServiceAlertViewSet)
+
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
