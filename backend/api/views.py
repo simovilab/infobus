@@ -570,7 +570,7 @@ class FareAttributeViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = FareAttribute.objects.all()
     serializer_class = FareAttributeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = ["fare_id", "currency_type", "payment_method", "transfers", "agency_id", "feed"]
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
@@ -583,7 +583,7 @@ class FareRuleViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = FareRule.objects.all()
     serializer_class = FareRuleSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = ["fare_id", "route_id", "origin_id", "destination_id", "contains_id", "feed"]
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
@@ -597,11 +597,11 @@ class ServiceAlertViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ServiceAlertSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
-        "alert_id",
-        "route_id",
-        "trip_id",
-        "service_start_time",
-        "service_date",
+        "entity_id",
+        "cause",
+        "effect",
+        "severity_level",
+        "feed_message",
     ]
     # permission_classes = [permissions.IsAuthenticated]
 
@@ -638,7 +638,7 @@ class FeedMessageViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = FeedMessage.objects.all()
     serializer_class = FeedMessageSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = ["publisher", "entity_type", "incrementality"]
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
@@ -668,7 +668,7 @@ class StopTimeUpdateViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = StopTimeUpdate.objects.all()
     serializer_class = StopTimeUpdateSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = ["stop_id", "stop_sequence", "trip_update", "schedule_relationship"]
 
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
