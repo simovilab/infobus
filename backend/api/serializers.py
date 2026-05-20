@@ -227,12 +227,11 @@ class SocialSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FeedMessageSerializer(serializers.HyperlinkedModelSerializer):
-    provider = serializers.PrimaryKeyRelatedField(read_only=True)
+    publisher = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = FeedMessage
         fields = "__all__"
-
 
 class TripUpdateSerializer(serializers.HyperlinkedModelSerializer):
     feed_message = serializers.PrimaryKeyRelatedField(read_only=True)
