@@ -1,15 +1,7 @@
+from alerts.models import Social, Weather
 from django.conf import settings
 from django.http import FileResponse
 from engine.models import InfoService
-from feed.models import (
-    FeedPublisher,
-    Agency,
-    Stop,
-    Route,
-    Trip,
-    StopTime,
-    FeedInfo,
-)
 from rest_framework import viewsets, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -18,9 +10,59 @@ from rest_framework import status
 from shapely import geometry
 from datetime import datetime, timedelta
 import pytz
-from django.conf import settings
 
-from .serializers import *
+from feed.models import (
+    Agency,
+    Alert,
+    Calendar,
+    CalendarDate,
+    FareAttribute,
+    FareRule,
+    Feed,
+    FeedInfo,
+    FeedMessage,
+    FeedPublisher,
+    GeoShape,
+    Route,
+    RouteStop,
+    Shape,
+    Stop,
+    StopTime,
+    StopTimeUpdate,
+    Trip,
+    TripUpdate,
+    VehiclePosition,
+)
+
+from .serializers import (
+    AgencySerializer,
+    CalendarDateSerializer,
+    CalendarSerializer,
+    FareAttributeSerializer,
+    FareRuleSerializer,
+    FeedInfoSerializer,
+    FeedMessageSerializer,
+    FeedPublisherSerializer,
+    GeoShapeSerializer,
+    GeoStopSerializer,
+    InfoServiceSerializer,
+    NextStopSerializer,
+    NextTripSerializer,
+    RouteSerializer,
+    RouteStopSerializer,
+    ServiceAlertSerializer,
+    ShapeSerializer,
+    SocialSerializer,
+    StopSerializer,
+    StopTimeSerializer,
+    StopTimeUpdateSerializer,
+    TripSerializer,
+    TripUpdateSerializer,
+    VehiclePositionSerializer,
+    WeatherSerializer,
+)
+
+# from .serializers import *
 
 # from .serializers import InfoServiceSerializer, FeedPublisherSerializer, RouteSerializer, TripSerializer
 
