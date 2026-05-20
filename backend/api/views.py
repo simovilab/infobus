@@ -79,7 +79,7 @@ class FilterMixin:
         return queryset.filter(**filter_args)
 
 
-class FeedPublisherViewSet(viewsets.ModelViewSet):
+class FeedPublisherViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Proveedores de datos GTFS.
     """
@@ -403,7 +403,7 @@ class RouteStopView(APIView):
             )
 
 
-class AgencyViewSet(viewsets.ModelViewSet):
+class AgencyViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Agencias de transporte público.
     """
@@ -415,7 +415,7 @@ class AgencyViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopViewSet(viewsets.ModelViewSet):
+class StopViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Paradas de transporte público.
     """
@@ -434,7 +434,7 @@ class StopViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class GeoStopViewSet(viewsets.ModelViewSet):
+class GeoStopViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Paradas como GeoJSON.
     """
@@ -452,7 +452,7 @@ class GeoStopViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class RouteViewSet(viewsets.ModelViewSet):
+class RouteViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Rutas de transporte público.
     """
@@ -472,7 +472,7 @@ class RouteViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class CalendarViewSet(viewsets.ModelViewSet):
+class CalendarViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Calendarios de transporte público.
     """
@@ -484,7 +484,7 @@ class CalendarViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class CalendarDateViewSet(viewsets.ModelViewSet):
+class CalendarDateViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Fechas de calendario de transporte público.
     """
@@ -496,7 +496,7 @@ class CalendarDateViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class ShapeViewSet(viewsets.ModelViewSet):
+class ShapeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Formas de transporte público.
     """
@@ -508,7 +508,7 @@ class ShapeViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class GeoShapeViewSet(viewsets.ModelViewSet):
+class GeoShapeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Formas geográficas de transporte público.
     """
@@ -520,7 +520,7 @@ class GeoShapeViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class TripViewSet(viewsets.ModelViewSet):
+class TripViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Viajes de transporte público.
     """
@@ -538,7 +538,7 @@ class TripViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopTimeViewSet(viewsets.ModelViewSet):
+class StopTimeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Horarios de paradas de transporte público.
     """
@@ -550,7 +550,7 @@ class StopTimeViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FeedInfoViewSet(viewsets.ModelViewSet):
+class FeedInfoViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Información de alimentación de transporte público.
     """
@@ -562,7 +562,7 @@ class FeedInfoViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FareAttributeViewSet(viewsets.ModelViewSet):
+class FareAttributeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Atributos de tarifa de transporte público.
     """
@@ -575,7 +575,7 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
     # Esto no tiene path con query params ni response schema
 
 
-class FareRuleViewSet(viewsets.ModelViewSet):
+class FareRuleViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Reglas de tarifa de transporte público.
     """
@@ -588,7 +588,7 @@ class FareRuleViewSet(viewsets.ModelViewSet):
     # Esto no tiene path con query params ni response schema
 
 
-class ServiceAlertViewSet(viewsets.ModelViewSet):
+class ServiceAlertViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Alertas de servicio de transporte público.
     """
@@ -606,7 +606,7 @@ class ServiceAlertViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class WeatherViewSet(viewsets.ModelViewSet):
+class WeatherViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Condiciones climáticas.
     """
@@ -618,7 +618,7 @@ class WeatherViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class SocialViewSet(viewsets.ModelViewSet):
+class SocialViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Publicaciones en redes sociales.
     """
@@ -630,7 +630,7 @@ class SocialViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FeedMessageViewSet(viewsets.ModelViewSet):
+class FeedMessageViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Mensajes de alimentación.
     """
@@ -643,7 +643,7 @@ class FeedMessageViewSet(viewsets.ModelViewSet):
     # Esto no tiene path con query params ni response schema
 
 
-class TripUpdateViewSet(viewsets.ModelViewSet):
+class TripUpdateViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Actualizaciones de viaje.
     """
@@ -660,7 +660,7 @@ class TripUpdateViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopTimeUpdateViewSet(viewsets.ModelViewSet):
+class StopTimeUpdateViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Actualizaciones de horario de parada.
     """
@@ -674,7 +674,7 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     # Esto no tiene path con query params ni response schema
 
 
-class VehiclePositionViewSet(viewsets.ModelViewSet):
+class VehiclePositionViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Posiciones de vehículos.
     """
@@ -692,7 +692,7 @@ class VehiclePositionViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class InfoServiceViewSet(viewsets.ModelViewSet):
+class InfoServiceViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Aplicaciones conectadas al servidor de datos.
     """
