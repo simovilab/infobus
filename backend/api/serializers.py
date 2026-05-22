@@ -13,6 +13,14 @@ class FeedPublisherSerializer(serializers.HyperlinkedModelSerializer):
         fields = "__all__"
 
 
+class FeedSerializer(serializers.HyperlinkedModelSerializer):
+    feed_publisher = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Feed
+        fields = "__all__"
+
+
 class ProgressionSerializer(serializers.Serializer):
     position_in_shape = serializers.FloatField()
     current_stop_sequence = serializers.IntegerField()

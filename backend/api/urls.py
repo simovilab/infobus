@@ -7,6 +7,7 @@ from . import views
 router = routers.DefaultRouter()
 router.register(r"info-services", views.InfoServiceViewSet)
 router.register(r"feed-publishers", views.FeedPublisherViewSet)
+router.register(r"feeds", views.FeedViewSet)
 router.register(r"agencies", views.AgencyViewSet)
 router.register(r"stops", views.StopViewSet)
 router.register(r"geo-stops", views.GeoStopViewSet, basename="geo-stop")

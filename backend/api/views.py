@@ -42,6 +42,7 @@ from .serializers import (
     FeedInfoSerializer,
     FeedMessageSerializer,
     FeedPublisherSerializer,
+    FeedSerializer,
     GeoShapeSerializer,
     GeoStopSerializer,
     InfoServiceSerializer,
@@ -88,6 +89,17 @@ class FeedPublisherViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["code", "name"]
     # permission_classes = [permissions.IsAuthenticated]
+
+
+class FeedViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Feeds GTFS Schedule (snapshots por publisher).
+    """
+
+    queryset = Feed.objects.all()
+    serializer_class = FeedSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["feed_id", "feed_publisher", "is_current"]
 
 
 class NextTripView(APIView):
