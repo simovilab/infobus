@@ -160,7 +160,7 @@ class NextTripView(APIView):
             stop_time_updates = StopTimeUpdate.objects.none()
         else:
             stop_time_updates = StopTimeUpdate.objects.filter(
-                feed_message=latest_feed_message, stop_id=stop_id
+                trip_update__feed_message=latest_feed_message, stop_id=stop_id
             )
 
         trips_in_progress = []
@@ -179,15 +179,15 @@ class NextTripView(APIView):
             ).first()
             vehicle_position = VehiclePosition.objects.filter(
                 # TODO: ponder if making a new table for TripDescriptor is better
-                vehicle_trip_trip_id=trip_update.trip_trip_id,
-                vehicle_trip_start_date=trip_update.trip_start_date,
-                vehicle_trip_start_time=trip_update.trip_start_time,
+                trip_trip_id=trip_update.trip_trip_id,
+                trip_start_date=trip_update.trip_start_date,
+                trip_start_time=trip_update.trip_start_time,
             ).first()
             geo_shape = GeoShape.objects.filter(
                 shape_id=trip.shape_id, feed=current_feed
             ).first()
             geo_shape = geometry.LineString(geo_shape.geometry.coords)
-            location = vehicle_position.vehicle_position_point
+            location = vehicle_position.position_point
             location = geometry.Point(location.x, location.y)
             position_in_shape = geo_shape.project(location) / geo_shape.length
 
@@ -204,9 +204,9 @@ class NextTripView(APIView):
                     "in_progress": True,
                     "progression": {
                         "position_in_shape": position_in_shape,
-                        "current_stop_sequence": vehicle_position.vehicle_current_stop_sequence,
-                        "current_status": vehicle_position.vehicle_current_status,
-                        "occupancy_status": vehicle_position.vehicle_occupancy_status,
+                        "current_stop_sequence": vehicle_position.current_stop_sequence,
+                        "current_status": vehicle_position.current_status,
+                        "occupancy_status": vehicle_position.occupancy_status,
                     },
                 }
             )
