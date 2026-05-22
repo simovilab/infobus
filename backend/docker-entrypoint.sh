@@ -6,6 +6,7 @@ VENV_DIR="${UV_PROJECT_ENVIRONMENT:-/home/app/.venv}"
 UV_SYNC_LOCKDIR="/app/.uv-sync.lockdir"
 CLONE_IO_LOCKDIR="/app/.gtfs-io-clone.lockdir"
 CLONE_LOCKDIR="/app/.gtfs-django-clone.lockdir"
+DUCKDB_CLI_DIR="/home/app/.duckdb/cli/latest"
 
 # Colors for output
 RED='\033[0;31m'
@@ -194,6 +195,43 @@ setup_virtualenv
 if [ -d "${VENV_DIR}/bin" ]; then
     export PATH="${VENV_DIR}/bin:$PATH"
 fi
+
+install_duckdb_cli() {
+    if [ -x "${DUCKDB_CLI_DIR}/duckdb" ]; then
+        log "DuckDB CLI already installed"
+    else
+        if ! command -v curl >/dev/null 2>&1; then
+            warn "curl not found; skipping DuckDB CLI installation"
+            return
+        fi
+
+        warn "Installing DuckDB CLI via official installer..."
+        attempts=0
+        until curl -fsSL https://install.duckdb.org | sh; do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge 3 ]; then
+                err "DuckDB CLI install failed after ${attempts} attempts"
+                return
+            fi
+            warn "DuckDB CLI install failed (attempt ${attempts}/3); retrying"
+            sleep 2
+        done
+        log "DuckDB CLI installation complete"
+    fi
+
+    if [ -d "${DUCKDB_CLI_DIR}" ]; then
+        export PATH="${DUCKDB_CLI_DIR}:$PATH"
+        log "DuckDB CLI added to PATH (${DUCKDB_CLI_DIR})"
+    else
+        warn "DuckDB CLI directory not found at ${DUCKDB_CLI_DIR}"
+    fi
+}
+
+# ------------------------------------------
+section "Installing DuckDB CLI (if needed)..."
+# ------------------------------------------
+
+install_duckdb_cli
 
 # In dev mode, replace the PyPI-installed gtfs-django with an editable install
 # pointing at a local clone. This requires UV_NO_SYNC=1 in the container env so

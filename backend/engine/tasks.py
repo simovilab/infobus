@@ -1,12 +1,20 @@
 from celery import shared_task
 
 import logging
+import json
 from datetime import datetime, timedelta
+from pathlib import Path
+import uuid
+from zoneinfo import ZoneInfo
 import pytz
+from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 import zipfile
 import io
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 import requests
 from google.transit import gtfs_realtime_pb2 as gtfs_rt
 from feed.models import (
@@ -717,3 +725,197 @@ def get_alerts():
                     )
 
     return "ServiceAlerts saved to database"
+
+
+@shared_task
+def save_vehicle_positions_to_parquet(use_current_hour=False):
+    """Export VehiclePosition rows into Hive partitions.
+
+    By default it exports the last complete hour. Set use_current_hour=True to
+    export records from the current hour (debug mode).
+    """
+    app_timezone = ZoneInfo(settings.TIME_ZONE)
+    now_local = timezone.localtime(timezone.now(), app_timezone)
+
+    if isinstance(use_current_hour, str):
+        use_current_hour = use_current_hour.strip().lower() in {
+            "1",
+            "true",
+            "yes",
+            "y",
+            "on",
+        }
+
+    if use_current_hour:
+        window_start = now_local.replace(minute=0, second=0, microsecond=0)
+        window_end = window_start + timedelta(hours=1)
+    else:
+        window_end = now_local.replace(minute=0, second=0, microsecond=0)
+        window_start = window_end - timedelta(hours=1)
+
+    fields = [
+        "id",
+        "entity_id",
+        "feed_message_id",
+        "feed_message__publisher__code",
+        "trip_trip_id",
+        "trip_route_id",
+        "trip_direction_id",
+        "trip_start_time",
+        "trip_start_date",
+        "trip_schedule_relationship",
+        "vehicle_id",
+        "vehicle_label",
+        "vehicle_license_plate",
+        "vehicle_wheelchair_accessible",
+        "position_latitude",
+        "position_longitude",
+        "position_point",
+        "position_bearing",
+        "position_odometer",
+        "position_speed",
+        "current_stop_sequence",
+        "stop_id",
+        "current_status",
+        "timestamp",
+        "congestion_level",
+        "occupancy_status",
+        "occupancy_percentage",
+    ]
+
+    chunk_size = 5000
+    row_count = 0
+    output_dir = (
+        Path("/app/data")
+        / "vehicle_positions"
+        / f"date={window_start.strftime('%Y-%m-%d')}"
+        / f"hour={window_start.strftime('%H')}"
+    )
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    output_file = output_dir / f"part-{uuid.uuid7()}.parquet"
+
+    geo_metadata = {
+        "version": "1.1.0",
+        "primary_column": "position_point",
+        "columns": {
+            "position_point": {
+                "encoding": "WKB",
+                "geometry_types": ["Point"],
+                "crs": None,
+            }
+        },
+    }
+
+    parquet_schema = pa.schema(
+        [
+            pa.field("id", pa.int64()),
+            pa.field("entity_id", pa.string()),
+            pa.field("feed_message_id", pa.string()),
+            pa.field("feed_message__publisher__code", pa.string()),
+            pa.field("trip_trip_id", pa.string()),
+            pa.field("trip_route_id", pa.string()),
+            pa.field("trip_direction_id", pa.int64()),
+            pa.field("trip_start_time", pa.duration("us")),
+            pa.field("trip_start_date", pa.date32()),
+            pa.field("trip_schedule_relationship", pa.int64()),
+            pa.field("vehicle_id", pa.string()),
+            pa.field("vehicle_label", pa.string()),
+            pa.field("vehicle_license_plate", pa.string()),
+            pa.field("vehicle_wheelchair_accessible", pa.string()),
+            pa.field("position_latitude", pa.float64()),
+            pa.field("position_longitude", pa.float64()),
+            pa.field("position_point", pa.binary()),
+            pa.field("position_bearing", pa.float64()),
+            pa.field("position_odometer", pa.float64()),
+            pa.field("position_speed", pa.float64()),
+            pa.field("current_stop_sequence", pa.int64()),
+            pa.field("stop_id", pa.string()),
+            pa.field("current_status", pa.int64()),
+            pa.field("timestamp", pa.timestamp("us", tz=settings.TIME_ZONE)),
+            pa.field("congestion_level", pa.int64()),
+            pa.field("occupancy_status", pa.int64()),
+            pa.field("occupancy_percentage", pa.int64()),
+        ],
+        metadata={b"geo": json.dumps(geo_metadata).encode("utf-8")},
+    )
+
+    string_columns = {
+        "entity_id",
+        "feed_message_id",
+        "feed_message__publisher__code",
+        "trip_trip_id",
+        "trip_route_id",
+        "vehicle_id",
+        "vehicle_label",
+        "vehicle_license_plate",
+        "vehicle_wheelchair_accessible",
+        "stop_id",
+    }
+
+    writer = None
+    batch_rows = []
+
+    def flush_batch(records, parquet_writer):
+        nonlocal row_count
+        if not records:
+            return parquet_writer
+
+        arrow_table = pa.Table.from_pylist(records, schema=parquet_schema)
+        row_count += arrow_table.num_rows
+
+        if parquet_writer is None:
+            parquet_writer = pq.ParquetWriter(
+                str(output_file),
+                parquet_schema,
+                compression="zstd",
+            )
+
+        parquet_writer.write_table(arrow_table)
+        return parquet_writer
+
+    try:
+        queryset = (
+            VehiclePosition.objects.filter(
+                timestamp__gte=window_start,
+                timestamp__lt=window_end,
+            )
+            .values(*fields)
+            .iterator(chunk_size=chunk_size)
+        )
+
+        for row in queryset:
+            point = row.pop("position_point", None)
+            row["position_point"] = bytes(point.wkb) if point is not None else None
+
+            row_timestamp = row.get("timestamp")
+            if row_timestamp is not None:
+                row["timestamp"] = timezone.localtime(row_timestamp, app_timezone)
+
+            for column in string_columns:
+                value = row.get(column)
+                if value is not None and not isinstance(value, str):
+                    row[column] = str(value)
+
+            batch_rows.append(row)
+
+            if len(batch_rows) >= chunk_size:
+                writer = flush_batch(batch_rows, writer)
+                batch_rows = []
+
+        writer = flush_batch(batch_rows, writer)
+
+        if writer is None:
+            empty_table = pa.Table.from_pylist([], schema=parquet_schema)
+            pq.write_table(empty_table, str(output_file), compression="zstd")
+    finally:
+        if writer is not None:
+            writer.close()
+
+    return (
+        "Task completed: VehiclePositions exported to parquet "
+        f"({window_start.isoformat()} to {window_end.isoformat()}, "
+        f"mode={'current_hour' if use_current_hour else 'last_complete_hour'}) "
+        f"-> {output_file} "
+        f"rows={row_count}"
+    )
