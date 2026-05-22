@@ -162,7 +162,6 @@ class NextTripView(APIView):
             stop_time_updates = StopTimeUpdate.objects.filter(
                 feed_message=latest_feed_message, stop_id=stop_id
             )
-        print("Checkpoint 1")
 
         trips_in_progress = []
 
@@ -212,8 +211,6 @@ class NextTripView(APIView):
                 }
             )
 
-        print(trips_in_progress)
-
         # ---------------
         # Scheduled trips
         # ---------------
@@ -224,10 +221,6 @@ class NextTripView(APIView):
             arrival_time__gte=timestamp.time(),
             # _trip__service_id=service_id,
         ).order_by("arrival_time")
-
-        print(
-            f"Checkpoint 2: {stop_times} {stop_id} {current_feed} {service_id} {timestamp.time()}"
-        )
 
         # Build the response for scheduled trips
         for stop_time in stop_times:
@@ -309,7 +302,6 @@ class NextStopView(APIView):
         current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
 
         for stop_time_update in stop_time_updates:
-            print(f"La parada: {stop_time_update.stop_id}")
             stop = Stop.objects.get(
                 stop_id=stop_time_update.stop_id,
                 feed=current_feed,
@@ -334,7 +326,6 @@ class NextStopView(APIView):
             "next_stop_sequence": next_stop_sequence,
         }
 
-        print(data)
         serializer = NextStopSerializer(data)
 
         return Response(serializer.data)
@@ -377,7 +368,6 @@ class RouteStopView(APIView):
         for route_stop in route_stops:
             stop = Stop.objects.get(stop_id=route_stop.stop_id, feed=current_feed)
 
-            print(stop.shelter)
             feature = {
                 "type": "Feature",
                 "geometry": {
