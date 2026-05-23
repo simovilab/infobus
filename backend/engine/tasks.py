@@ -797,9 +797,9 @@ def save_vehicle_positions_to_parquet(use_current_hour=False):
 
     geo_metadata = {
         "version": "1.1.0",
-        "primary_column": "position_point",
+        "primary_column": "position",
         "columns": {
-            "position_point": {
+            "position": {
                 "encoding": "WKB",
                 "geometry_types": ["Point"],
                 "crs": None,
@@ -812,24 +812,24 @@ def save_vehicle_positions_to_parquet(use_current_hour=False):
             pa.field("id", pa.int64()),
             pa.field("entity_id", pa.string()),
             pa.field("feed_message_id", pa.string()),
-            pa.field("feed_message__publisher__code", pa.string()),
-            pa.field("trip_trip_id", pa.string()),
-            pa.field("trip_route_id", pa.string()),
-            pa.field("trip_direction_id", pa.int64()),
-            pa.field("trip_start_time", pa.duration("us")),
-            pa.field("trip_start_date", pa.date32()),
-            pa.field("trip_schedule_relationship", pa.int64()),
+            pa.field("publisher_code", pa.string()),
+            pa.field("trip_id", pa.string()),
+            pa.field("route_id", pa.string()),
+            pa.field("direction_id", pa.int64()),
+            pa.field("start_time", pa.duration("s")),
+            pa.field("start_date", pa.date32()),
+            pa.field("schedule_relationship", pa.int64()),
             pa.field("vehicle_id", pa.string()),
             pa.field("vehicle_label", pa.string()),
             pa.field("vehicle_license_plate", pa.string()),
-            pa.field("vehicle_wheelchair_accessible", pa.string()),
-            pa.field("position_latitude", pa.float64()),
-            pa.field("position_longitude", pa.float64()),
-            pa.field("position_point", pa.binary()),
-            pa.field("position_bearing", pa.float64()),
-            pa.field("position_odometer", pa.float64()),
-            pa.field("position_speed", pa.float64()),
-            pa.field("current_stop_sequence", pa.int64()),
+            pa.field("wheelchair_accessible", pa.string()),
+            pa.field("latitude", pa.float64()),
+            pa.field("longitude", pa.float64()),
+            pa.field("position", pa.binary()),
+            pa.field("bearing", pa.float64()),
+            pa.field("odometer", pa.float64()),
+            pa.field("speed", pa.float64()),
+            pa.field("stop_sequence", pa.int64()),
             pa.field("stop_id", pa.string()),
             pa.field("current_status", pa.int64()),
             pa.field("timestamp", pa.timestamp("us", tz=settings.TIME_ZONE)),
@@ -843,13 +843,13 @@ def save_vehicle_positions_to_parquet(use_current_hour=False):
     string_columns = {
         "entity_id",
         "feed_message_id",
-        "feed_message__publisher__code",
-        "trip_trip_id",
-        "trip_route_id",
+        "publisher_code",
+        "trip_id",
+        "route_id",
         "vehicle_id",
         "vehicle_label",
         "vehicle_license_plate",
-        "vehicle_wheelchair_accessible",
+        "wheelchair_accessible",
         "stop_id",
     }
 
@@ -884,9 +884,37 @@ def save_vehicle_positions_to_parquet(use_current_hour=False):
             .iterator(chunk_size=chunk_size)
         )
 
-        for row in queryset:
-            point = row.pop("position_point", None)
-            row["position_point"] = bytes(point.wkb) if point is not None else None
+        for raw_row in queryset:
+            point = raw_row.get("position_point")
+            row = {
+                "id": raw_row.get("id"),
+                "entity_id": raw_row.get("entity_id"),
+                "feed_message_id": raw_row.get("feed_message_id"),
+                "publisher_code": raw_row.get("feed_message__publisher__code"),
+                "trip_id": raw_row.get("trip_trip_id"),
+                "route_id": raw_row.get("trip_route_id"),
+                "direction_id": raw_row.get("trip_direction_id"),
+                "start_time": raw_row.get("trip_start_time"),
+                "start_date": raw_row.get("trip_start_date"),
+                "schedule_relationship": raw_row.get("trip_schedule_relationship"),
+                "vehicle_id": raw_row.get("vehicle_id"),
+                "vehicle_label": raw_row.get("vehicle_label"),
+                "vehicle_license_plate": raw_row.get("vehicle_license_plate"),
+                "wheelchair_accessible": raw_row.get("vehicle_wheelchair_accessible"),
+                "latitude": raw_row.get("position_latitude"),
+                "longitude": raw_row.get("position_longitude"),
+                "position": bytes(point.wkb) if point is not None else None,
+                "bearing": raw_row.get("position_bearing"),
+                "odometer": raw_row.get("position_odometer"),
+                "speed": raw_row.get("position_speed"),
+                "stop_sequence": raw_row.get("current_stop_sequence"),
+                "stop_id": raw_row.get("stop_id"),
+                "current_status": raw_row.get("current_status"),
+                "timestamp": raw_row.get("timestamp"),
+                "congestion_level": raw_row.get("congestion_level"),
+                "occupancy_status": raw_row.get("occupancy_status"),
+                "occupancy_percentage": raw_row.get("occupancy_percentage"),
+            }
 
             row_timestamp = row.get("timestamp")
             if row_timestamp is not None:
