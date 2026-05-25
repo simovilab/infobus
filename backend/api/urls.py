@@ -40,4 +40,10 @@ urlpatterns = [
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("docs/schema/", views.get_schema, name="schema"),
     path("docs/", SpectacularRedocView.as_view(url_name="schema"), name="api_docs"),
+    path("docs/schema-auto/", SpectacularAPIView.as_view(), name="schema-auto"),
+    path(
+        "docs/auto/",
+        SpectacularRedocView.as_view(url_name="schema-auto"),
+        name="api_docs_auto",
+    ),
 ]

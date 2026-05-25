@@ -10,10 +10,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
-from pathlib import Path
-from decouple import config, Csv
-import platform
 import os
+import platform
+from pathlib import Path
+
+from decouple import Csv, config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -147,10 +148,27 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Infobús API | bUCR",
+    "DESCRIPTION": (
+        "Servidor para recopilar datos desde diversas fuentes, incluyendo "
+        "servidores en tiempo real con datos GTFS Realtime, y para "
+        "distribución de información a servicios como páginas web, "
+        "pantallas, aplicaciones, análisis de datos y otros.\n\n"
+        "**Autores:** Fabián Abarca Calderón "
+        ".\n\n"
+        "*Escuela de Ingeniería Eléctrica, Universidad de Costa Rica*"
+    ),
+    "VERSION": "1.0.0",
+    "CONTACT": {"email": "tropicalizacion@ucr.ac.cr"},
+    "LICENSE": {
+        "name": "MIT",
+        "url": "https://opensource.org/license/mit/",
+    },
+    "SERVE_INCLUDE_SCHEMA": False,
 }
 
 # Channels settings
