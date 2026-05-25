@@ -5,6 +5,8 @@ from alerts.models import Social, Weather
 from django.conf import settings
 from django.http import FileResponse
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from engine.models import InfoService
 from feed.models import (
     Agency,
@@ -103,6 +105,38 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class NextTripView(APIView):
+    @extend_schema(
+        tags=["custom"],
+        description=(
+            "Devuelve los próximos viajes para una parada, combinando datos "
+            "de GTFS Schedule y GTFS Realtime cuando está disponible."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="stop_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Identificador GTFS de la parada.",
+            ),
+            OpenApiParameter(
+                name="timestamp",
+                type=OpenApiTypes.DATETIME,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    "Momento de referencia (formato YYYY-MM-DDTHH:MM:SS). "
+                    "Si no se indica, se usa el momento actual."
+                ),
+            ),
+        ],
+        responses={
+            200: NextTripSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+            503: OpenApiTypes.OBJECT,
+        },
+    )
     def get(self, request):
         timezone = pytz.timezone(settings.TIME_ZONE)
 
@@ -281,6 +315,40 @@ class NextTripView(APIView):
 
 
 class NextStopView(APIView):
+    @extend_schema(
+        tags=["custom"],
+        description=(
+            "Devuelve la secuencia de próximas paradas para un viaje en progreso."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="trip_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Identificador GTFS del viaje.",
+            ),
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Fecha de inicio del viaje (formato YYYY-MM-DD).",
+            ),
+            OpenApiParameter(
+                name="start_time",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Hora de inicio del viaje (formato HH:MM:SS).",
+            ),
+        ],
+        responses={
+            200: NextStopSerializer,
+            400: OpenApiTypes.OBJECT,
+            503: OpenApiTypes.OBJECT,
+        },
+    )
     def get(self, request):
         # Get query parameters
         trip_id = request.query_params.get("trip_id")
@@ -357,6 +425,35 @@ class NextStopView(APIView):
 
 
 class RouteStopView(APIView):
+    @extend_schema(
+        tags=["custom"],
+        description=(
+            "Devuelve las paradas asociadas a una ruta y trayectoria en formato GeoJSON."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="route_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Identificador GTFS de la ruta.",
+            ),
+            OpenApiParameter(
+                name="shape_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Identificador GTFS de la trayectoria (shape).",
+            ),
+        ],
+        responses={
+            200: RouteStopSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+            500: OpenApiTypes.OBJECT,
+            503: OpenApiTypes.OBJECT,
+        },
+    )
     def get(self, request):
         # Get and validate query parameters
         if request.query_params.get("route_id") and request.query_params.get(
