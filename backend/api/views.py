@@ -109,9 +109,7 @@ class NextTripView(APIView):
         # Query parameters
         if request.query_params.get("stop_id"):
             stop_id = request.query_params.get("stop_id")
-            try:
-                Stop.objects.get(stop_id=stop_id)
-            except Stop.DoesNotExist:
+            if not Stop.objects.filter(stop_id=stop_id).exists():
                 return Response(
                     {
                         "error": f"No existe la parada especificada {stop_id} en la base de datos."
@@ -135,7 +133,13 @@ class NextTripView(APIView):
             timestamp = timezone.localize(timestamp)
 
         # Get the current GTFS feed
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        except Feed.DoesNotExist:
+            return Response(
+                {"error": "No hay un feed GTFS activo."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         service_id = get_calendar(timestamp.date(), current_feed)
         if service_id is None:
             return Response(
@@ -173,24 +177,32 @@ class NextTripView(APIView):
             trip = Trip.objects.filter(
                 trip_id=trip_update.trip_trip_id, feed=current_feed
             ).first()
-            trips_in_progress.append(trip)
+            if trip is None:
+                continue
             route = Route.objects.filter(
                 route_id=trip.route_id, feed=current_feed
             ).first()
+            if route is None:
+                continue
             vehicle_position = VehiclePosition.objects.filter(
                 # TODO: ponder if making a new table for TripDescriptor is better
                 trip_trip_id=trip_update.trip_trip_id,
                 trip_start_date=trip_update.trip_start_date,
                 trip_start_time=trip_update.trip_start_time,
             ).first()
+            if vehicle_position is None or vehicle_position.position_point is None:
+                continue
             geo_shape = GeoShape.objects.filter(
                 shape_id=trip.shape_id, feed=current_feed
             ).first()
+            if geo_shape is None or geo_shape.geometry is None:
+                continue
             geo_shape = geometry.LineString(geo_shape.geometry.coords)
             location = vehicle_position.position_point
             location = geometry.Point(location.x, location.y)
             position_in_shape = geo_shape.project(location) / geo_shape.length
 
+            trips_in_progress.append(trip)
             next_arrivals.append(
                 {
                     "trip_id": trip.trip_id,
@@ -286,20 +298,33 @@ class NextStopView(APIView):
         next_stop_sequence = []
 
         # For trips in progress
-        latest_trip_update = FeedMessage.objects.filter(
-            entity_type="trip_update"
-        ).latest("timestamp")
-        trip_update = TripUpdate.objects.filter(
-            feed_message=latest_trip_update,
-            trip_trip_id=trip_id,
-            trip_start_date=start_date,
-            trip_start_time=start_time,
-        ).first()
-        stop_time_updates = StopTimeUpdate.objects.filter(
-            trip_update=trip_update
-        ).order_by("stop_sequence")
+        try:
+            latest_trip_update = FeedMessage.objects.filter(
+                entity_type="trip_update"
+            ).latest("timestamp")
+        except FeedMessage.DoesNotExist:
+            latest_trip_update = None
 
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        if latest_trip_update is None:
+            stop_time_updates = StopTimeUpdate.objects.none()
+        else:
+            trip_update = TripUpdate.objects.filter(
+                feed_message=latest_trip_update,
+                trip_trip_id=trip_id,
+                trip_start_date=start_date,
+                trip_start_time=start_time,
+            ).first()
+            stop_time_updates = StopTimeUpdate.objects.filter(
+                trip_update=trip_update
+            ).order_by("stop_sequence")
+
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        except Feed.DoesNotExist:
+            return Response(
+                {"error": "No hay un feed GTFS activo."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         for stop_time_update in stop_time_updates:
             stop = Stop.objects.get(
@@ -359,14 +384,24 @@ class RouteStopView(APIView):
             )
 
         # Get the current GTFS feed
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        except Feed.DoesNotExist:
+            return Response(
+                {"error": "No hay un feed GTFS activo."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         # Construct the GeoJSON structure
         geojson = {"type": "FeatureCollection", "features": []}
 
         # Build the response for scheduled trips
         for route_stop in route_stops:
-            stop = Stop.objects.get(stop_id=route_stop.stop_id, feed=current_feed)
+            stop = Stop.objects.filter(
+                stop_id=route_stop.stop_id, feed=current_feed
+            ).first()
+            if stop is None or stop.stop_point is None:
+                continue
 
             feature = {
                 "type": "Feature",
