@@ -14,8 +14,6 @@ class FeedPublisherSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FeedSerializer(serializers.HyperlinkedModelSerializer):
-    feed_publisher = serializers.PrimaryKeyRelatedField(read_only=True)
-
     class Meta:
         model = Feed
         fields = "__all__"
