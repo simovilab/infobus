@@ -26,6 +26,7 @@ from feed.models import (
     Stop,
     StopTime,
     StopTimeUpdate,
+    TransitSystem,
     Trip,
     TripUpdate,
     VehiclePosition,
@@ -58,6 +59,7 @@ from .serializers import (
     StopSerializer,
     StopTimeSerializer,
     StopTimeUpdateSerializer,
+    TransitSystemSerializer,
     TripSerializer,
     TripUpdateSerializer,
     VehiclePositionSerializer,
@@ -79,6 +81,17 @@ class FilterMixin:
             if param in allowed_query_params and value is not None
         }
         return queryset.filter(**filter_args)
+
+
+class TransitSystemViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Sistemas de transporte registrados.
+    """
+
+    queryset = TransitSystem.objects.all()
+    serializer_class = TransitSystemSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["code", "name"]
 
 
 class FeedPublisherViewSet(viewsets.ReadOnlyModelViewSet):

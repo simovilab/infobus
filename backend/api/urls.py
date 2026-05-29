@@ -6,6 +6,7 @@ from . import views
 
 router = routers.DefaultRouter()
 router.register(r"info-services", views.InfoServiceViewSet)
+router.register(r"transit-systems", views.TransitSystemViewSet)
 router.register(r"feed-publishers", views.FeedPublisherViewSet)
 router.register(r"feeds", views.FeedViewSet)
 router.register(r"agencies", views.AgencyViewSet)
