@@ -36,6 +36,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from shapely import geometry
 
+from .filters import FeedFilter, FeedPublisherFilter
 from .serializers import (
     AgencySerializer,
     CalendarDateSerializer,
@@ -102,7 +103,7 @@ class FeedPublisherViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = FeedPublisher.objects.all()
     serializer_class = FeedPublisherSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["code", "name"]
+    filterset_class = FeedPublisherFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
@@ -114,7 +115,7 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Feed.objects.all()
     serializer_class = FeedSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["feed_id", "feed_publisher", "is_current"]
+    filterset_class = FeedFilter
 
 
 class NextTripView(APIView):
