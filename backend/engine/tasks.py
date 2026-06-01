@@ -802,7 +802,57 @@ def save_vehicle_positions_to_parquet(use_current_hour=False):
             "position": {
                 "encoding": "WKB",
                 "geometry_types": ["Point"],
-                "crs": None,
+                "crs": {
+                    "$schema": "https://proj.org/schemas/v0.7/projjson.schema.json",
+                    "type": "GeographicCRS",
+                    "name": "WGS 84",
+                    "datum_ensemble": {
+                        "name": "World Geodetic System 1984 ensemble",
+                        "members": [
+                            {"name": "World Geodetic System 1984 (Transit)"},
+                            {"name": "World Geodetic System 1984 (G730)"},
+                            {"name": "World Geodetic System 1984 (G873)"},
+                            {"name": "World Geodetic System 1984 (G1150)"},
+                            {"name": "World Geodetic System 1984 (G1674)"},
+                            {"name": "World Geodetic System 1984 (G1762)"},
+                            {"name": "World Geodetic System 1984 (G2139)"},
+                            {"name": "World Geodetic System 1984 (G2296)"},
+                        ],
+                        "ellipsoid": {
+                            "name": "WGS 84",
+                            "semi_major_axis": 6378137,
+                            "inverse_flattening": 298.257223563,
+                        },
+                        "accuracy": "2.0",
+                        "id": {"authority": "EPSG", "code": 6326},
+                    },
+                    "coordinate_system": {
+                        "subtype": "ellipsoidal",
+                        "axis": [
+                            {
+                                "name": "Geodetic latitude",
+                                "abbreviation": "Lat",
+                                "direction": "north",
+                                "unit": "degree",
+                            },
+                            {
+                                "name": "Geodetic longitude",
+                                "abbreviation": "Lon",
+                                "direction": "east",
+                                "unit": "degree",
+                            },
+                        ],
+                    },
+                    "scope": "Horizontal component of 3D system.",
+                    "area": "World.",
+                    "bbox": {
+                        "south_latitude": -90,
+                        "west_longitude": -180,
+                        "north_latitude": 90,
+                        "east_longitude": 180,
+                    },
+                    "id": {"authority": "EPSG", "code": 4326},
+                },
             }
         },
     }
