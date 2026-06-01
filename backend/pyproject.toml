@@ -31,16 +31,15 @@ dependencies = [
     "redis>=6.4.0",
     "pytz>=2026.1.post1",
     "requests>=2.33.1",
+    "pyarrow>=21.0.0",
+    "duckdb>=1.5.3",
 ]
 
 [dependency-groups]
 dev = ["pytest>=8.4.2", "ruff>=0.13.0", "watchdog>=6.0.0"]
 
 [tool.uv.workspace]
-members = [
-    "gtfs-io",
-    "gtfs-django",
-]
+members = ["gtfs-io", "gtfs-django"]
 
 [tool.uv.sources]
 gtfs-django = { workspace = true, editable = true }
