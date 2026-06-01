@@ -205,17 +205,66 @@ install_duckdb_cli() {
             return
         fi
 
-        warn "Installing DuckDB CLI via official installer..."
+        mkdir -p "${DUCKDB_CLI_DIR}"
+        duckdb_version="v1.5.3"
+
+        case "$(uname -m)" in
+            x86_64)
+                duckdb_asset="duckdb_cli-linux-amd64.zip"
+                duckdb_sha256="35caef1fecbc8d7e2c07de4fd2cdefc5189ec9ba9e1cca228fb1a1c48cc52a8a"
+                ;;
+            aarch64|arm64)
+                duckdb_asset="duckdb_cli-linux-arm64.zip"
+                duckdb_sha256="5e2399428793642e994f1584c47d49f4c58b7b4ec2297ea4a522353a6c553835"
+                ;;
+            *)
+                warn "Unsupported architecture for DuckDB CLI: $(uname -m)"
+                return
+                ;;
+        esac
+
+        duckdb_url="https://github.com/duckdb/duckdb/releases/download/${duckdb_version}/${duckdb_asset}"
+        temp_dir="$(mktemp -d)"
+        zip_path="${temp_dir}/duckdb.zip"
+
+        warn "Installing DuckDB CLI ${duckdb_version} from pinned artifact..."
         attempts=0
-        until curl -fsSL https://install.duckdb.org | sh; do
+        until curl -fsSL -o "${zip_path}" "${duckdb_url}"; do
             attempts=$((attempts + 1))
             if [ "$attempts" -ge 3 ]; then
-                err "DuckDB CLI install failed after ${attempts} attempts"
+                err "DuckDB CLI download failed after ${attempts} attempts"
+                rm -rf "${temp_dir}"
                 return
             fi
-            warn "DuckDB CLI install failed (attempt ${attempts}/3); retrying"
+            warn "DuckDB CLI download failed (attempt ${attempts}/3); retrying"
             sleep 2
         done
+
+        actual_sha256="$(sha256sum "${zip_path}" | awk '{print $1}')"
+        if [ "${actual_sha256}" != "${duckdb_sha256}" ]; then
+            err "DuckDB CLI checksum verification failed"
+            rm -rf "${temp_dir}"
+            return
+        fi
+
+        if ! python - "${zip_path}" "${DUCKDB_CLI_DIR}" <<'PY'
+import sys
+import zipfile
+
+zip_path = sys.argv[1]
+destination_dir = sys.argv[2]
+
+with zipfile.ZipFile(zip_path, "r") as zip_ref:
+    zip_ref.extract("duckdb", destination_dir)
+PY
+        then
+            err "DuckDB CLI extraction failed"
+            rm -rf "${temp_dir}"
+            return
+        fi
+
+        chmod +x "${DUCKDB_CLI_DIR}/duckdb"
+        rm -rf "${temp_dir}"
         log "DuckDB CLI installation complete"
     fi
 
@@ -231,7 +280,11 @@ install_duckdb_cli() {
 section "Installing DuckDB CLI (if needed)..."
 # ------------------------------------------
 
-install_duckdb_cli
+if [ "${1:-}" = "orchestrator" ]; then
+    install_duckdb_cli
+else
+    log "Skipping DuckDB CLI install for service '${1:-unknown}'"
+fi
 
 # In dev mode, replace the PyPI-installed gtfs-django with an editable install
 # pointing at a local clone. This requires UV_NO_SYNC=1 in the container env so
