@@ -49,23 +49,151 @@ class FeedPublisherViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
+def get_next_trips(stop_id, timestamp=None):
+    """
+    Core logic for fetching next trips for a stop.
+
+    Returns the serialized data dict, or None if no service is available for
+    the given date. Raises Stop.DoesNotExist if the stop is not found.
+    """
+    tz = pytz.timezone(settings.TIME_ZONE)
+
+    if timestamp is None:
+        timestamp = tz.localize(datetime.now())
+
+    # Get the current GTFS feed
+    current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+    service_id = get_calendar(timestamp.date(), current_feed)
+    if service_id is None:
+        return None
+
+    next_arrivals = []
+
+    # -----------------
+    # Trips in progress
+    # -----------------
+
+    latest_feed_message = (
+        FeedMessage.objects.filter(entity_type="trip_update")
+        .order_by("-timestamp")
+        .first()
+    )
+    # TODO: check TTL (time to live)
+    if latest_feed_message is None:
+        # No realtime messages available; keep trips_in_progress empty
+        stop_time_updates = StopTimeUpdate.objects.none()
+    else:
+        stop_time_updates = StopTimeUpdate.objects.filter(
+            trip_update__feed_message=latest_feed_message, stop_id=stop_id
+        )
+
+    trips_in_progress = []
+
+    # Build the response for trips in progress
+    for stop_time_update in stop_time_updates:
+        trip_update = TripUpdate.objects.get(
+            id=stop_time_update.trip_update.id,
+        )
+        trip = Trip.objects.filter(
+            trip_id=trip_update.trip_trip_id, feed=current_feed
+        ).first()
+        trips_in_progress.append(trip)
+        route = Route.objects.filter(route_id=trip.route_id, feed=current_feed).first()
+        vehicle_position = VehiclePosition.objects.filter(
+            # TODO: ponder if making a new table for TripDescriptor is better
+            vehicle_trip_trip_id=trip_update.trip_trip_id,
+            vehicle_trip_start_date=trip_update.trip_start_date,
+            vehicle_trip_start_time=trip_update.trip_start_time,
+        ).first()
+        geo_shape = GeoShape.objects.filter(
+            shape_id=trip.shape_id, feed=current_feed
+        ).first()
+        geo_shape = geometry.LineString(geo_shape.geometry.coords)
+        location = vehicle_position.vehicle_position_point
+        location = geometry.Point(location.x, location.y)
+        position_in_shape = geo_shape.project(location) / geo_shape.length
+
+        next_arrivals.append(
+            {
+                "trip_id": trip.trip_id,
+                "route_id": route.route_id,
+                "route_short_name": route.route_short_name,
+                "route_long_name": route.route_long_name,
+                "trip_headsign": trip.trip_headsign,
+                "wheelchair_accessible": trip.wheelchair_accessible,
+                "arrival_time": stop_time_update.arrival_time,
+                "departure_time": stop_time_update.departure_time,
+                "in_progress": True,
+                "progression": {
+                    "position_in_shape": position_in_shape,
+                    "current_stop_sequence": vehicle_position.vehicle_current_stop_sequence,
+                    "current_status": vehicle_position.vehicle_current_status,
+                    "occupancy_status": vehicle_position.vehicle_occupancy_status,
+                },
+            }
+        )
+
+    # ---------------
+    # Scheduled trips
+    # ---------------
+
+    stop_times = StopTime.objects.filter(
+        feed=current_feed,
+        stop_id=stop_id,
+        # arrival_time__gte=timestamp.time(),
+        # _trip__service_id=service_id,
+    ).order_by("arrival_time")
+
+    print(f"Stop times: {stop_times}")
+
+    # Build the response for scheduled trips
+    for stop_time in stop_times:
+        trip = Trip.objects.filter(trip_id=stop_time.trip_id, feed=current_feed).first()
+        if trip in trips_in_progress:
+            continue
+        route = Route.objects.filter(route_id=trip.route_id, feed=current_feed).first()
+
+        arrival_time = tz.localize(
+            datetime.combine(timestamp.today(), stop_time.arrival_time)
+        )
+        departure_time = tz.localize(
+            datetime.combine(timestamp.today(), stop_time.departure_time)
+        )
+
+        next_arrivals.append(
+            {
+                "trip_id": trip.trip_id,
+                "route_id": route.route_id,
+                "route_short_name": route.route_short_name,
+                "route_long_name": route.route_long_name,
+                "trip_headsign": trip.trip_headsign,
+                "wheelchair_accessible": trip.wheelchair_accessible,
+                "arrival_time": arrival_time,
+                "departure_time": departure_time,
+                "in_progress": False,
+                "progression": None,
+            }
+        )
+
+    # Sort the list by arrival time
+    next_arrivals.sort(key=lambda x: x["arrival_time"])
+
+    data = {
+        "stop_id": stop_id,
+        "timestamp": timestamp,
+        "next_arrivals": next_arrivals,
+    }
+
+    serializer = NextTripSerializer(data)
+    return serializer.data
+
+
 class NextTripView(APIView):
     def get(self, request):
-        timezone = pytz.timezone(settings.TIME_ZONE)
+        tz = pytz.timezone(settings.TIME_ZONE)
 
-        # Query parameters
-        if request.query_params.get("stop_id"):
-            stop_id = request.query_params.get("stop_id")
-            try:
-                Stop.objects.get(stop_id=stop_id)
-            except Stop.DoesNotExist:
-                return Response(
-                    {
-                        "error": f"No existe la parada especificada {stop_id} en la base de datos."
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-        else:
+        # Validate stop_id
+        if not request.query_params.get("stop_id"):
             return Response(
                 {
                     "error": "Es necesario especificar el stop_id como parámetro de la solicitud: /next-trips?stop_id=bUCR-0-01, por ejemplo."
@@ -73,153 +201,33 @@ class NextTripView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if request.query_params.get("timestamp"):
-            timestamp = request.query_params.get("timestamp")
-            timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
-            timestamp = timezone.localize(timestamp)
-        else:
-            timestamp = datetime.now()
-            timestamp = timezone.localize(timestamp)
+        stop_id = request.query_params.get("stop_id")
+        try:
+            Stop.objects.get(stop_id=stop_id)
+        except Stop.DoesNotExist:
+            return Response(
+                {
+                    "error": f"No existe la parada especificada {stop_id} en la base de datos."
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        # Get the current GTFS feed
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
-        service_id = get_calendar(timestamp.date(), current_feed)
-        if service_id is None:
+        if request.query_params.get("timestamp"):
+            timestamp = datetime.strptime(
+                request.query_params.get("timestamp"), "%Y-%m-%dT%H:%M:%S"
+            )
+            timestamp = tz.localize(timestamp)
+        else:
+            timestamp = None
+
+        data = get_next_trips(stop_id, timestamp)
+        if data is None:
             return Response(
                 {"error": "No hay servicio disponible para la fecha especificada."},
                 status=status.HTTP_204_NO_CONTENT,
             )
 
-        next_arrivals = []
-
-        # -----------------
-        # Trips in progress
-        # -----------------
-
-        latest_feed_message = (
-            FeedMessage.objects.filter(entity_type="trip_update")
-            .order_by("-timestamp")
-            .first()
-        )
-        # TODO: check TTL (time to live)
-        if latest_feed_message is None:
-            # No realtime messages available; keep trips_in_progress empty
-            stop_time_updates = StopTimeUpdate.objects.none()
-        else:
-            stop_time_updates = StopTimeUpdate.objects.filter(
-                feed_message=latest_feed_message, stop_id=stop_id
-            )
-        print("Checkpoint 1")
-
-        trips_in_progress = []
-
-        # Build the response for trips in progress
-        for stop_time_update in stop_time_updates:
-            trip_update = TripUpdate.objects.get(
-                id=stop_time_update.trip_update.id,
-            )
-            trip = Trip.objects.filter(
-                trip_id=trip_update.trip_trip_id, feed=current_feed
-            ).first()
-            trips_in_progress.append(trip)
-            route = Route.objects.filter(
-                route_id=trip.route_id, feed=current_feed
-            ).first()
-            vehicle_position = VehiclePosition.objects.filter(
-                # TODO: ponder if making a new table for TripDescriptor is better
-                vehicle_trip_trip_id=trip_update.trip_trip_id,
-                vehicle_trip_start_date=trip_update.trip_start_date,
-                vehicle_trip_start_time=trip_update.trip_start_time,
-            ).first()
-            geo_shape = GeoShape.objects.filter(
-                shape_id=trip.shape_id, feed=current_feed
-            ).first()
-            geo_shape = geometry.LineString(geo_shape.geometry.coords)
-            location = vehicle_position.vehicle_position_point
-            location = geometry.Point(location.x, location.y)
-            position_in_shape = geo_shape.project(location) / geo_shape.length
-
-            next_arrivals.append(
-                {
-                    "trip_id": trip.trip_id,
-                    "route_id": route.route_id,
-                    "route_short_name": route.route_short_name,
-                    "route_long_name": route.route_long_name,
-                    "trip_headsign": trip.trip_headsign,
-                    "wheelchair_accessible": trip.wheelchair_accessible,
-                    "arrival_time": stop_time_update.arrival_time,
-                    "departure_time": stop_time_update.departure_time,
-                    "in_progress": True,
-                    "progression": {
-                        "position_in_shape": position_in_shape,
-                        "current_stop_sequence": vehicle_position.vehicle_current_stop_sequence,
-                        "current_status": vehicle_position.vehicle_current_status,
-                        "occupancy_status": vehicle_position.vehicle_occupancy_status,
-                    },
-                }
-            )
-
-        print(trips_in_progress)
-
-        # ---------------
-        # Scheduled trips
-        # ---------------
-
-        stop_times = StopTime.objects.filter(
-            feed=current_feed,
-            stop_id=stop_id,
-            arrival_time__gte=timestamp.time(),
-            # _trip__service_id=service_id,
-        ).order_by("arrival_time")
-
-        print(
-            f"Checkpoint 2: {stop_times} {stop_id} {current_feed} {service_id} {timestamp.time()}"
-        )
-
-        # Build the response for scheduled trips
-        for stop_time in stop_times:
-            trip = Trip.objects.filter(
-                trip_id=stop_time.trip_id, feed=current_feed
-            ).first()
-            if trip in trips_in_progress:
-                continue
-            route = Route.objects.filter(
-                route_id=trip.route_id, feed=current_feed
-            ).first()
-
-            arrival_time = timezone.localize(
-                datetime.combine(timestamp.today(), stop_time.arrival_time)
-            )
-            departure_time = timezone.localize(
-                datetime.combine(timestamp.today(), stop_time.departure_time)
-            )
-
-            next_arrivals.append(
-                {
-                    "trip_id": trip.trip_id,
-                    "route_id": route.route_id,
-                    "route_short_name": route.route_short_name,
-                    "route_long_name": route.route_long_name,
-                    "trip_headsign": trip.trip_headsign,
-                    "wheelchair_accessible": trip.wheelchair_accessible,
-                    "arrival_time": arrival_time,
-                    "departure_time": departure_time,
-                    "in_progress": False,
-                    "progression": None,
-                }
-            )
-
-        # Sort the list by arrival time
-        next_arrivals.sort(key=lambda x: x["arrival_time"])
-
-        data = {
-            "stop_id": stop_id,
-            "timestamp": timestamp,
-            "next_arrivals": next_arrivals,
-        }
-
-        serializer = NextTripSerializer(data)
-        return Response(serializer.data)
+        return Response(data)
 
 
 class NextStopView(APIView):
@@ -276,12 +284,10 @@ class NextStopView(APIView):
         data = {
             "trip_id": trip_id,
             "start_date": start_date,
-            # The serializer needs the timedelta object
             "start_time": str_to_timedelta(start_time),
             "next_stop_sequence": next_stop_sequence,
         }
 
-        print(data)
         serializer = NextStopSerializer(data)
 
         return Response(serializer.data)

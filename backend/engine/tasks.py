@@ -43,7 +43,11 @@ from feed.models import (
     TranslatedImage,
     LocalizedImage,
 )
+from screens.models import StopScreen, StationScreen
 from django.contrib.gis.geos import Point
+from api.views import get_next_trips
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
@@ -1238,3 +1242,67 @@ def save_stop_time_updates_to_parquet(use_current_hour=False):
         f"-> {output_file} "
         f"rows={row_count}"
     )
+
+
+@shared_task
+def update_stop_screens():
+    """Retrieves new real-time information and updates the connected screens fro a given stop."""
+
+    stop_screens = StopScreen.objects.filter(is_active=True)
+
+    for screen in stop_screens:
+        stop = screen.stop
+        stop_screen_message = get_next_trips(stop.stop_id)
+        if stop_screen_message is not None:
+            async_to_sync(get_channel_layer().group_send)(
+                f"screen_stop_{screen.screen_id}",
+                {
+                    "type": "screen_message",
+                    "message": stop_screen_message,
+                },
+            )
+
+    return "Updated stop screens successfully"
+
+
+@shared_task
+def update_station_screens():
+    """Retrieves new real-time information and updates the connected screens for a given station that comprises two or more stops."""
+
+    station_screens = StationScreen.objects.filter(is_active=True)
+
+    for screen in station_screens:
+        stops = Stop.objects.filter(parent_station=screen.station)
+        update_message = []
+
+        for stop in stops:
+            stop_message = get_next_trips(stop.stop_id)
+
+            if stop_message is not None:
+                update_message.append(stop_message)
+
+        # Send the message to the screen via websocket
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            f"screen_station_{screen.screen_id}",
+            {
+                "type": "screen_message",
+                "message": update_message,
+            },
+        )
+
+    # Status monitor update via WebSockets. TODO: Prometheus
+    message = {}
+    message["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    message["active_stop_screens"] = len(station_screens)
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        "status",
+        {
+            "type": "status_message",
+            "message": message,
+        },
+    )
+
+    return "Updated station screens successfully"

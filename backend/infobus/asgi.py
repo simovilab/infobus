@@ -12,13 +12,14 @@ import os
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
 
-from engine.routing import websocket_urlpatterns
+from engine.routing import websocket_urlpatterns as engine_urlpatterns
+from screens.routing import websocket_urlpatterns as screens_urlpatterns
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "infobus.settings")
 
 application = ProtocolTypeRouter(
     {
         "http": get_asgi_application(),
-        "websocket": URLRouter(websocket_urlpatterns),
+        "websocket": URLRouter(screens_urlpatterns + engine_urlpatterns),
     }
 )

@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "engine.apps.EngineConfig",
     "alerts.apps.AlertsConfig",
     "api.apps.ApiConfig",
+    "screens.apps.ScreensConfig",
     "rest_framework",
     "rest_framework.authtoken",
     "drf_spectacular",
