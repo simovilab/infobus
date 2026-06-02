@@ -49,7 +49,7 @@ class FeedPublisherViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-def get_next_trips(stop_id, timestamp=None):
+def get_next_trips(transit_system, stop_id, timestamp=None):
     """
     Core logic for fetching next trips for a stop.
 
@@ -62,7 +62,9 @@ def get_next_trips(stop_id, timestamp=None):
         timestamp = tz.localize(datetime.now())
 
     # Get the current GTFS feed
-    current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+    current_feed = Feed.objects.filter(
+        transit_system=transit_system, is_current=True
+    ).latest("retrieved_at")
     service_id = get_calendar(timestamp.date(), current_feed)
     if service_id is None:
         return None
@@ -137,14 +139,18 @@ def get_next_trips(stop_id, timestamp=None):
     # Scheduled trips
     # ---------------
 
+    t = timestamp
+    time_as_duration = timedelta(hours=t.hour, minutes=t.minute, seconds=t.second)
+
     stop_times = StopTime.objects.filter(
         feed=current_feed,
         stop_id=stop_id,
-        # arrival_time__gte=timestamp.time(),
+        arrival_time__gte=time_as_duration,
+        arrival_time__lte=timedelta(hours=5) + time_as_duration,
         # _trip__service_id=service_id,
     ).order_by("arrival_time")
 
-    print(f"Stop times: {stop_times}")
+    print(f"Stop: {stop_id}, feed: {current_feed.feed_id}, Stop times: {stop_times}")
 
     # Build the response for scheduled trips
     for stop_time in stop_times:
@@ -153,12 +159,9 @@ def get_next_trips(stop_id, timestamp=None):
             continue
         route = Route.objects.filter(route_id=trip.route_id, feed=current_feed).first()
 
-        arrival_time = tz.localize(
-            datetime.combine(timestamp.today(), stop_time.arrival_time)
-        )
-        departure_time = tz.localize(
-            datetime.combine(timestamp.today(), stop_time.departure_time)
-        )
+        midnight = datetime.combine(timestamp.date(), datetime.min.time())
+        arrival_time = tz.localize(midnight + stop_time.arrival_time)
+        departure_time = tz.localize(midnight + stop_time.departure_time)
 
         next_arrivals.append(
             {
@@ -220,7 +223,8 @@ class NextTripView(APIView):
         else:
             timestamp = None
 
-        data = get_next_trips(stop_id, timestamp)
+        transit_system = request.query_params.get("transit_system", "default")
+        data = get_next_trips(transit_system, stop_id, timestamp)
         if data is None:
             return Response(
                 {"error": "No hay servicio disponible para la fecha especificada."},

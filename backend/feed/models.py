@@ -126,6 +126,9 @@ class Feed(models.Model):
     feed_publisher = models.ForeignKey(
         FeedPublisher, on_delete=models.SET_NULL, blank=True, null=True
     )
+    transit_system = models.ForeignKey(
+        TransitSystem, on_delete=models.SET_NULL, blank=True, null=True
+    )
     start_date = models.DateField(blank=True, null=True)
     end_date = models.DateField(blank=True, null=True)
     version = models.CharField(max_length=255, blank=True, null=True)

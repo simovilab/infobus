@@ -18,6 +18,7 @@ import pyarrow.parquet as pq
 import requests
 from google.transit import gtfs_realtime_pb2 as gtfs_rt
 from feed.models import (
+    TransitSystem,
     FeedPublisher,
     Feed,
     FeedMessage,
@@ -1252,7 +1253,8 @@ def update_stop_screens():
 
     for screen in stop_screens:
         stop = screen.stop
-        stop_screen_message = get_next_trips(stop.stop_id)
+        transit_system = screen.transit_system
+        stop_screen_message = get_next_trips(transit_system, stop.stop_id)
         if stop_screen_message is not None:
             async_to_sync(get_channel_layer().group_send)(
                 f"screen_stop_{screen.screen_id}",

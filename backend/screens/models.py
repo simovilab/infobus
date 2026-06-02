@@ -1,5 +1,5 @@
 from django.contrib.gis.db import models
-from feed.models import Stop
+from feed.models import TransitSystem, Stop
 
 # Create your models here.
 
@@ -50,7 +50,9 @@ class Screen(models.Model):
     screen_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100, blank=True, null=True)
     description = models.TextField(blank=True, null=True)
-    location = models.PointField(geography=True, blank=True, null=True)
+    transit_system = models.ForeignKey(
+        TransitSystem, on_delete=models.SET_NULL, blank=True, null=True
+    )
     orientation = models.CharField(
         max_length=10,
         choices=ORIENTATION_CHOICES,
@@ -76,6 +78,7 @@ class Screen(models.Model):
 class StopScreen(Screen):
     stop = models.ForeignKey(Stop, on_delete=models.CASCADE)
     stop_slug = models.SlugField(unique=True)
+    location = models.PointField(geography=True, blank=True, null=True)
     # TODO: fields for heading and for screen layout
 
     def __str__(self):
@@ -90,6 +93,7 @@ class StopScreen(Screen):
 class StationScreen(Screen):
     station = models.ForeignKey(Stop, on_delete=models.CASCADE)
     station_slug = models.SlugField(unique=True)
+    location = models.PointField(geography=True, blank=True, null=True)
 
     def __str__(self):
         return f"{self.station.stop_name} ({self.screen_id})"
