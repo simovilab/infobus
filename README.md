@@ -13,7 +13,7 @@
 
 A real-time public transportation information system, developed. Infobús processes GTFS Schedule and Realtime feeds and delivers live transit information through digital displays at bus stops, a web frontend, REST APIs, and WebSocket streams — all orchestrated through Docker Compose.
 
-<img width="5835" height="1650" alt="infobus_R" src="https://github.com/user-attachments/assets/09695506-2392-4b9c-a89e-8d42d649ed21" />
+<img width="250" alt="infobus" src="https://github.com/user-attachments/assets/09695506-2392-4b9c-a89e-8d42d649ed21" />
 
 ## Architecture
 
