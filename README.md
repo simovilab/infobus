@@ -11,7 +11,9 @@
 ![Static Badge](https://img.shields.io/badge/sparql-Fuseki-white?logo=apache)
 ![Static Badge](https://img.shields.io/badge/infrastructure-Docker-white?logo=docker)
 
-A real-time public transportation information system for Costa Rica, developed at Universidad de Costa Rica (UCR). Infobús processes GTFS Schedule and Realtime feeds and delivers live transit information through digital displays at bus stops, a web frontend, REST APIs, and WebSocket streams — all orchestrated through Docker Compose.
+A real-time public transportation information system, developed. Infobús processes GTFS Schedule and Realtime feeds and delivers live transit information through digital displays at bus stops, a web frontend, REST APIs, and WebSocket streams — all orchestrated through Docker Compose.
+
+<img width="5835" height="1650" alt="infobus_R" src="https://github.com/user-attachments/assets/09695506-2392-4b9c-a89e-8d42d649ed21" />
 
 ## Architecture
 
