@@ -4,314 +4,154 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Project Overview
 
-**Infobús** is a comprehensive Django-based real-time information system for public transportation displays. The system processes GTFS Realtime feeds and displays transit information on digital screens located at bus stops and stations throughout Costa Rica. The project is developed for Universidad de Costa Rica (UCR) and focuses on providing accessible, real-time public transport information.
+**Infobús** is a real-time public transportation information system for Costa Rica, developed at Universidad de Costa Rica (UCR). It processes GTFS Schedule and Realtime feeds and delivers live transit information through digital displays at bus stops, a Nuxt web frontend, REST APIs, and WebSocket streams.
+
+**Tech Stack:** Django 5.2+, Python 3.12+, Nuxt, PostgreSQL/PostGIS, Redis, RabbitMQ, Celery, FastMCP, Apache Jena Fuseki, Docker
 
 ## Architecture
 
-This is a Django 5.2+ project with modern containerized infrastructure:
+### Services (Docker Compose)
 
-### 🚀 **Containerized Infrastructure**
-- **Docker-based development and production environments**
-- **Multi-stage Dockerfile** with optimized builds for dev/production
-- **Docker Compose** orchestration for all services
-- **Production-ready** with Nginx reverse proxy and security features
+1. **orchestrator** (Django / Daphne ASGI) — Control plane, REST API, admin, WebSockets
+   - Django apps: `website`, `alerts`, `gtfs` (submodule), `engine`, `api`
+   - Located in: `backend/`
 
-### 📱 **Django Applications**
-- `website`: Main site pages, user management, and public interfaces
-- `alerts`: Screen management, real-time data display via WebSockets
-- `gtfs`: GTFS Schedule and Realtime data management (submodule: django-app-gtfs)
-- `engine`: Information service providers and WebSocket consumers
-- `api`: RESTful API endpoints with DRF integration
+2. **engine** (Celery worker) — Background task processing
+   - Located in: `backend/` (same codebase, different entrypoint)
 
-### 🛠️ **Technology Stack**
-- **Backend**: Django 5.2+ with GeoDjango/PostGIS for geospatial operations
-- **Real-time**: Django Channels + Daphne ASGI server for WebSocket connections
-- **Background Tasks**: Celery + Redis for asynchronous task processing
-- **Database**: PostgreSQL 16 with PostGIS 3.4 extension
-- **Cache/Broker**: Redis 7 for sessions and Celery message broker
-- **Web Server**: Nginx (production) with rate limiting and security headers
-- **Transport Data**: GTFS Realtime bindings for transit data processing
+3. **scheduler** (Celery Beat) — Periodic task scheduling
+   - Located in: `backend/`
 
-### 🔧 **Key Dependencies**
-The `gtfs` directory is a Git submodule pointing to `django-app-gtfs` which provides comprehensive GTFS data models and processing capabilities for Costa Rican transit data.
+4. **user-interface** (Nuxt) — Web frontend
+   - Located in: `frontend/`
 
-## Development Setup
+5. **context** (FastMCP) — MCP tool server
+   - Located in: `context/`
 
-### 🚀 **Quick Start with Docker (Recommended)**
+6. **knowledge** (Apache Jena Fuseki) — SPARQL / knowledge graph
+   - Located in: `knowledge/`
 
-**Prerequisites:**
-- Docker Desktop
-- Git
+### Infrastructure Services
 
-**One-command setup:**
+- **database** — PostgreSQL 16 with PostGIS 3.4 (durable persistence)
+- **memory** — Redis 7 (cache, sessions, Celery broker)
+- **broker** — RabbitMQ 4 (AMQP messaging)
+
+### Key Dependencies
+
+The `gtfs` directory in `backend/` is a Git submodule. Always run `git submodule update --init --recursive` after cloning.
+
+## Development Commands
+
+### Quick Start
+
 ```bash
-./scripts/dev.sh
+./scripts/dev.sh  # builds, starts, and waits for all services
 ```
 
-This will:
-- Build and start all services (Django, PostgreSQL, Redis, Celery)
-- Set up the database with PostGIS extension
-- Run migrations and create sample data
-- Start the development server with hot reload
+### Common Tasks
 
-**Access points:**
-- Website: http://localhost:8000
-- Admin: http://localhost:8000/admin (admin/admin)
-- Database: localhost:5432
-- Redis: localhost:6379
-
-### 💻 **Manual Development Setup**
-
-If you prefer to run services locally:
-
-**Prerequisites:**
-- Python 3.12+
-- PostgreSQL 16+ with PostGIS 3.4+
-- Redis 7+
-- uv (Python package manager)
-
-**Database Setup:**
 ```bash
-# Create database
-createdb infobus
+# Logs
+docker compose -f compose.dev.yml logs -f
+docker compose -f compose.dev.yml logs -f orchestrator
 
-# Enable PostGIS extension
-psql infobus -c "CREATE EXTENSION postgis;"
+# Django management
+docker compose -f compose.dev.yml exec orchestrator uv run python manage.py migrate
+docker compose -f compose.dev.yml exec orchestrator uv run python manage.py createsuperuser
+docker compose -f compose.dev.yml exec orchestrator uv run python manage.py shell
+docker compose -f compose.dev.yml exec orchestrator uv run python manage.py collectstatic
+
+# Stop
+docker compose -f compose.dev.yml down
 ```
 
-**Environment Configuration:**
-Create environment files (auto-created by scripts):
-- `.env` - Base configuration
-- `.env.dev` - Development overrides  
-- `.env.local` - Local secrets (git-ignored)
+### Code Quality
 
-**Example `.env.local`:**
 ```bash
-SECRET_KEY=your-generated-secret-key
-DEBUG=True
-DB_NAME=infobus
-DB_USER=postgres
-DB_PASSWORD=postgres
-REDIS_HOST=localhost
-REDIS_PORT=6379
-# macOS ARM64 GDAL/GEOS paths
-GDAL_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgdal.so
-GEOS_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/libgeos_c.so
+# From backend/
+ruff check .
+ruff format .
+mypy .
+pytest
 ```
 
-## Common Commands
+### Accessing Services
 
-### 🚀 **Docker Development Workflow**
+- Orchestrator / API: http://localhost:8000
+- Django Admin: http://localhost:8000/admin (admin/admin)
+- Nuxt frontend: http://localhost:3000
+- RabbitMQ Management: http://localhost:15672 (guest/guest)
+- Fuseki SPARQL: http://localhost:3030
+- MCP Context: http://localhost:3278
 
-**Start Development Environment:**
+## Production Deployment
+
+Production uses Traefik as reverse proxy with Let's Encrypt TLS. All traffic via port 443.
+
 ```bash
-./scripts/dev.sh  # One-command setup
+./scripts/prod.sh
 ```
 
-**Common Development Tasks:**
+Compose file: `compose.prod.yml`
+
+### Production Management
+
 ```bash
-# View logs
-docker-compose logs -f
-
-# View specific service logs
-docker-compose logs -f web
-docker-compose logs -f celery-worker
-
-# Run Django commands
-docker-compose exec web uv run python manage.py migrate
-docker-compose exec web uv run python manage.py createsuperuser
-docker-compose exec web uv run python manage.py collectstatic
-
-# Django shell
-docker-compose exec web uv run python manage.py shell
-
-# Run tests
-docker-compose exec web uv run python manage.py test
-
-# Stop environment
-docker-compose down
+docker compose -f compose.prod.yml logs -f
+docker compose -f compose.prod.yml exec orchestrator uv run python manage.py migrate
+docker compose -f compose.prod.yml exec orchestrator uv run python manage.py createsuperuser
+docker compose -f compose.prod.yml build && docker compose -f compose.prod.yml up -d
+docker compose -f compose.prod.yml down
 ```
 
-### 🏭 **Production Deployment**
+## Django Apps (backend/)
 
-**Start Production Environment:**
-```bash
-./scripts/prod.sh  # Production setup with nginx
-```
-
-**Production Management:**
-```bash
-# View production logs
-docker-compose -f docker-compose.production.yml logs -f
-
-# Run migrations in production
-docker-compose -f docker-compose.production.yml exec web uv run python manage.py migrate
-
-# Collect static files
-docker-compose -f docker-compose.production.yml exec web uv run python manage.py collectstatic
-
-# Stop production environment
-docker-compose -f docker-compose.production.yml down
-```
-
-**Production URLs:**
-- Website: http://localhost (via Nginx)
-- Admin: http://localhost/admin
-- Health: http://localhost/health/
-
-### 💻 **Manual Commands** (if not using Docker)
-
-**Development Server:**
-```bash
-# Install dependencies
-uv sync
-
-# Run migrations
-uv run python manage.py migrate
-
-# Start Django server (Daphne ASGI)
-uv run python manage.py runserver
-
-# Start Celery worker
-uv run celery -A infobus worker --loglevel=info
-
-# Start Celery beat scheduler
-uv run celery -A infobus beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --loglevel=info
-```
-
-### 📦 **Git Submodules**
-```bash
-# Initialize and update GTFS submodule
-git submodule update --init --recursive
-
-# Update submodule to latest
-git submodule update --remote
-```
-
-### 📊 **Testing & Quality**
-```bash
-# Run all tests (in Docker)
-docker-compose exec web uv run python manage.py test
-
-# Run specific app tests
-docker-compose exec web uv run python manage.py test alerts
-docker-compose exec web uv run python manage.py test engine
-
-# Code security scan
-gitleaks detect --source . --verbose
-
-# Check Docker services status
-docker-compose ps
-```
-
-## Code Architecture
-
-### Real-time Data Flow
-1. **Data Collection**: Celery tasks periodically fetch GTFS Realtime feeds from external sources
-2. **Data Processing**: GTFS data is processed and classified by relevance to specific screens/stops
-3. **Real-time Updates**: Django Channels WebSockets push updates to connected display screens
-4. **Display Rendering**: Raspberry Pi devices in kiosk mode display the information
-
-### Screen Management System
-- Screens are modeled with geographic locations (PostGIS Point fields)
-- Each screen can display information from multiple transit agencies
-- WebSocket connections maintain real-time updates to screen content
-- Screens are designed for deployment on Raspberry Pi hardware in kiosk mode
+- **website** — Main site pages, user management, public interfaces
+- **alerts** — Screen management, real-time data display via WebSockets
+- **gtfs** — GTFS Schedule and Realtime data (Git submodule)
+- **engine** — Information service providers and WebSocket consumers
+- **api** — DRF ViewSets, token authentication, OpenAPI schema via drf-spectacular
 
 ### Background Tasks
-Key Celery tasks include:
+
+Key Celery tasks:
 - `get_weather()`: Fetch weather data for display locations
 - `get_social_feed()`: Collect relevant social media content
 - `get_cap_alerts()`: Retrieve Common Alerting Protocol emergency alerts
 
-### API Structure
-- REST API endpoints are available at `/api/`
-- GTFS-related endpoints at `/gtfs/`
-- Screen status and WebSocket connections at `/status/`
-- Alert management at `/alertas/`
+Scheduled via Django admin at `/admin/django_celery_beat/`.
 
-## 🔧 **Troubleshooting**
+### Screen Management
 
-### Database Migration Issues
-If encountering migration problems:
-```bash
-# In Docker
-docker-compose exec web uv run python manage.py migrate --fake <app> zero
-docker-compose exec web uv run python manage.py makemigrations <app>
-docker-compose exec web uv run python manage.py migrate
+- Screens are modeled with geographic locations (PostGIS Point fields)
+- Each screen can display information from multiple transit agencies
+- WebSocket connections maintain real-time updates to screen content
+- Designed for deployment on Raspberry Pi hardware in kiosk mode
 
-# Manual setup
-uv run python manage.py migrate --fake <app> zero
-uv run python manage.py makemigrations <app>
-uv run python manage.py migrate
-```
+## Environment Configuration
 
-### Docker Issues
-```bash
-# Rebuild containers
-docker-compose up --build
+Required variables in `.env`:
 
-# Reset volumes (WARNING: deletes data)
-docker-compose down -v
+- Django: `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`
+- Database: `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT`
+- Redis: `REDIS_HOST`, `REDIS_PORT`
+- RabbitMQ: `RABBITMQ_USER`, `RABBITMQ_PASS`, `RABBITMQ_HOST`, `RABBITMQ_PORT`
+- macOS only: `GDAL_LIBRARY_PATH`, `GEOS_LIBRARY_PATH` (for PostGIS)
 
-# Check container logs
-docker-compose logs <service-name>
+Files:
 
-# Execute commands in running container
-docker-compose exec web bash
-```
+- `.env` — Base configuration (not in git)
+- `.env.dev` — Development overrides (tracked)
+- `.env.prod` — Production overrides (tracked)
+- `.env.example` — Template
 
-### Environment File Issues
-```bash
-# Development scripts will auto-create missing files
-./scripts/dev.sh  # Creates .env.dev and .env.local if missing
+## Important Notes
 
-# Manual creation from templates
-cp .env.local.example .env.local
-# Edit .env.local with your settings
-```
-
-## 🏭 **Production Deployment**
-
-### Docker Production Features
-- **Containerized infrastructure** with Docker Compose
-- **Multi-stage builds** optimized for production
-- **Nginx reverse proxy** with rate limiting and security headers
-- **PostgreSQL 16 with PostGIS 3.4** for geospatial data
-- **Redis 7** for caching and Celery message broker
-- **Celery workers and beat** for background task processing
-- **Persistent data volumes** for database and media files
-- **Environment-based configuration** with secure secrets management
-- **Health check endpoints** for monitoring
-- **SSL-ready configuration** (commented, ready to enable)
-
-### Security Features
-- **Rate limiting** on API and admin endpoints
-- **Security headers** (OWASP recommended)
-- **Content protection** and XSS prevention
-- **Secrets isolation** (no secrets in git)
-- **Container security** with non-root user
-
-### Deployment Architecture
-```
-Internet → Nginx (Port 80) → Django/Daphne (Port 8000)
-                           ↓
-                    PostgreSQL (PostGIS)
-                           ↓
-                    Redis ← Celery Workers/Beat
-```
-
-### Production Checklist
-- [ ] Generate secure `SECRET_KEY` in `.env.prod`
-- [ ] Update database passwords
-- [ ] Configure domain names in `ALLOWED_HOSTS`
-- [ ] Set up SSL certificates (if needed)
-- [ ] Configure backup strategy
-- [ ] Set up monitoring and logging
-- [ ] Test health check endpoints
-
-**Designed for deployment on:**
-- Cloud platforms (AWS, GCP, Azure)
-- Virtual private servers
-- Raspberry Pi display devices (kiosk mode)
-- Local development and testing
+- **GTFS submodule**: Always run `git submodule update --init --recursive` after cloning
+- **Package manager**: Uses `uv`, not pip directly
+- **Timezone**: `America/Costa_Rica` (es-cr locale)
+- **Service names in Docker**: Use compose service names (`database`, `memory`, `broker`) not `localhost` for inter-service communication
+- **Compose files**: `compose.dev.yml` (development), `compose.prod.yml` (production)
+- **Production proxy**: Traefik (external container on `traefik_proxy` network), not Nginx
+- **Tests**: Minimal coverage currently. Use pytest with pytest-django for new tests
