@@ -4,6 +4,35 @@ from .models import StopScreen
 from asgiref.sync import async_to_sync
 
 
+class WebConsumer(WebsocketConsumer):
+    def connect(self):
+        self.web_component = self.scope["url_route"]["kwargs"]["web_component"]
+        self.element_id = self.scope["url_route"]["kwargs"]["element_id"]
+        self.web_group_name = f"web_{self.web_component}_{self.element_id}"
+        async_to_sync(self.channel_layer.group_add)(
+            self.web_group_name, self.channel_name
+        )
+        self.accept()
+        # TODO: Send initial state (next trips) of the web component to the client
+        self.send(text_data=f"Web group name: {self.web_group_name}")
+
+    def disconnect(self, close_code):
+        async_to_sync(self.channel_layer.group_discard)(
+            self.web_group_name, self.channel_name
+        )
+
+    def receive(self, text_data):
+        text_data_json = json.loads(text_data)
+        message = text_data_json["message"]
+        async_to_sync(self.channel_layer.group_send)(
+            self.web_group_name, {"type": "web_message", "message": message}
+        )
+
+    def web_message(self, event):
+        message = event["message"]
+        self.send(text_data=json.dumps({"message": message}))
+
+
 class ScreenConsumer(WebsocketConsumer):
     def connect(self):
         self.screen_type = self.scope["url_route"]["kwargs"]["screen_type"]
