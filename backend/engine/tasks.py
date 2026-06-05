@@ -1,4 +1,4 @@
-from celery import shared_task
+from celery import shared_task, group, chord
 
 import logging
 import json
@@ -733,7 +733,61 @@ def get_alerts():
 
 
 @shared_task
-def save_vehicle_positions_to_parquet(use_current_hour=False):
+def update_schedule():
+    pass
+
+
+@shared_task
+def update_next_trips():
+    """Retrieves new real-time information and updates the connected screens for a given stop or station."""
+
+    stop_screens = StopScreen.objects.filter(is_active=True)
+
+    for screen in stop_screens:
+        stop = screen.stop
+        transit_system = screen.transit_system
+        stop_screen_message = get_next_trips(transit_system, stop.stop_id)
+
+        if stop_screen_message is not None:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"screen_stop_{screen.screen_id}",
+                {
+                    "type": "screen_message",
+                    "message": stop_screen_message,
+                },
+            )
+
+    station_screens = StationScreen.objects.filter(is_active=True)
+
+    for screen in station_screens:
+        stops = Stop.objects.filter(parent_station=screen.station)
+        station_screen_message = []
+        for stop in stops:
+            stop_message = get_next_trips(stop.stop_id)
+            if stop_message is not None:
+                station_screen_message.append(stop_message)
+
+        if station_screen_message:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                f"screen_station_{screen.screen_id}",
+                {
+                    "type": "screen_message",
+                    "message": station_screen_message,
+                },
+            )
+
+    return "Updated screens successfully"
+
+
+@shared_task
+def update_next_stops():
+    pass
+
+
+@shared_task
+def save_vehicle_positions(use_current_hour=False):
     """Export VehiclePosition rows into Hive partitions.
 
     By default it exports the last complete hour. Set use_current_hour=True to
@@ -1008,7 +1062,7 @@ def save_vehicle_positions_to_parquet(use_current_hour=False):
 
 
 @shared_task
-def save_stop_time_updates_to_parquet(use_current_hour=False):
+def save_stop_time_updates(use_current_hour=False):
     """Export StopTimeUpdate rows into Hive partitions.
 
     By default it exports the last complete hour. Set use_current_hour=True to
@@ -1246,65 +1300,37 @@ def save_stop_time_updates_to_parquet(use_current_hour=False):
 
 
 @shared_task
-def update_stop_screens():
-    """Retrieves new real-time information and updates the connected screens fro a given stop."""
-
-    stop_screens = StopScreen.objects.filter(is_active=True)
-
-    for screen in stop_screens:
-        stop = screen.stop
-        transit_system = screen.transit_system
-        stop_screen_message = get_next_trips(transit_system, stop.stop_id)
-        if stop_screen_message is not None:
-            async_to_sync(get_channel_layer().group_send)(
-                f"screen_stop_{screen.screen_id}",
-                {
-                    "type": "screen_message",
-                    "message": stop_screen_message,
-                },
-            )
-
-    return "Updated stop screens successfully"
+def update_gtfs_schedule():
+    """Looks for new GTFS Schedule files from feed publishers, and updates the database when new
+    data is available, then
+    """
+    workflow = chord(get_schedule.s())(update_schedule.si())
+    return workflow.id
 
 
 @shared_task
-def update_station_screens():
-    """Retrieves new real-time information and updates the connected screens for a given station that comprises two or more stops."""
-
-    station_screens = StationScreen.objects.filter(is_active=True)
-
-    for screen in station_screens:
-        stops = Stop.objects.filter(parent_station=screen.station)
-        update_message = []
-
-        for stop in stops:
-            stop_message = get_next_trips(stop.stop_id)
-
-            if stop_message is not None:
-                update_message.append(stop_message)
-
-        # Send the message to the screen via websocket
-        channel_layer = get_channel_layer()
-        async_to_sync(channel_layer.group_send)(
-            f"screen_station_{screen.screen_id}",
-            {
-                "type": "screen_message",
-                "message": update_message,
-            },
-        )
-
-    # Status monitor update via WebSockets. TODO: Prometheus
-    message = {}
-    message["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    message["active_stop_screens"] = len(station_screens)
-
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        "status",
-        {
-            "type": "status_message",
-            "message": message,
-        },
+def update_gtfs_realtime():
+    """Fetches GTFS Realtime feeds (VehiclePositions, TripUpdates, and Alerts)
+    every few seconds from all active feed publishers, and then updates the connected services
+    consuming next trips and next stops for a current trip (run).
+    """
+    fetching = group(get_vehicle_positions.s(), get_trip_updates.s(), get_alerts.s())
+    updating = group(
+        update_next_trips.si(),
+        update_next_stops.si(),
     )
+    workflow = chord(fetching)(updating)
+    return workflow.id
 
-    return "Updated station screens successfully"
+
+@shared_task
+def save_gtfs_realtime():
+    """Saves GTFS Realtime VehiclePosition and StopTimeUpdate records every hour into Hive partitions
+    for historical analysis. By default it exports the last complete hour. Set `use_current_hour=True`
+    to export records from the current hour (debug mode).
+    """
+    saving = group(
+        save_vehicle_positions.s(),
+        save_stop_time_updates.s(),
+    )
+    return saving.apply_async().id
