@@ -6,7 +6,9 @@ from . import views
 
 router = routers.DefaultRouter()
 router.register(r"info-services", views.InfoServiceViewSet)
+router.register(r"transit-systems", views.TransitSystemViewSet)
 router.register(r"feed-publishers", views.FeedPublisherViewSet)
+router.register(r"feeds", views.FeedViewSet)
 router.register(r"agencies", views.AgencyViewSet)
 router.register(r"stops", views.StopViewSet)
 router.register(r"geo-stops", views.GeoStopViewSet, basename="geo-stop")
@@ -21,6 +23,13 @@ router.register(r"fare-attributes", views.FareAttributeViewSet)
 router.register(r"fare-rules", views.FareRuleViewSet)
 router.register(r"feed-info", views.FeedInfoViewSet)
 
+# GTFS Realtime
+router.register(r"feed-messages", views.FeedMessageViewSet)
+router.register(r"trip-updates", views.TripUpdateViewSet)
+router.register(r"stop-time-updates", views.StopTimeUpdateViewSet)
+router.register(r"vehicle-positions", views.VehiclePositionViewSet)
+router.register(r"service-alerts", views.ServiceAlertViewSet)
+
 
 # Wire up our API using automatic URL routing.
 # Additionally, we include login URLs for the browsable API.
@@ -32,4 +41,10 @@ urlpatterns = [
     path("api-auth/", include("rest_framework.urls", namespace="rest_framework")),
     path("docs/schema/", views.get_schema, name="schema"),
     path("docs/", SpectacularRedocView.as_view(url_name="schema"), name="api_docs"),
+    path("docs/schema-auto/", SpectacularAPIView.as_view(), name="schema-auto"),
+    path(
+        "docs/auto/",
+        SpectacularRedocView.as_view(url_name="schema-auto"),
+        name="api_docs_auto",
+    ),
 ]

@@ -30,6 +30,8 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("website.urls")),
     path("api/", include("api.urls")),
+    path("schedule/", include("api.urls_schedule")),
+    path("realtime/", include("api.urls_realtime")),
     # path("gtfs/", include("gtfs.urls")),
     path("status/", include("engine.urls")),
     path("alertas/", include("alerts.urls")),

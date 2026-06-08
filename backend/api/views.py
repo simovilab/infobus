@@ -1,26 +1,94 @@
+from datetime import datetime, timedelta
+
+import pytz
+from alerts.models import Social, Weather
 from django.conf import settings
 from django.http import FileResponse
+from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from engine.models import InfoService
 from feed.models import (
-    FeedPublisher,
     Agency,
-    Stop,
-    Route,
-    Trip,
-    StopTime,
+    Alert,
+    Calendar,
+    CalendarDate,
+    FareAttribute,
+    FareRule,
+    Feed,
     FeedInfo,
+    FeedMessage,
+    FeedPublisher,
+    GeoShape,
+    Route,
+    RouteStop,
+    Shape,
+    Stop,
+    StopTime,
+    StopTimeUpdate,
+    TransitSystem,
+    Trip,
+    TripUpdate,
+    VehiclePosition,
 )
-from rest_framework import viewsets, permissions
-from rest_framework.views import APIView
+from rest_framework import status, viewsets
 from rest_framework.response import Response
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import status
+from rest_framework.views import APIView
 from shapely import geometry
-from datetime import datetime, timedelta
-import pytz
-from django.conf import settings
 
-from .serializers import *
+from .filters import (
+    AgencyFilter,
+    CalendarDateFilter,
+    CalendarFilter,
+    FareAttributeFilter,
+    FareRuleFilter,
+    FeedFilter,
+    FeedInfoFilter,
+    FeedMessageFilter,
+    FeedPublisherFilter,
+    GeoShapeFilter,
+    GeoStopFilter,
+    RouteFilter,
+    ServiceAlertFilter,
+    ShapeFilter,
+    StopFilter,
+    StopTimeFilter,
+    StopTimeUpdateFilter,
+    TripFilter,
+    TripUpdateFilter,
+    VehiclePositionFilter,
+)
+from .serializers import (
+    AgencySerializer,
+    CalendarDateSerializer,
+    CalendarSerializer,
+    FareAttributeSerializer,
+    FareRuleSerializer,
+    FeedInfoSerializer,
+    FeedMessageSerializer,
+    FeedPublisherSerializer,
+    FeedSerializer,
+    GeoShapeSerializer,
+    GeoStopSerializer,
+    InfoServiceSerializer,
+    NextStopSerializer,
+    NextTripSerializer,
+    RouteSerializer,
+    RouteStopSerializer,
+    ServiceAlertSerializer,
+    ShapeSerializer,
+    SocialSerializer,
+    StopSerializer,
+    StopTimeSerializer,
+    StopTimeUpdateSerializer,
+    TransitSystemSerializer,
+    TripSerializer,
+    TripUpdateSerializer,
+    VehiclePositionSerializer,
+    WeatherSerializer,
+)
+
+# from .serializers import *
 
 # from .serializers import InfoServiceSerializer, FeedPublisherSerializer, RouteSerializer, TripSerializer
 
@@ -37,7 +105,18 @@ class FilterMixin:
         return queryset.filter(**filter_args)
 
 
-class FeedPublisherViewSet(viewsets.ModelViewSet):
+class TransitSystemViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Sistemas de transporte registrados.
+    """
+
+    queryset = TransitSystem.objects.all()
+    serializer_class = TransitSystemSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["code", "name"]
+
+
+class FeedPublisherViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Proveedores de datos GTFS.
     """
@@ -45,20 +124,61 @@ class FeedPublisherViewSet(viewsets.ModelViewSet):
     queryset = FeedPublisher.objects.all()
     serializer_class = FeedPublisherSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["code", "name"]
+    filterset_class = FeedPublisherFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
+class FeedViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Feeds GTFS Schedule (snapshots por publisher).
+    """
+
+    queryset = Feed.objects.all()
+    serializer_class = FeedSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = FeedFilter
+
+
 class NextTripView(APIView):
+    @extend_schema(
+        tags=["custom"],
+        description=(
+            "Devuelve los próximos viajes para una parada, combinando datos "
+            "de GTFS Schedule y GTFS Realtime cuando está disponible."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="stop_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Identificador GTFS de la parada.",
+            ),
+            OpenApiParameter(
+                name="timestamp",
+                type=OpenApiTypes.DATETIME,
+                location=OpenApiParameter.QUERY,
+                required=False,
+                description=(
+                    "Momento de referencia (formato YYYY-MM-DDTHH:MM:SS). "
+                    "Si no se indica, se usa el momento actual."
+                ),
+            ),
+        ],
+        responses={
+            200: NextTripSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+            503: OpenApiTypes.OBJECT,
+        },
+    )
     def get(self, request):
         timezone = pytz.timezone(settings.TIME_ZONE)
 
         # Query parameters
         if request.query_params.get("stop_id"):
             stop_id = request.query_params.get("stop_id")
-            try:
-                Stop.objects.get(stop_id=stop_id)
-            except Stop.DoesNotExist:
+            if not Stop.objects.filter(stop_id=stop_id).exists():
                 return Response(
                     {
                         "error": f"No existe la parada especificada {stop_id} en la base de datos."
@@ -82,7 +202,13 @@ class NextTripView(APIView):
             timestamp = timezone.localize(timestamp)
 
         # Get the current GTFS feed
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        except Feed.DoesNotExist:
+            return Response(
+                {"error": "No hay un feed GTFS activo."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
         service_id = get_calendar(timestamp.date(), current_feed)
         if service_id is None:
             return Response(
@@ -107,9 +233,8 @@ class NextTripView(APIView):
             stop_time_updates = StopTimeUpdate.objects.none()
         else:
             stop_time_updates = StopTimeUpdate.objects.filter(
-                feed_message=latest_feed_message, stop_id=stop_id
+                trip_update__feed_message=latest_feed_message, stop_id=stop_id
             )
-        print("Checkpoint 1")
 
         trips_in_progress = []
 
@@ -121,24 +246,32 @@ class NextTripView(APIView):
             trip = Trip.objects.filter(
                 trip_id=trip_update.trip_trip_id, feed=current_feed
             ).first()
-            trips_in_progress.append(trip)
+            if trip is None:
+                continue
             route = Route.objects.filter(
                 route_id=trip.route_id, feed=current_feed
             ).first()
+            if route is None:
+                continue
             vehicle_position = VehiclePosition.objects.filter(
                 # TODO: ponder if making a new table for TripDescriptor is better
-                vehicle_trip_trip_id=trip_update.trip_trip_id,
-                vehicle_trip_start_date=trip_update.trip_start_date,
-                vehicle_trip_start_time=trip_update.trip_start_time,
+                trip_trip_id=trip_update.trip_trip_id,
+                trip_start_date=trip_update.trip_start_date,
+                trip_start_time=trip_update.trip_start_time,
             ).first()
+            if vehicle_position is None or vehicle_position.position_point is None:
+                continue
             geo_shape = GeoShape.objects.filter(
                 shape_id=trip.shape_id, feed=current_feed
             ).first()
+            if geo_shape is None or geo_shape.geometry is None:
+                continue
             geo_shape = geometry.LineString(geo_shape.geometry.coords)
-            location = vehicle_position.vehicle_position_point
+            location = vehicle_position.position_point
             location = geometry.Point(location.x, location.y)
             position_in_shape = geo_shape.project(location) / geo_shape.length
 
+            trips_in_progress.append(trip)
             next_arrivals.append(
                 {
                     "trip_id": trip.trip_id,
@@ -152,14 +285,12 @@ class NextTripView(APIView):
                     "in_progress": True,
                     "progression": {
                         "position_in_shape": position_in_shape,
-                        "current_stop_sequence": vehicle_position.vehicle_current_stop_sequence,
-                        "current_status": vehicle_position.vehicle_current_status,
-                        "occupancy_status": vehicle_position.vehicle_occupancy_status,
+                        "current_stop_sequence": vehicle_position.current_stop_sequence,
+                        "current_status": vehicle_position.current_status,
+                        "occupancy_status": vehicle_position.occupancy_status,
                     },
                 }
             )
-
-        print(trips_in_progress)
 
         # ---------------
         # Scheduled trips
@@ -171,10 +302,6 @@ class NextTripView(APIView):
             arrival_time__gte=timestamp.time(),
             # _trip__service_id=service_id,
         ).order_by("arrival_time")
-
-        print(
-            f"Checkpoint 2: {stop_times} {stop_id} {current_feed} {service_id} {timestamp.time()}"
-        )
 
         # Build the response for scheduled trips
         for stop_time in stop_times:
@@ -223,6 +350,40 @@ class NextTripView(APIView):
 
 
 class NextStopView(APIView):
+    @extend_schema(
+        tags=["custom"],
+        description=(
+            "Devuelve la secuencia de próximas paradas para un viaje en progreso."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="trip_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Identificador GTFS del viaje.",
+            ),
+            OpenApiParameter(
+                name="start_date",
+                type=OpenApiTypes.DATE,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Fecha de inicio del viaje (formato YYYY-MM-DD).",
+            ),
+            OpenApiParameter(
+                name="start_time",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Hora de inicio del viaje (formato HH:MM:SS).",
+            ),
+        ],
+        responses={
+            200: NextStopSerializer,
+            400: OpenApiTypes.OBJECT,
+            503: OpenApiTypes.OBJECT,
+        },
+    )
     def get(self, request):
         # Get query parameters
         trip_id = request.query_params.get("trip_id")
@@ -240,23 +401,35 @@ class NextStopView(APIView):
         next_stop_sequence = []
 
         # For trips in progress
-        latest_trip_update = FeedMessage.objects.filter(
-            entity_type="trip_update"
-        ).latest("timestamp")
-        trip_update = TripUpdate.objects.filter(
-            feed_message=latest_trip_update,
-            trip_trip_id=trip_id,
-            trip_start_date=start_date,
-            trip_start_time=start_time,
-        ).first()
-        stop_time_updates = StopTimeUpdate.objects.filter(
-            trip_update=trip_update
-        ).order_by("stop_sequence")
+        try:
+            latest_trip_update = FeedMessage.objects.filter(
+                entity_type="trip_update"
+            ).latest("timestamp")
+        except FeedMessage.DoesNotExist:
+            latest_trip_update = None
 
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        if latest_trip_update is None:
+            stop_time_updates = StopTimeUpdate.objects.none()
+        else:
+            trip_update = TripUpdate.objects.filter(
+                feed_message=latest_trip_update,
+                trip_trip_id=trip_id,
+                trip_start_date=start_date,
+                trip_start_time=start_time,
+            ).first()
+            stop_time_updates = StopTimeUpdate.objects.filter(
+                trip_update=trip_update
+            ).order_by("stop_sequence")
+
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        except Feed.DoesNotExist:
+            return Response(
+                {"error": "No hay un feed GTFS activo."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         for stop_time_update in stop_time_updates:
-            print(f"La parada: {stop_time_update.stop_id}")
             stop = Stop.objects.get(
                 stop_id=stop_time_update.stop_id,
                 feed=current_feed,
@@ -281,13 +454,41 @@ class NextStopView(APIView):
             "next_stop_sequence": next_stop_sequence,
         }
 
-        print(data)
         serializer = NextStopSerializer(data)
 
         return Response(serializer.data)
 
 
 class RouteStopView(APIView):
+    @extend_schema(
+        tags=["custom"],
+        description=(
+            "Devuelve las paradas asociadas a una ruta y trayectoria en formato GeoJSON."
+        ),
+        parameters=[
+            OpenApiParameter(
+                name="route_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Identificador GTFS de la ruta.",
+            ),
+            OpenApiParameter(
+                name="shape_id",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                required=True,
+                description="Identificador GTFS de la trayectoria (shape).",
+            ),
+        ],
+        responses={
+            200: RouteStopSerializer,
+            400: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+            500: OpenApiTypes.OBJECT,
+            503: OpenApiTypes.OBJECT,
+        },
+    )
     def get(self, request):
         # Get and validate query parameters
         if request.query_params.get("route_id") and request.query_params.get(
@@ -315,16 +516,25 @@ class RouteStopView(APIView):
             )
 
         # Get the current GTFS feed
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        try:
+            current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
+        except Feed.DoesNotExist:
+            return Response(
+                {"error": "No hay un feed GTFS activo."},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
 
         # Construct the GeoJSON structure
         geojson = {"type": "FeatureCollection", "features": []}
 
         # Build the response for scheduled trips
         for route_stop in route_stops:
-            stop = Stop.objects.get(stop_id=route_stop.stop_id, feed=current_feed)
+            stop = Stop.objects.filter(
+                stop_id=route_stop.stop_id, feed=current_feed
+            ).first()
+            if stop is None or stop.stop_point is None:
+                continue
 
-            print(stop.shelter)
             feature = {
                 "type": "Feature",
                 "geometry": {
@@ -361,7 +571,7 @@ class RouteStopView(APIView):
             )
 
 
-class AgencyViewSet(viewsets.ModelViewSet):
+class AgencyViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Agencias de transporte público.
     """
@@ -369,11 +579,11 @@ class AgencyViewSet(viewsets.ModelViewSet):
     queryset = Agency.objects.all()
     serializer_class = AgencySerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["agency_id", "agency_name"]
+    filterset_class = AgencyFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopViewSet(viewsets.ModelViewSet):
+class StopViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Paradas de transporte público.
     """
@@ -381,18 +591,11 @@ class StopViewSet(viewsets.ModelViewSet):
     queryset = Stop.objects.all()
     serializer_class = StopSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = [
-        "stop_id",
-        "stop_code",
-        "stop_name",
-        "stop_lat",
-        "stop_lon",
-        "stop_url",
-    ]
+    filterset_class = StopFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class GeoStopViewSet(viewsets.ModelViewSet):
+class GeoStopViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Paradas como GeoJSON.
     """
@@ -400,17 +603,11 @@ class GeoStopViewSet(viewsets.ModelViewSet):
     queryset = Stop.objects.all()
     serializer_class = GeoStopSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = [
-        "stop_id",
-        "location_type",
-        "zone_id",
-        "parent_station",
-        "wheelchair_boarding",
-    ]
+    filterset_class = GeoStopFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class RouteViewSet(viewsets.ModelViewSet):
+class RouteViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Rutas de transporte público.
     """
@@ -418,7 +615,7 @@ class RouteViewSet(viewsets.ModelViewSet):
     queryset = Route.objects.all()
     serializer_class = RouteSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["route_type", "route_id"]
+    filterset_class = RouteFilter
 
     # def get_queryset(self):
     #    queryset = Route.objects.all()
@@ -430,7 +627,7 @@ class RouteViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class CalendarViewSet(viewsets.ModelViewSet):
+class CalendarViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Calendarios de transporte público.
     """
@@ -438,11 +635,11 @@ class CalendarViewSet(viewsets.ModelViewSet):
     queryset = Calendar.objects.all()
     serializer_class = CalendarSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["service_id"]
+    filterset_class = CalendarFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class CalendarDateViewSet(viewsets.ModelViewSet):
+class CalendarDateViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Fechas de calendario de transporte público.
     """
@@ -450,11 +647,11 @@ class CalendarDateViewSet(viewsets.ModelViewSet):
     queryset = CalendarDate.objects.all()
     serializer_class = CalendarDateSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["service_id"]
+    filterset_class = CalendarDateFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class ShapeViewSet(viewsets.ModelViewSet):
+class ShapeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Formas de transporte público.
     """
@@ -462,11 +659,11 @@ class ShapeViewSet(viewsets.ModelViewSet):
     queryset = Shape.objects.all()
     serializer_class = ShapeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id"]
+    filterset_class = ShapeFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class GeoShapeViewSet(viewsets.ModelViewSet):
+class GeoShapeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Formas geográficas de transporte público.
     """
@@ -474,11 +671,11 @@ class GeoShapeViewSet(viewsets.ModelViewSet):
     queryset = GeoShape.objects.all()
     serializer_class = GeoShapeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id"]
+    filterset_class = GeoShapeFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class TripViewSet(viewsets.ModelViewSet):
+class TripViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Viajes de transporte público.
     """
@@ -486,7 +683,7 @@ class TripViewSet(viewsets.ModelViewSet):
     queryset = Trip.objects.all()
     serializer_class = TripSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_class = TripFilter
 
     # allowed_query_parameters =  ['shape_id', 'direction_id', 'trip_id', 'route_id', 'service_id']
 
@@ -496,7 +693,7 @@ class TripViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopTimeViewSet(viewsets.ModelViewSet):
+class StopTimeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Horarios de paradas de transporte público.
     """
@@ -504,11 +701,11 @@ class StopTimeViewSet(viewsets.ModelViewSet):
     queryset = StopTime.objects.all()
     serializer_class = StopTimeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["trip_id", "stop_id"]
+    filterset_class = StopTimeFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FeedInfoViewSet(viewsets.ModelViewSet):
+class FeedInfoViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Información de alimentación de transporte público.
     """
@@ -516,11 +713,11 @@ class FeedInfoViewSet(viewsets.ModelViewSet):
     queryset = FeedInfo.objects.all()
     serializer_class = FeedInfoSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["feed_publisher_name"]
+    filterset_class = FeedInfoFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FareAttributeViewSet(viewsets.ModelViewSet):
+class FareAttributeViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Atributos de tarifa de transporte público.
     """
@@ -528,12 +725,12 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
     queryset = FareAttribute.objects.all()
     serializer_class = FareAttributeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_class = FareAttributeFilter
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
 
-class FareRuleViewSet(viewsets.ModelViewSet):
+class FareRuleViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Reglas de tarifa de transporte público.
     """
@@ -541,12 +738,12 @@ class FareRuleViewSet(viewsets.ModelViewSet):
     queryset = FareRule.objects.all()
     serializer_class = FareRuleSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_class = FareRuleFilter
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
 
-class ServiceAlertViewSet(viewsets.ModelViewSet):
+class ServiceAlertViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Alertas de servicio de transporte público.
     """
@@ -554,17 +751,11 @@ class ServiceAlertViewSet(viewsets.ModelViewSet):
     queryset = Alert.objects.all()
     serializer_class = ServiceAlertSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = [
-        "alert_id",
-        "route_id",
-        "trip_id",
-        "service_start_time",
-        "service_date",
-    ]
+    filterset_class = ServiceAlertFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class WeatherViewSet(viewsets.ModelViewSet):
+class WeatherViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Condiciones climáticas.
     """
@@ -576,7 +767,7 @@ class WeatherViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class SocialViewSet(viewsets.ModelViewSet):
+class SocialViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Publicaciones en redes sociales.
     """
@@ -588,7 +779,7 @@ class SocialViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FeedMessageViewSet(viewsets.ModelViewSet):
+class FeedMessageViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Mensajes de alimentación.
     """
@@ -596,12 +787,12 @@ class FeedMessageViewSet(viewsets.ModelViewSet):
     queryset = FeedMessage.objects.all()
     serializer_class = FeedMessageSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_class = FeedMessageFilter
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
 
-class TripUpdateViewSet(viewsets.ModelViewSet):
+class TripUpdateViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Actualizaciones de viaje.
     """
@@ -609,16 +800,11 @@ class TripUpdateViewSet(viewsets.ModelViewSet):
     queryset = TripUpdate.objects.all()
     serializer_class = TripUpdateSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = [
-        "trip_trip_id",
-        "trip_route_id",
-        "trip_start_time",
-        "vehicle_id",
-    ]
+    filterset_class = TripUpdateFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopTimeUpdateViewSet(viewsets.ModelViewSet):
+class StopTimeUpdateViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Actualizaciones de horario de parada.
     """
@@ -626,13 +812,13 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     queryset = StopTimeUpdate.objects.all()
     serializer_class = StopTimeUpdateSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_class = StopTimeUpdateFilter
 
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
 
-class VehiclePositionViewSet(viewsets.ModelViewSet):
+class VehiclePositionViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Posiciones de vehículos.
     """
@@ -640,17 +826,12 @@ class VehiclePositionViewSet(viewsets.ModelViewSet):
     queryset = VehiclePosition.objects.all()
     serializer_class = VehiclePositionSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = [
-        "vehicle_vehicle_id",
-        "vehicle_trip_route_id",
-        "vehicle_trip_trip_id",
-        "vehicle_trip_schedule_relationship",
-    ]
+    filterset_class = VehiclePositionFilter
 
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class InfoServiceViewSet(viewsets.ModelViewSet):
+class InfoServiceViewSet(viewsets.ReadOnlyModelViewSet):
     """
     Aplicaciones conectadas al servidor de datos.
     """
