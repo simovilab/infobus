@@ -4,7 +4,10 @@ from .models import StopScreen
 from asgiref.sync import async_to_sync
 
 
-class WebConsumer(WebsocketConsumer):
+class RealtimeConsumer(WebsocketConsumer):
+    def __init__(self):
+        self.subscriptions = set()
+
     def connect(self):
         self.web_component = self.scope["url_route"]["kwargs"]["web_component"]
         self.element_id = self.scope["url_route"]["kwargs"]["element_id"]

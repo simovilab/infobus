@@ -25,7 +25,6 @@ Posible mapeo de endpoints WebSocket:
 - ws/<run_id>/vehicle-stop-status/ -> VehicleStopStatusConsumer
 - ws/<run_id>/congestion-level/ -> CongestionLevelConsumer
 - ws/<run_id>/occupancy-status/ -> OccupancyStatusConsumer
-- ws/service/<screen_id>/ -> ServiceConsumer
 
 Cada vez que un viaje (run) comienza, las paradas asociadas 
 a ese viaje se suscriben a los endpoints correspondientes usando el run_id. 
@@ -35,4 +34,42 @@ del viaje, como la posición del vehículo, el nivel de congestión, el estado d
 Necesitamos una máquina de estados para cada viaje (run)
 para darle permanencia a cada viaje y manejar su ciclo de vida
 y eventualidades (pérdida de comunicación, etc).
+
+ws/realtime/
+
+{
+    "type": "screen",
+    "stop_id": "ABC123",
+}
+
+{
+    "type": "web",
+    "page": "route",
+    "route_id": "B23"
+}
+
+{
+  "action": "subscribe",
+  "topic": "run.stop_time_updates",
+  "run_id": "FTR456"
+}
+
+Topic: "run.stop_time_updates.<run_id>"
+Topic: "run.vehicle_stop_status.<run_id>"
+Topic: "run.congestion_level.<run_id>"
+Topic: "run.occupancy_status.<run_id>"
+Topic: "stop.stop_time_updates.<stop_id>"
+Topic: "stop.vehicle_positions.<stop_id>"
+Topic: "route.vehicle_positions.<route_id>"
+Topic: "alerts.agency_id.<agency_id>"
+Topic: "alerts.route_id.<route_id>"
+Topic: "alerts.route_type.<route_type>"
+Topic: "alerts.direction_id.<direction_id>"
+Topic: "alerts.run_id.<run_id>"
+Topic: "alerts.stop_id.<stop_id>"
+
+Redis: "run:vehicle_stop_status:<run_id>" (ARRIVING_AT, STOPPED_AT)
+Redis: "runs:in_progress"
+
+
 """
