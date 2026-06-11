@@ -72,7 +72,7 @@
     <script>
         // Crear un WebSocket 
         const wsProtocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
-        const wsUrl = wsProtocol + window.location.host + '/ws/screen/stop/{{ screen.screen_id }}/';
+        const wsUrl = wsProtocol + window.location.host + '/ws/updates/';
         const screenSocket = new WebSocket(wsUrl);
 
         // Registrar la conexión abierta
@@ -82,6 +82,16 @@
 
         // Mostrar un mensaje de espera
         document.getElementById('alert').innerHTML = '<i class="fa-solid fa-bus fa-fade"></i> Esperando datos... <br> <span class="fs-3 text-muted fst-italic">Puede tardar hasta 20 segundos</span>';
+
+        // Suscribirse al grupo de la parada con un mensaje
+        screenSocket.onopen = function (event) {
+            screenSocket.send(JSON.stringify({
+                "action": "subscribe",
+                "entity": "stop",
+                "info": "stop_time_updates",
+                "instance": "{{ stop.stop_id }}"
+            }));
+        };
 
         // Manejo de eventos
         screenSocket.onmessage = function (event) {

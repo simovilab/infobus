@@ -50,6 +50,13 @@ from api.views import get_next_trips
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 
+from redis import Redis
+from django.conf import settings
+
+r = Redis(
+    host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_CELERY_DB
+)
+
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
     encoding="utf-8",
@@ -738,6 +745,37 @@ def update_schedule():
 
 
 @shared_task
+def update_channels():
+    """Retrieves new real-time information and updates the connected screens for a given stop or station."""
+
+    active_subscriptions = r.smembers("active_subscriptions")
+    active_subscriptions = [key.decode("utf-8") for key in active_subscriptions]
+
+    stop_time_updates = {
+        key for key in active_subscriptions if key.startswith("stop.stop_time_updates.")
+    }
+
+    for key in stop_time_updates:
+        transit_system = 2
+        stop = Stop.objects.filter(stop_id=key.split(".")[-1]).first()
+        if stop is None:
+            continue
+        stop_time_update_message = get_next_trips(transit_system, stop.stop_id)
+
+        if stop_time_update_message is not None:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                key,
+                {
+                    "type": "realtime_message",
+                    "message": stop_time_update_message,
+                },
+            )
+
+    return "Updated screens successfully"
+
+
+@shared_task
 def update_next_trips():
     """Retrieves new real-time information and updates the connected screens for a given stop or station."""
 
@@ -753,7 +791,7 @@ def update_next_trips():
             async_to_sync(channel_layer.group_send)(
                 f"screen_stop_{screen.screen_id}",
                 {
-                    "type": "screen_message",
+                    "type": "realtime_message",
                     "message": stop_screen_message,
                 },
             )
@@ -1316,8 +1354,7 @@ def update_gtfs_realtime():
     """
     fetching = group(get_vehicle_positions.s(), get_trip_updates.s(), get_alerts.s())
     updating = group(
-        update_next_trips.si(),
-        update_next_stops.si(),
+        update_channels.si(),
     )
     workflow = chord(fetching)(updating)
     return workflow.id

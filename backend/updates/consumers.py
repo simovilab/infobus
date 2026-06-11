@@ -1,37 +1,54 @@
 import json
 from channels.generic.websocket import WebsocketConsumer
-from .models import StopScreen
+from screens.models import StopScreen
+from .topics import RealtimeTopics
 from asgiref.sync import async_to_sync
+from redis import Redis
+from django.conf import settings
+
+
+r = Redis(
+    host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_CELERY_DB
+)
 
 
 class RealtimeConsumer(WebsocketConsumer):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.subscriptions = set()
 
     def connect(self):
-        self.web_component = self.scope["url_route"]["kwargs"]["web_component"]
-        self.element_id = self.scope["url_route"]["kwargs"]["element_id"]
-        self.web_group_name = f"web_{self.web_component}_{self.element_id}"
-        async_to_sync(self.channel_layer.group_add)(
-            self.web_group_name, self.channel_name
-        )
         self.accept()
-        # TODO: Send initial state (next trips) of the web component to the client
-        self.send(text_data=f"Web group name: {self.web_group_name}")
+        self.send(text_data=f"Connected successfully in channel {self.channel_name}")
 
     def disconnect(self, close_code):
-        async_to_sync(self.channel_layer.group_discard)(
-            self.web_group_name, self.channel_name
-        )
+        for topic in list(self.subscriptions):
+            async_to_sync(self.channel_layer.group_discard)(topic, self.channel_name)
+            r.srem("active_subscriptions", topic)
 
     def receive(self, text_data):
-        text_data_json = json.loads(text_data)
-        message = text_data_json["message"]
-        async_to_sync(self.channel_layer.group_send)(
-            self.web_group_name, {"type": "web_message", "message": message}
-        )
+        message = json.loads(text_data)
+        action = message["action"]
+        if action == "subscribe":
+            topic = RealtimeTopics.topic_builder(message)
+            self.subscribe(topic)
+        elif action == "unsubscribe":
+            topic = RealtimeTopics.topic_builder(message)
+            self.unsubscribe(topic)
 
-    def web_message(self, event):
+    def subscribe(self, topic):
+        async_to_sync(self.channel_layer.group_add)(topic, self.channel_name)
+        r.sadd("active_subscriptions", topic)
+        self.subscriptions.add(topic)
+        self.send(text_data=json.dumps({"message": f"Subscribed to {topic}"}))
+
+    def unsubscribe(self, topic):
+        async_to_sync(self.channel_layer.group_discard)(topic, self.channel_name)
+        r.srem("active_subscriptions", topic)
+        self.subscriptions.discard(topic)
+        self.send(text_data=json.dumps({"message": f"Unsubscribed from {topic}"}))
+
+    def realtime_message(self, event):
         message = event["message"]
         self.send(text_data=json.dumps({"message": message}))
 
