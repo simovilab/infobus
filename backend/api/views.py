@@ -23,6 +23,7 @@ import pytz
 from django.conf import settings
 
 from .serializers import *
+from .filters import FeedFilter, FeedPublisherFilter
 
 # from .serializers import InfoServiceSerializer, FeedPublisherSerializer, RouteSerializer, TripSerializer
 
@@ -58,7 +59,7 @@ class FeedPublisherViewSet(viewsets.ModelViewSet):
     queryset = FeedPublisher.objects.all()
     serializer_class = FeedPublisherSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["code", "name"]
+    filterset_class = FeedPublisherFilter
     # permission_classes = [permissions.IsAuthenticated]
 
 
@@ -70,7 +71,7 @@ class FeedViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Feed.objects.all()
     serializer_class = FeedSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["feed_id", "feed_publisher", "is_current"]
+    filterset_class = FeedFilter
 
 
 def get_next_trips(transit_system, stop_id, timestamp=None):
