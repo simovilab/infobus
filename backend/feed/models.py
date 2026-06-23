@@ -39,6 +39,14 @@ class TransitSystem(models.Model):
     description = models.TextField(
         blank=True, null=True, help_text="Descripción del sistema de transporte."
     )
+    code = models.CharField(
+        max_length=31,
+        unique=True,
+        blank=True,
+        null=True,
+        validators=[validate_no_spaces_or_special_symbols],
+        help_text="Código del sistema de transporte. No debe tener espacios ni símbolos especiales.",
+    )
 
     def __str__(self):
         return self.name
