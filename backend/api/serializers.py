@@ -239,7 +239,7 @@ class SocialSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FeedMessageSerializer(serializers.HyperlinkedModelSerializer):
-    provider = serializers.PrimaryKeyRelatedField(read_only=True)
+    publisher = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = FeedMessage
