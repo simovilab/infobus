@@ -13,6 +13,12 @@ class TransitSystemSerializer(serializers.HyperlinkedModelSerializer):
         fields = "__all__"
 
 
+class FeedSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = Feed
+        fields = "__all__"
+
+
 class FeedPublisherSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = FeedPublisher
