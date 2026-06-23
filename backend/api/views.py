@@ -107,9 +107,11 @@ def get_next_trips(transit_system, stop_id, timestamp=None):
     if timestamp is None:
         timestamp = tz.localize(datetime.now())
 
-    # Get the current GTFS feed
+    # Get the current GTFS feed. Lookup via publisher because the canonical
+    # path Feed -> FeedPublisher -> TransitSystem is the one populated by the
+    # ingest (engine/tasks.py); Feed.transit_system is left NULL there.
     current_feed = Feed.objects.filter(
-        transit_system=transit_system, is_current=True
+        feed_publisher__transit_system__code=transit_system, is_current=True
     ).latest("retrieved_at")
     service_id = get_calendar(timestamp.date(), current_feed)
     if service_id is None:
@@ -149,15 +151,15 @@ def get_next_trips(transit_system, stop_id, timestamp=None):
         route = Route.objects.filter(route_id=trip.route_id, feed=current_feed).first()
         vehicle_position = VehiclePosition.objects.filter(
             # TODO: ponder if making a new table for TripDescriptor is better
-            vehicle_trip_trip_id=trip_update.trip_trip_id,
-            vehicle_trip_start_date=trip_update.trip_start_date,
-            vehicle_trip_start_time=trip_update.trip_start_time,
+            trip_trip_id=trip_update.trip_trip_id,
+            trip_start_date=trip_update.trip_start_date,
+            trip_start_time=trip_update.trip_start_time,
         ).first()
         geo_shape = GeoShape.objects.filter(
             shape_id=trip.shape_id, feed=current_feed
         ).first()
         geo_shape = geometry.LineString(geo_shape.geometry.coords)
-        location = vehicle_position.vehicle_position_point
+        location = vehicle_position.position_point
         location = geometry.Point(location.x, location.y)
         position_in_shape = geo_shape.project(location) / geo_shape.length
 
@@ -174,9 +176,9 @@ def get_next_trips(transit_system, stop_id, timestamp=None):
                 "in_progress": True,
                 "progression": {
                     "position_in_shape": position_in_shape,
-                    "current_stop_sequence": vehicle_position.vehicle_current_stop_sequence,
-                    "current_status": vehicle_position.vehicle_current_status,
-                    "occupancy_status": vehicle_position.vehicle_occupancy_status,
+                    "current_stop_sequence": vehicle_position.current_stop_sequence,
+                    "current_status": vehicle_position.current_status,
+                    "occupancy_status": vehicle_position.occupancy_status,
                 },
             }
         )

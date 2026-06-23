@@ -745,8 +745,10 @@ def update_next_trips():
 
     for screen in stop_screens:
         stop = screen.stop
-        transit_system = screen.transit_system
-        stop_screen_message = get_next_trips(transit_system, stop.stop_id)
+        transit_system_code = (
+            screen.transit_system.code if screen.transit_system else None
+        )
+        stop_screen_message = get_next_trips(transit_system_code, stop.stop_id)
 
         if stop_screen_message is not None:
             channel_layer = get_channel_layer()
@@ -762,9 +764,12 @@ def update_next_trips():
 
     for screen in station_screens:
         stops = Stop.objects.filter(parent_station=screen.station)
+        transit_system_code = (
+            screen.transit_system.code if screen.transit_system else None
+        )
         station_screen_message = []
         for stop in stops:
-            stop_message = get_next_trips(stop.stop_id)
+            stop_message = get_next_trips(transit_system_code, stop.stop_id)
             if stop_message is not None:
                 station_screen_message.append(stop_message)
 
