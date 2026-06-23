@@ -7,6 +7,12 @@ from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeometryFi
 # from gtfs.models import FeedPublisher, Route, Trip, StopTime, Stop, FeedInfo, Calendar, CalendarDate, Shape, GeoShape, FareAttribute, FareRule, ServiceAlert, Weather, Social, FeedMessage, TripUpdate, StopTimeUpdate, VehiclePosition, Agency
 
 
+class TransitSystemSerializer(serializers.HyperlinkedModelSerializer):
+    class Meta:
+        model = TransitSystem
+        fields = "__all__"
+
+
 class FeedPublisherSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
         model = FeedPublisher

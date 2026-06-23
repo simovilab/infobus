@@ -3,6 +3,7 @@ from django.http import FileResponse
 from engine.models import InfoService
 from feed.models import (
     FeedPublisher,
+    TransitSystem,
     Agency,
     Stop,
     Route,
@@ -35,6 +36,17 @@ class FilterMixin:
             if param in allowed_query_params and value is not None
         }
         return queryset.filter(**filter_args)
+
+
+class TransitSystemViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Sistemas de transporte registrados.
+    """
+
+    queryset = TransitSystem.objects.all()
+    serializer_class = TransitSystemSerializer
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["code", "name"]
 
 
 class FeedPublisherViewSet(viewsets.ModelViewSet):
