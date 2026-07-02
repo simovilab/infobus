@@ -92,7 +92,7 @@ def gtfs_date(value):
         return None
 
 
-def gtfs_timestamp(value, timezone=pytz.UTC):
+def gtfs_timestamp(value, timezone=pytz.UTC) -> datetime | None:
     """Convert GTFS unix timestamp values to timezone-aware datetime."""
     if value in (None, ""):
         return None
@@ -265,10 +265,9 @@ def get_vehicle_positions():
         vehicle_positions = gtfs_rt.FeedMessage()
         try:
             vehicle_positions_response = requests.get(publisher.vehicle_positions_url)
-            print(f"Fetching vehicle positions from {publisher.vehicle_positions_url}")
             vehicle_positions.ParseFromString(vehicle_positions_response.content)
         except requests.RequestException as e:
-            print(
+            logging.error(
                 f"Error fetching vehicle positions from {publisher.vehicle_positions_url}: {e}"
             )
             continue
@@ -363,7 +362,7 @@ def get_vehicle_positions():
         if vehicle_positions_to_create:
             VehiclePosition.objects.bulk_create(
                 vehicle_positions_to_create,
-                batch_size=2000,
+                batch_size=1000,
             )
 
     return "Task completed: VehiclePositions saved to database"
@@ -376,10 +375,9 @@ def get_trip_updates():
         trip_updates = gtfs_rt.FeedMessage()
         try:
             trip_updates_response = requests.get(publisher.trip_updates_url, timeout=10)
-            print(f"Fetching trip updates from {publisher.trip_updates_url}")
             trip_updates.ParseFromString(trip_updates_response.content)
         except requests.RequestException as e:
-            print(
+            logging.error(
                 f"Error fetching trip updates from {publisher.trip_updates_url}: {str(e)}"
             )
             continue
@@ -745,7 +743,7 @@ def update_schedule():
 
 
 @shared_task
-def update_channels():
+def topic_updates():
     """Retrieves new real-time information and updates the connected screens for a given stop or station."""
 
     active_subscriptions = r.smembers("active_subscriptions")
@@ -757,7 +755,8 @@ def update_channels():
 
     for key in stop_time_updates:
         transit_system = 2
-        stop = Stop.objects.filter(stop_id=key.split(".")[-1]).first()
+        stop_id = key.split(".")[-1]
+        stop = Stop.objects.filter(stop_id=stop_id).first()
         if stop is None:
             continue
         stop_time_update_message = get_next_trips(transit_system, stop.stop_id)
@@ -1354,7 +1353,7 @@ def update_gtfs_realtime():
     """
     fetching = group(get_vehicle_positions.s(), get_trip_updates.s(), get_alerts.s())
     updating = group(
-        update_channels.si(),
+        topic_updates.si(),
     )
     workflow = chord(fetching)(updating)
     return workflow.id

@@ -1,11 +1,11 @@
-class RealtimeTopics:
+class UpdatesTopics:
     """
     This class defines the structure and naming conventions for real-time topics in the Infobús system.
     Each topic follows a specific format to ensure consistency and ease of use across different types of data.
 
     Example topic anatomy:
     <entity>.<info>[.<namespace>].<instance>.<attribute>
-    
+
     - Entity: the GTFS entity (trip, stop, route, alert, etc)
     - Info: the type of information or aspect of the entity (stop_time_updates, vehicle_positions, alerts, etc)
     - Namespace: an optional further categorization to create a new namespace for related topics (e.g., alert types, route types, etc)
@@ -35,7 +35,7 @@ class RealtimeTopics:
             entity, info, instance = parts
             if not instance:
                 return False
-            return (entity, info) in RealtimeTopics._ALLOWED_THREE_PART_TOPICS
+            return (entity, info) in UpdatesTopics._ALLOWED_THREE_PART_TOPICS
 
         if len(parts) == 4:
             entity, info, third, fourth = parts
@@ -75,7 +75,7 @@ class RealtimeTopics:
 
         topic = ".".join(topic_parts)
 
-        if not RealtimeTopics.validate_topic(topic):
+        if not UpdatesTopics.validate_topic(topic):
             raise ValueError(f"invalid topic format: {topic}")
 
         return topic

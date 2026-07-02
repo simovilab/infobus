@@ -1,7 +1,7 @@
 import json
 from channels.generic.websocket import WebsocketConsumer
 from screens.models import StopScreen
-from .topics import RealtimeTopics
+from .topics import UpdatesTopics
 from asgiref.sync import async_to_sync
 from redis import Redis
 from django.conf import settings
@@ -12,7 +12,7 @@ r = Redis(
 )
 
 
-class RealtimeConsumer(WebsocketConsumer):
+class UpdatesConsumer(WebsocketConsumer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.subscriptions = set()
@@ -30,10 +30,10 @@ class RealtimeConsumer(WebsocketConsumer):
         message = json.loads(text_data)
         action = message["action"]
         if action == "subscribe":
-            topic = RealtimeTopics.topic_builder(message)
+            topic = UpdatesTopics.topic_builder(message)
             self.subscribe(topic)
         elif action == "unsubscribe":
-            topic = RealtimeTopics.topic_builder(message)
+            topic = UpdatesTopics.topic_builder(message)
             self.unsubscribe(topic)
 
     def subscribe(self, topic):

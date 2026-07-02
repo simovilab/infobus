@@ -28,8 +28,12 @@ def debug_task(self):
 # --------------------
 
 app.conf.beat_schedule = {
-    "hello-world-every-180s": {
-        "task": "engine.tasks.hello_world",
-        "schedule": timedelta(seconds=180),
+    "get-trip-updates": {
+        "task": "engine.tasks.get_trip_updates",
+        "schedule": timedelta(seconds=40),
+    },
+    "get-vehicle-positions": {
+        "task": "engine.tasks.get_vehicle_positions",
+        "schedule": timedelta(seconds=40),
     },
 }
