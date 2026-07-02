@@ -54,7 +54,7 @@
             const options = {
                 hour: 'numeric', // Changed from '1-digit' to 'numeric'
                 minute: '2-digit',
-                timeZone: 'America/Costa_Rica'
+                timeZone: '{{ agency_timezone|default:"America/Costa_Rica" }}'
             };
             const now = new Date().toLocaleTimeString('en-US', options);
 
@@ -102,6 +102,7 @@
             const data = json['message']['next_arrivals'];
             
             if (data) {
+                console.log('Datos de llegada:', data);
                 document.getElementById('alert').innerHTML = '';
                 maxRows = 4;
                 nRows = Math.min(data.length, maxRows);

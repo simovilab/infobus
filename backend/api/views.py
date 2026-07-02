@@ -100,7 +100,8 @@ class NextTripView(APIView):
                 status=status.HTTP_204_NO_CONTENT,
             )
 
-        return Response(data)
+        serializer = NextTripSerializer(data)
+        return Response(serializer.data)
 
 
 class NextStopView(APIView):

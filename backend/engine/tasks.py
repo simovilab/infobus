@@ -49,9 +49,9 @@ from django.contrib.gis.geos import Point
 from api.views import get_next_trips
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.core.serializers.json import DjangoJSONEncoder
 
 from redis import Redis
-from django.conf import settings
 
 r = Redis(
     host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_CELERY_DB
@@ -62,6 +62,11 @@ logging.basicConfig(
     encoding="utf-8",
     level=logging.INFO,
 )
+
+
+def channel_safe_payload(payload):
+    """Convert payloads to JSON-safe primitives for channel layer transport."""
+    return json.loads(json.dumps(payload, cls=DjangoJSONEncoder))
 
 
 def gtfs_time(value):
@@ -754,7 +759,7 @@ def topic_updates():
     }
 
     for key in stop_time_updates:
-        transit_system = 2
+        transit_system = 1
         stop_id = key.split(".")[-1]
         stop = Stop.objects.filter(stop_id=stop_id).first()
         if stop is None:
@@ -762,12 +767,14 @@ def topic_updates():
         stop_time_update_message = get_next_trips(transit_system, stop.stop_id)
 
         if stop_time_update_message is not None:
+            safe_message = channel_safe_payload(stop_time_update_message)
+            print(f"Key: {key}")
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
                 key,
                 {
                     "type": "realtime_message",
-                    "message": stop_time_update_message,
+                    "message": safe_message,
                 },
             )
 
@@ -786,12 +793,13 @@ def update_next_trips():
         stop_screen_message = get_next_trips(transit_system, stop.stop_id)
 
         if stop_screen_message is not None:
+            safe_message = channel_safe_payload(stop_screen_message)
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
                 f"screen_stop_{screen.screen_id}",
                 {
                     "type": "realtime_message",
-                    "message": stop_screen_message,
+                    "message": safe_message,
                 },
             )
 
@@ -803,7 +811,7 @@ def update_next_trips():
         for stop in stops:
             stop_message = get_next_trips(stop.stop_id)
             if stop_message is not None:
-                station_screen_message.append(stop_message)
+                station_screen_message.append(channel_safe_payload(stop_message))
 
         if station_screen_message:
             channel_layer = get_channel_layer()
