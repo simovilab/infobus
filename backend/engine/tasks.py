@@ -124,6 +124,137 @@ def normalize_gtfs_value(value):
     return value
 
 
+def save_vehicle_positions_to_database(publisher, vehicle_positions):
+    # Save FeedMessage object
+    feed_message = FeedMessage(
+        feed_message_id=f"{publisher.code}-vehicle-{vehicle_positions.header.timestamp}",
+        publisher=publisher,
+        entity_type="vehicle",
+        timestamp=gtfs_timestamp(
+            vehicle_positions.header.timestamp,
+            timezone=pytz.timezone(publisher.timezone),
+        ),
+        incrementality=vehicle_positions.header.incrementality,
+        gtfs_realtime_version=vehicle_positions.header.gtfs_realtime_version,
+    )
+    feed_message.save()
+
+    # Save VehiclePosition objects
+    entities = vehicle_positions.entity
+    vehicle_positions_to_create = []
+    for entity in entities:
+        v = entity.vehicle
+        vehicle_positions_to_create.append(
+            VehiclePosition(
+                entity_id=entity.id,
+                feed_message=feed_message,
+                trip_trip_id=v.trip.trip_id if v.trip.HasField("trip_id") else None,
+                trip_route_id=v.trip.route_id if v.trip.HasField("route_id") else None,
+                trip_direction_id=v.trip.direction_id
+                if v.trip.HasField("direction_id")
+                else None,
+                trip_start_time=gtfs_time(v.trip.start_time)
+                if v.trip.HasField("start_time")
+                else None,
+                trip_start_date=gtfs_date(v.trip.start_date)
+                if v.trip.HasField("start_date")
+                else None,
+                trip_schedule_relationship=v.trip.schedule_relationship
+                if v.trip.HasField("schedule_relationship")
+                else None,
+                vehicle_id=v.vehicle.id if v.vehicle.HasField("id") else None,
+                vehicle_label=v.vehicle.label if v.vehicle.HasField("label") else None,
+                vehicle_license_plate=v.vehicle.license_plate
+                if v.vehicle.HasField("license_plate")
+                else None,
+                position_latitude=v.position.latitude
+                if v.position.HasField("latitude")
+                else None,
+                position_longitude=v.position.longitude
+                if v.position.HasField("longitude")
+                else None,
+                position_point=Point(v.position.longitude, v.position.latitude)
+                if v.position.HasField("longitude") and v.position.HasField("latitude")
+                else None,
+                position_bearing=v.position.bearing
+                if v.position.HasField("bearing")
+                else None,
+                position_odometer=v.position.odometer
+                if v.position.HasField("odometer")
+                else None,
+                position_speed=v.position.speed
+                if v.position.HasField("speed")
+                else None,
+                current_stop_sequence=v.current_stop_sequence
+                if v.current_stop_sequence is not None
+                else None,
+                stop_id=v.stop_id if v.stop_id is not None else None,
+                current_status=v.current_status
+                if v.current_status is not None
+                else None,
+                timestamp=gtfs_timestamp(v.timestamp)
+                if v.HasField("timestamp")
+                else None,
+                congestion_level=v.congestion_level
+                if v.HasField("congestion_level")
+                else None,
+                occupancy_status=v.occupancy_status
+                if v.HasField("occupancy_status")
+                else None,
+                occupancy_percentage=v.occupancy_percentage
+                if v.HasField("occupancy_percentage")
+                else None,
+            )
+        )
+
+    if vehicle_positions_to_create:
+        VehiclePosition.objects.bulk_create(
+            vehicle_positions_to_create,
+            batch_size=1000,
+        )
+
+
+def update_vehicle_positions_state(publisher, vehicle_positions):
+    entities = vehicle_positions.entity
+    for entity in entities:
+        vehicle_id = (
+            entity.vehicle.vehicle.id
+            if entity.vehicle.HasField("vehicle")
+            and entity.vehicle.vehicle.HasField("id")
+            else None
+        )
+        v = entity.vehicle
+        if v.HasField("position"):
+            position = {
+                "latitude": v.position.latitude
+                if v.position.HasField("latitude")
+                else None,
+                "longitude": v.position.longitude
+                if v.position.HasField("longitude")
+                else None,
+                "bearing": v.position.bearing
+                if v.position.HasField("bearing")
+                else None,
+                "speed": v.position.speed if v.position.HasField("speed") else None,
+                "odometer": v.position.odometer
+                if v.position.HasField("odometer")
+                else None,
+            }
+            r.hset(f"vehicle:{vehicle_id}:position", position)
+        if v.HasField("occupancy_status"):
+            r.hset(
+                f"vehicle:{vehicle_id}:occupancy",
+                "occupancy_status",
+                v.occupancy_status,
+            )
+        if v.HasField("occupancy_percentage"):
+            r.hset(
+                f"vehicle:{vehicle_id}:occupancy",
+                "occupancy_percentage",
+                v.occupancy_percentage,
+            )
+
+
 @shared_task
 def hello_world():
     return "Hello, World!"
@@ -267,6 +398,7 @@ def get_schedule():
 def get_vehicle_positions():
     publishers = FeedPublisher.objects.filter(is_active=True)
     for publisher in publishers:
+        # Fetch VehiclePosition feed from the publisher's URL
         vehicle_positions = gtfs_rt.FeedMessage()
         try:
             vehicle_positions_response = requests.get(publisher.vehicle_positions_url)
@@ -277,98 +409,8 @@ def get_vehicle_positions():
             )
             continue
 
-        # Save FeedMessage object
-        feed_message = FeedMessage(
-            feed_message_id=f"{publisher.code}-vehicle-{vehicle_positions.header.timestamp}",
-            publisher=publisher,
-            entity_type="vehicle",
-            timestamp=gtfs_timestamp(
-                vehicle_positions.header.timestamp,
-                timezone=pytz.timezone(publisher.timezone),
-            ),
-            incrementality=vehicle_positions.header.incrementality,
-            gtfs_realtime_version=vehicle_positions.header.gtfs_realtime_version,
-        )
-        feed_message.save()
-
-        # Save VehiclePosition objects
-        entities = vehicle_positions.entity
-        vehicle_positions_to_create = []
-        for entity in entities:
-            v = entity.vehicle
-            vehicle_positions_to_create.append(
-                VehiclePosition(
-                    entity_id=entity.id,
-                    feed_message=feed_message,
-                    trip_trip_id=v.trip.trip_id if v.trip.HasField("trip_id") else None,
-                    trip_route_id=v.trip.route_id
-                    if v.trip.HasField("route_id")
-                    else None,
-                    trip_direction_id=v.trip.direction_id
-                    if v.trip.HasField("direction_id")
-                    else None,
-                    trip_start_time=gtfs_time(v.trip.start_time)
-                    if v.trip.HasField("start_time")
-                    else None,
-                    trip_start_date=gtfs_date(v.trip.start_date)
-                    if v.trip.HasField("start_date")
-                    else None,
-                    trip_schedule_relationship=v.trip.schedule_relationship
-                    if v.trip.HasField("schedule_relationship")
-                    else None,
-                    vehicle_id=v.vehicle.id if v.vehicle.HasField("id") else None,
-                    vehicle_label=v.vehicle.label
-                    if v.vehicle.HasField("label")
-                    else None,
-                    vehicle_license_plate=v.vehicle.license_plate
-                    if v.vehicle.HasField("license_plate")
-                    else None,
-                    position_latitude=v.position.latitude
-                    if v.position.HasField("latitude")
-                    else None,
-                    position_longitude=v.position.longitude
-                    if v.position.HasField("longitude")
-                    else None,
-                    position_point=Point(v.position.longitude, v.position.latitude)
-                    if v.position.HasField("longitude")
-                    and v.position.HasField("latitude")
-                    else None,
-                    position_bearing=v.position.bearing
-                    if v.position.HasField("bearing")
-                    else None,
-                    position_odometer=v.position.odometer
-                    if v.position.HasField("odometer")
-                    else None,
-                    position_speed=v.position.speed
-                    if v.position.HasField("speed")
-                    else None,
-                    current_stop_sequence=v.current_stop_sequence
-                    if v.current_stop_sequence is not None
-                    else None,
-                    stop_id=v.stop_id if v.stop_id is not None else None,
-                    current_status=v.current_status
-                    if v.current_status is not None
-                    else None,
-                    timestamp=gtfs_timestamp(v.timestamp)
-                    if v.HasField("timestamp")
-                    else None,
-                    congestion_level=v.congestion_level
-                    if v.HasField("congestion_level")
-                    else None,
-                    occupancy_status=v.occupancy_status
-                    if v.HasField("occupancy_status")
-                    else None,
-                    occupancy_percentage=v.occupancy_percentage
-                    if v.HasField("occupancy_percentage")
-                    else None,
-                )
-            )
-
-        if vehicle_positions_to_create:
-            VehiclePosition.objects.bulk_create(
-                vehicle_positions_to_create,
-                batch_size=1000,
-            )
+        save_vehicle_positions_to_database(publisher, vehicle_positions)
+        update_vehicle_positions_state(publisher, vehicle_positions)
 
     return "Task completed: VehiclePositions saved to database"
 
