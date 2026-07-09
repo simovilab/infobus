@@ -23,7 +23,6 @@ from feed.models import (
     Alert,
     VehiclePosition,
 )
-from alerts.models import Weather, Social
 from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -441,30 +440,6 @@ class ServiceAlertViewSet(viewsets.ModelViewSet):
         "service_start_time",
         "service_date",
     ]
-    # permission_classes = [permissions.IsAuthenticated]
-
-
-class WeatherViewSet(viewsets.ModelViewSet):
-    """
-    Condiciones climáticas.
-    """
-
-    queryset = Weather.objects.all()
-    serializer_class = WeatherSerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["weather_location", "weather_condition"]
-    # permission_classes = [permissions.IsAuthenticated]
-
-
-class SocialViewSet(viewsets.ModelViewSet):
-    """
-    Publicaciones en redes sociales.
-    """
-
-    queryset = Social.objects.all()
-    serializer_class = SocialSerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["social_media", "social_content", "social_location"]
     # permission_classes = [permissions.IsAuthenticated]
 
 

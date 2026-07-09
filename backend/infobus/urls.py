@@ -33,5 +33,4 @@ urlpatterns = [
     # path("gtfs/", include("gtfs.urls")),
     path("pantallas/", include("screens.urls")),
     path("status/", include("engine.urls")),
-    path("alertas/", include("alerts.urls")),
 ]

@@ -40,7 +40,7 @@ INSTALLED_APPS = [
     "feed.apps.FeedConfig",
     "website.apps.WebsiteConfig",
     "engine.apps.EngineConfig",
-    "alerts.apps.AlertsConfig",
+    "runs.apps.RunsConfig",
     "api.apps.ApiConfig",
     "screens.apps.ScreensConfig",
     "updates.apps.UpdatesConfig",

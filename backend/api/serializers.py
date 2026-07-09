@@ -1,10 +1,9 @@
 from engine.models import InfoService
 from feed.models import *
-from alerts.models import *
 from rest_framework import serializers
 from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeometryField
 
-# from gtfs.models import FeedPublisher, Route, Trip, StopTime, Stop, FeedInfo, Calendar, CalendarDate, Shape, GeoShape, FareAttribute, FareRule, ServiceAlert, Weather, Social, FeedMessage, TripUpdate, StopTimeUpdate, VehiclePosition, Agency
+# from gtfs.models import FeedPublisher, Route, Trip, StopTime, Stop, FeedInfo, Calendar, CalendarDate, Shape, GeoShape, FareAttribute, FareRule, ServiceAlert, FeedMessage, TripUpdate, StopTimeUpdate, VehiclePosition, Agency
 
 
 class FeedPublisherSerializer(serializers.HyperlinkedModelSerializer):
@@ -207,22 +206,6 @@ class ServiceAlertSerializer(serializers.HyperlinkedModelSerializer):
 
     class Meta:
         model = Alert
-        fields = "__all__"
-
-
-class WeatherSerializer(serializers.HyperlinkedModelSerializer):
-    feed = serializers.PrimaryKeyRelatedField(read_only=True)
-
-    class Meta:
-        model = Weather
-        fields = "__all__"
-
-
-class SocialSerializer(serializers.HyperlinkedModelSerializer):
-    feed = serializers.PrimaryKeyRelatedField(read_only=True)
-
-    class Meta:
-        model = Social
         fields = "__all__"
 
 
