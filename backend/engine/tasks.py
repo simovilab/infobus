@@ -1,4 +1,5 @@
-from celery import shared_task, group, chord
+from celery import shared_task, group, chord, chain
+from gtfs.utils import gtfs_time, gtfs_date, gtfs_timestamp, normalize_gtfs_value
 
 import logging
 import json
@@ -46,7 +47,7 @@ from feed.models import (
 )
 from screens.models import StopScreen, StationScreen
 from django.contrib.gis.geos import Point
-from api.views import get_next_trips
+from feed.queries import get_next_trips
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.core.serializers.json import DjangoJSONEncoder
@@ -67,61 +68,6 @@ logging.basicConfig(
 def channel_safe_payload(payload):
     """Convert payloads to JSON-safe primitives for channel layer transport."""
     return json.loads(json.dumps(payload, cls=DjangoJSONEncoder))
-
-
-def gtfs_time(value):
-    """Convert GTFS HH:MM:SS strings (including >24h) to timedelta."""
-    if not value:
-        return None
-    if isinstance(value, timedelta):
-        return value
-
-    try:
-        hours, minutes, seconds = map(int, str(value).split(":"))
-    except (ValueError, AttributeError):
-        return None
-
-    return timedelta(hours=hours, minutes=minutes, seconds=seconds)
-
-
-def gtfs_date(value):
-    """Convert GTFS YYYYMMDD strings to date objects for Django DateField."""
-    if not value:
-        return None
-    if hasattr(value, "year") and hasattr(value, "month") and hasattr(value, "day"):
-        return value
-
-    try:
-        return datetime.strptime(str(value), "%Y%m%d").date()
-    except (ValueError, TypeError):
-        return None
-
-
-def gtfs_timestamp(value, timezone=pytz.UTC) -> datetime | None:
-    """Convert GTFS unix timestamp values to timezone-aware datetime."""
-    if value in (None, ""):
-        return None
-    if isinstance(value, datetime):
-        return value
-
-    try:
-        return datetime.fromtimestamp(int(value), tz=timezone)
-    except (ValueError, TypeError, OverflowError):
-        return None
-
-
-def normalize_gtfs_value(value):
-    """Convert null-like CSV values to None before model instantiation."""
-    if value is None:
-        return None
-    if isinstance(value, float) and pd.isna(value):
-        return None
-    if isinstance(value, str):
-        cleaned = value.strip()
-        if cleaned.lower() in {"", "nan", "none", "null"}:
-            return None
-        return cleaned
-    return value
 
 
 def save_vehicle_positions_to_database(publisher, vehicle_positions):
@@ -256,18 +202,15 @@ def update_vehicle_positions_state(publisher, vehicle_positions):
 
 
 @shared_task
-def hello_world():
-    return "Hello, World!"
-
-
-@shared_task
 def get_schedule():
     feed_publishers = FeedPublisher.objects.filter(is_active=True)
-    if not feed_publishers.exists():
+    result = {"has_feed_publishers": feed_publishers.exists(), "has_new_feed": {}}
+
+    if not result["has_feed_publishers"]:
         logging.warning(
             "No active feed publishers found in the database. Please add at least one active publisher to fetch schedules."
         )
-        return "No active feed publishers found. Schedule update skipped."
+        return result
 
     for feed_publisher in feed_publishers:
         logging.info(
@@ -388,10 +331,35 @@ def get_schedule():
                     logging.info(f"{file} imported successfully")
 
             logging.info("Schedule updated successfully")
+            result["has_new_feed"][feed_publisher.code] = True
+
         else:
             logging.info("No new feed detected. Schedule is up to date.")
+            result["has_new_feed"][feed_publisher.code] = False
 
-    return "Schedule update completed. Check logs for details."
+    return result
+
+
+@shared_task
+def update_schedule(result):
+    """
+    Update system's state with the new feed information.
+    """
+    if result["has_feed_publishers"] is False:
+        logging.warning(
+            "No active feed publishers found in the database. Please add at least one active publisher to fetch schedules."
+        )
+        return "No active feed publishers found. Skipping update."
+    else:
+        feed_publishers = FeedPublisher.objects.filter(is_active=True)
+        for feed_publisher in feed_publishers:
+            if not result["has_new_feed"].get(feed_publisher.code, False):
+                logging.info(
+                    f"No new feed detected for {feed_publisher.name} ({feed_publisher.code}). Skipping update."
+                )
+                continue
+            else:
+                continue
 
 
 @shared_task
@@ -785,12 +753,7 @@ def get_alerts():
 
 
 @shared_task
-def update_schedule():
-    pass
-
-
-@shared_task
-def topic_updates():
+def realtime_updates():
     """Retrieves new real-time information and updates the connected screens for a given stop or station."""
 
     active_subscriptions = r.smembers("active_subscriptions")
@@ -810,7 +773,6 @@ def topic_updates():
 
         if stop_time_update_message is not None:
             safe_message = channel_safe_payload(stop_time_update_message)
-            print(f"Key: {key}")
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
                 key,
@@ -866,11 +828,6 @@ def update_next_trips():
             )
 
     return "Updated screens successfully"
-
-
-@shared_task
-def update_next_stops():
-    pass
 
 
 @shared_task
@@ -1386,12 +1343,18 @@ def save_stop_time_updates(use_current_hour=False):
     )
 
 
+# Task orchestrators for GTFS Schedule and Realtime updates
+
+
 @shared_task
 def update_gtfs_schedule():
     """Looks for new GTFS Schedule files from feed publishers, and updates the database when new
     data is available, then
     """
-    workflow = chord(get_schedule.s())(update_schedule.si())
+    workflow = chain(
+        get_schedule.s(),
+        update_schedule.s(),
+    )()
     return workflow.id
 
 
@@ -1403,7 +1366,7 @@ def update_gtfs_realtime():
     """
     fetching = group(get_vehicle_positions.s(), get_trip_updates.s(), get_alerts.s())
     updating = group(
-        topic_updates.si(),
+        realtime_updates.si(),
     )
     workflow = chord(fetching)(updating)
     return workflow.id

@@ -2,6 +2,7 @@ from datetime import timedelta
 import os
 
 from celery import Celery
+from celery.schedules import crontab
 
 # Set the default Django settings module for the 'celery' program.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "infobus.settings")
@@ -28,12 +29,16 @@ def debug_task(self):
 # --------------------
 
 app.conf.beat_schedule = {
-    "get-trip-updates": {
-        "task": "engine.tasks.get_trip_updates",
-        "schedule": timedelta(seconds=40),
+    "update-gtfs-schedule": {
+        "task": "engine.tasks.update_gtfs_schedule",
+        "schedule": crontab(minute=0),
     },
-    "get-vehicle-positions": {
-        "task": "engine.tasks.get_vehicle_positions",
-        "schedule": timedelta(seconds=40),
+    "update-gtfs-realtime": {
+        "task": "engine.tasks.update_gtfs_realtime",
+        "schedule": timedelta(seconds=15),
+    },
+    "save-gtfs-realtime": {
+        "task": "engine.tasks.save_gtfs_realtime",
+        "schedule": crontab(minute=0),
     },
 }
