@@ -45,26 +45,30 @@ ws/realtime/
   "run_id": "FTR456"
 }
 
-Topic anatomy: <entity>.<info>[.<namespace>].<instance>.<attribute>
-Entity: the GTFS entity (trip, stop, route, alert, etc)
-Info: the type of information or aspect of the entity (stop_time_updates, vehicle_positions, alerts, etc)
-Namespace: an optional further categorization to create a new namespace for related topics (e.g., alert types, route types, etc)
-Instance: the specific identifier for the entity instance (run_id, stop_id, route_id, etc)
-Note: run_id is an instance of trip
+Topic anatomy: 
 
-Topic: "trip.stop_time_updates.<run_id>" (periodic updated)
-Topic: "trip.vehicle_stop_status.<run_id>" (event-driven update)
-Topic: "trip.congestion_level.<run_id>" (event-driven update)
-Topic: "trip.occupancy_status.<run_id>" (event-driven update)
-Topic: "trip.alerts.<run_id>" (event-driven update)
-Topic: "stop.stop_time_updates.<stop_id>" (periodic updated)
-Topic: "stop.vehicle_positions.<stop_id>" (periodic updated)
-Topic: "stop.alerts.<stop_id>" (event-driven update)
-Topic: "route.vehicle_positions.<route_id>" (periodic updated)
-Topic: "route.alerts.<route_id>" (event-driven update)
-Topic: "route.alerts.type.<route_type>" (event-driven update)
-Topic: "route.alerts.<route_id>.<direction_id>" (event-driven update)
-Topic: "agency.alerts.<agency_id>" (event-driven update)
+<entity>.<info>.<primary_selector>.<primary_value>[.<qualifier_selector>.<qualifier_value>]
+
+Entity: the GTFS entity (trip, stop, route, agency, etc)
+Info: the type of information or aspect of the entity (stop_time_updates, vehicle_positions, alerts, etc)
+Primary selector: the primary key used to identify the primary value (e.g., by_stop, by_run, by_route, by_agency)
+Primary value: the value of the primary selector
+Qualifier selector: an optional secondary key to further qualify the topic (e.g., by_direction)
+Qualifier value: the value of the qualifier selector
+
+Topic: "trip.stop_time_updates.by_run.<run_id>" (periodic updated)
+Topic: "trip.vehicle_stop_status.by_run.<run_id>" (event-driven update)
+Topic: "trip.congestion_level.by_run.<run_id>" (event-driven update)
+Topic: "trip.occupancy_status.by_run.<run_id>" (event-driven update)
+Topic: "trip.alerts.by_run.<run_id>" (event-driven update)
+Topic: "stop.stop_time_updates.by_stop.<stop_id>" (periodic updated)
+Topic: "stop.vehicle_positions.by_stop.<stop_id>" (periodic updated)
+Topic: "stop.alerts.by_stop.<stop_id>" (event-driven update)
+Topic: "route.vehicle_positions.by_route.<route_id>" (periodic updated)
+Topic: "route.alerts.by_route.<route_id>" (event-driven update)
+Topic: "route.alerts.by_route_type.<route_type>" (event-driven update)
+Topic: "route.alerts.by_route.<route_id>.by_direction.<direction_id>" (event-driven update)
+Topic: "agency.alerts.by_agency.<agency_id>" (event-driven update)
 
 Topics in Channels are mapped 1:1 to keys on Redis.
 
