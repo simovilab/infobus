@@ -5,10 +5,40 @@ This is a Django project with the following apps:
 - `api`: Exposes REST API endpoints with most of the data in the database.
 - `engine`: Executes asynchronous, periodical tasks with Celery.
 - `feed`: Creates the GTFS database models.
-- `runs`: Implements a mirror finite-state machine of the active runs (trips).
+- `runs`: Implements a mirror finite-state machine of the active runs (trips) and handles domain events.
 - `updates`: Builds and delivers real-time messages to subscribers.
 - `website`: Miscellaneous sites (like the homepage).
-- `screens`: Test screens (to be removed).
+- `screens`: Test screens (to be removed, migrate test screen to `website`).
+
+```mermaid
+flowchart TD
+    VP[VehiclePosition]
+    TU[TripUpdate]
+    A[Alert]
+
+    E[Engine]
+    R[Runs]
+    U[Updates]
+    C[Clients]
+
+    VP --polling--> E
+    TU --polling--> E
+    A --polling--> E
+    E --"persist and update state"--> R
+    R --"domain events"--> U
+    U --"publishes by topic"--> C
+
+```
+
+Sequence diagram:
+
+```mermaid
+sequenceDiagram
+    Alice->>John: Hello John, how are you?
+    John-->>Alice: Great!
+    Alice-)John: See you later!
+
+```
 
 ## API (`api`)
 
@@ -24,6 +54,43 @@ By subclassing the base GTFS models from `gtfs-django`, this app creates and han
 
 This app defines the states of the finite-state machine that models the lifecycle of a trip.
 
+### Run Registration
+
+A run is registered in the `Run` model in the database when a new trip is observed in the GTFS Realtime feed.
+
+Previous life of a run: a driver or dispatcher starts a run (instance of a trip) and Databús starts publishing the corresponding entity in `TripUpdate` and `VehiclePosition`.
+
+#### Characteristics and assumptions
+
+- When no data is available (e.g., out of mobile coverage), GTFS Realtime will not publish data related to that run, even if it's still active, thus we need to process that and keep the run "alive".
+
+```mermaid
+sequenceDiagram
+    participant G as GTFS Realtime
+    participant engine@{ "type" : "queue" }
+    participant database@{ "type" : "database" }
+
+    loop Every 15 s
+        G->>engine: polling
+        engine->>database: does run exist?
+        alt does not exist
+            engine->>database: creates run
+            engine->>runs: transfers data
+            runs->>memory: updates run metadata
+        else exists
+            engine->>runs: transfers data
+            runs->>memory: confirm or add run metadata
+        end
+        engine->>database: saves telemetry
+        runs->>memory: update run states
+        runs->>memory: publish events
+        memory->>updates: consume events
+    end
+
+```
+
+### Domain Events
+
 The `runs` app emits domain events, like:
 
 ```
@@ -34,6 +101,7 @@ RunVehicleStopStatusChanged
 StopTimeUpdateChanged
 AlertChanged
 AlertRemoved
+VehicleChanged
 ```
 
 ## Updates (`updates`)
