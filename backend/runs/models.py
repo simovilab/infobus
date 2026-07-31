@@ -42,7 +42,7 @@ class Run(models.Model):
         blank=True,
         null=True,
         choices=choices,
-        default=RunLifecycleStates.REQUESTED,
+        default=RunLifecycleStates.IN_PROGRESS,
     )
     last_event_at = models.DateTimeField(blank=True, null=True)
 
@@ -57,12 +57,6 @@ Ownership is visible in the namespace:
   Edge-sensed  → vehicle:<vehicle_id>:*   (written by MQTT consumer)
   Server-computed → run:<run_id>:*        (written by lifecycle actions / progression step)
 
-Position (vehicle:<vehicle_id>:position)
-    Producer: edge (MQTT)
-    Fields:   latitude, longitude, bearing?, speed?, odometer?, timestamp
-    Note:     VehiclePosition.timestamp is lifted from this hash by the builder;
-              it is NOT included inside the GTFS-RT Position sub-message.
-
 OccupancyStatus (vehicle:<vehicle_id>:occupancy)
     Producer: edge (MQTT) for raw counts; server buckets the enum at ingestion.
     Fields:   occupancy_percentage?, occupancy_count?, occupancy_status (enum)
@@ -75,14 +69,67 @@ TripDescriptor (run:<run_id>:trip)
     Producer: server (lifecycle action — GTFS-RT-shaped projection of run:<id> hash)
     Fields:   trip_id, route_id, direction_id?, schedule_relationship?, start_time?, start_date?
 
-VehicleStopStatus (run:<run_id>:vehicle_stop_status)
-    Producer: server (progression step — map-matching position against assigned trip stops)
-    Fields:   current_stop_sequence?, stop_id?, current_status (enum)
-    Note:     Run-keyed because stop identity requires the assigned trip; not a raw sensor value.
+--- Keys to update on run registration (run metadata)
 
-CongestionLevel (run:<run_id>:congestion_level)
-    Producer: server (deferred — producer not yet implemented; key reserved)
-    Fields:   congestion_level (enum)
+runs:in_progress 
+    Type:   set
+    Value:  run_id
+
+run:<run_id>:trip 
+    Type:   hash
+    Fields: trip_id, route_id, direction_id?, schedule_relationship?, start_time?, start_date?
+
+run:<run_id>:vehicle 
+    Type:   hash
+    Fields:  id?, label?, license_plate?, wheelchair_accessible?
+
+--- Keys to update for each run on each fetch (run states)
+
+Position (run:<run_id>:position) 
+    Type: hash
+    Fields:   latitude, longitude, bearing?, odometer?, speed?
+
+Current stop sequence (run:<run_id>:current_stop_sequence)
+    Type:   string
+    Value:  current_stop_sequence (int)
+
+Stop ID (run:<run_id>:stop_id)
+    Type:   string
+    Value:  stop_id (string)
+
+Current status (run:<run_id>:current_status) 
+    Type:   string
+    Value:  current_status (enum VehicleStopStatus)
+
+Timestamp (run:<run_id>:timestamp) 
+    Type:   string
+    Value:  timestamp (ISO-8601 string)
+
+Congestion level (run:<run_id>:congestion_level) 
+    Type:   string
+    Fields: congestion_level (enum CongestionLevel)
+
+Occupancy status (run:<run_id>:occupancy_status) 
+    Type:   string
+    Fields: occupancy_status (enum OccupancyStatus)
+
+Occupancy percentage (run:<run_id>:occupancy_percentage)
+    Type:   string
+    Value:  occupancy_percentage (int)
+
+Stop time updates (run:<run_id>:stop_time_updates)
+    Type:   JSON
+    Value:  stop_time_updates (message StopTimeUpdate)
+
+Trip properties (run:<run_id>:trip_properties)
+    Type:   JSON
+    Value:  trip_properties (message TripProperties)
+
+Carriage details (run:<run_id>:multi_carriage_details)
+    Type:   JSON
+    Value:  multi_carriage_details (message CarriageDetails)
+
+---    
 
 Run assignment record (run:<run_id>)
     Producer: server (lifecycle action)

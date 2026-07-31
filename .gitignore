@@ -13,6 +13,9 @@ backend/.gtfs-io-clone.lockdir
 # gtfs-django
 gtfs-django/
 
+# Backend collected data
+backend/data/
+
 # Configuration files
 *.cfg
 

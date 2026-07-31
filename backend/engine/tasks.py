@@ -70,6 +70,10 @@ def channel_safe_payload(payload):
     return json.loads(json.dumps(payload, cls=DjangoJSONEncoder))
 
 
+def inspect_runs(publisher, vehicle_positions):
+    pass
+
+
 def save_vehicle_positions_to_database(publisher, vehicle_positions):
     # Save FeedMessage object
     feed_message = FeedMessage(
@@ -377,6 +381,7 @@ def get_vehicle_positions():
             )
             continue
 
+        inspect_runs(publisher, vehicle_positions)
         save_vehicle_positions_to_database(publisher, vehicle_positions)
         update_vehicle_positions_state(publisher, vehicle_positions)
 

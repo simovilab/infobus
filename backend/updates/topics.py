@@ -49,3 +49,7 @@ class TopicPattern:
             and self.primary_selector == topic.primary_selector
             and self.qualifier_selector == topic.qualifier_selector
         )
+
+
+def UpdatesTopics():
+    pass

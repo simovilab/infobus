@@ -32,5 +32,4 @@ urlpatterns = [
     path("api/", include("api.urls")),
     # path("gtfs/", include("gtfs.urls")),
     path("pantallas/", include("screens.urls")),
-    path("status/", include("engine.urls")),
 ]

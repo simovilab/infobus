@@ -677,10 +677,10 @@ class VehiclePosition(models.Model):
 
     # TripDescriptor (message)
     trip_trip_id = models.CharField(max_length=255)
-    trip_route_id = models.CharField(max_length=255, blank=True, null=True)
-    trip_direction_id = models.IntegerField(blank=True, null=True)
     trip_start_time = models.DurationField(blank=True, null=True)
     trip_start_date = models.DateField(blank=True, null=True)
+    trip_route_id = models.CharField(max_length=255, blank=True, null=True)
+    trip_direction_id = models.IntegerField(blank=True, null=True)
     trip_schedule_relationship = models.IntegerField(
         blank=True,
         null=True,
