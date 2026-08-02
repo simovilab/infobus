@@ -1,5 +1,6 @@
 from django.contrib.gis.db import models
 from runs.domain.lifecycle import RunLifecycleStates, choices
+from feed.models import FeedPublisher
 import uuid
 
 # Create your models here.
@@ -9,6 +10,9 @@ class Run(models.Model):
     """A run is an instance of GTFS trip."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid7, editable=False)
+    feed_publisher = models.ForeignKey(
+        FeedPublisher, on_delete=models.CASCADE, related_name="runs"
+    )
 
     # Operational information
     vehicle = models.CharField(max_length=100, blank=True, null=True)
@@ -71,27 +75,38 @@ TripDescriptor (run:<run_id>:trip)
 
 --- Keys to update on run registration (run metadata)
 
-runs:in_progress 
-    Type:   set
-    Value:  run_id
+Runs in progress 
 
-run:<run_id>:trip 
-    Type:   hash
-    Fields: trip_id, route_id, direction_id?, schedule_relationship?, start_time?, start_date?
+    | Key | Value |
+    |---|---|
+    |Key | `runs:in_progress` |
+    |Redis data type |   set|
+    |Values |  run_id|
 
-run:<run_id>:vehicle 
-    Type:   hash
-    Fields:  id?, label?, license_plate?, wheelchair_accessible?
+Trip 
+    Key: run:<run_id>:trip
+    Redis data type:     hash
+    GTFS Message:        TripDescriptor
+    Fields:         trip_id, route_id, direction_id?, schedule_relationship?, start_time?, start_date?
+
+Vehicle 
+    Redis key: run:<run_id>:vehicle
+    Redis data type:       hash
+    GTFS Message:    VehicleDescriptor
+    Fields:     id?, label?, license_plate?, wheelchair_accessible?
 
 --- Keys to update for each run on each fetch (run states)
 
-Position (run:<run_id>:position) 
+Position
+    Key: run:<run_id>:position
     Type: hash
+    GTFS Message: Position
     Fields:   latitude, longitude, bearing?, odometer?, speed?
 
-Current stop sequence (run:<run_id>:current_stop_sequence)
-    Type:   string
-    Value:  current_stop_sequence (int)
+Current stop sequence 
+    Key: run:<run_id>:current_stop_sequence
+    Redis data type:   string
+    GTFS Value:  current_stop_sequence (int)
 
 Stop ID (run:<run_id>:stop_id)
     Type:   string

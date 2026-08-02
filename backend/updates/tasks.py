@@ -4,8 +4,8 @@ from django.conf import settings
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from feed.models import Stop
-from feed.queries import get_next_trips
-from engine.tasks import channel_safe_payload
+from feed.services.queries import get_next_trips
+from gtfs.utils import channel_safe_payload
 
 r = Redis(
     host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_CELERY_DB

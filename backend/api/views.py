@@ -30,7 +30,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
 from datetime import datetime, timedelta
 import pytz
-from feed.queries import get_next_trips
+from feed.services.queries import get_next_trips
 
 from .serializers import *
 

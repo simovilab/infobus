@@ -1,7 +1,7 @@
 import pytz
 from django.conf import settings
 from datetime import datetime, timedelta
-from .models import (
+from feed.models import (
     Feed,
     Agency,
     Calendar,
