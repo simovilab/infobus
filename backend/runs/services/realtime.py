@@ -56,8 +56,6 @@ def confirm_run(feed_publisher, trip):
             run.save(update_fields=fields_to_update)
 
         # If the run already exists, confirm its metadata is in Redis
-        if not r.sismember("trip:in_progress", str(run.id)):
-            r.sadd("trip:in_progress", str(run.id))
         if redis_trip_descriptor and not r.hexists(f"trip:{run.id}:trip", "trip_id"):
             r.hset(
                 f"trip:{run.id}:trip",
@@ -74,8 +72,6 @@ def confirm_run(feed_publisher, trip):
             start_time=trip_descriptor["start_time"],
             schedule_relationship=trip_descriptor["schedule_relationship"],
         )
-        # Add to trips in progress set
-        r.sadd("trip:in_progress", str(run.id))
         # Create the metadata hash for the run in Redis
         if redis_trip_descriptor:
             r.hset(

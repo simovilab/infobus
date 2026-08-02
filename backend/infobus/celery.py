@@ -30,12 +30,16 @@ def debug_task(self):
 
 app.conf.beat_schedule = {
     "update-gtfs-schedule": {
-        "task": "engine.tasks.update_gtfs_schedule",
+        "task": "engine.tasks.get_schedule",
         "schedule": crontab(minute=30),
     },
     "update-gtfs-realtime": {
         "task": "engine.tasks.update_gtfs_realtime",
         "schedule": timedelta(seconds=30),
+    },
+    "evaluate-run-lifecycles": {
+        "task": "engine.tasks.evaluate_run_lifecycles",
+        "schedule": timedelta(seconds=60),
     },
     "save-gtfs-realtime": {
         "task": "engine.tasks.save_gtfs_realtime",

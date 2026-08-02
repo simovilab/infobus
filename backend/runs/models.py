@@ -48,6 +48,10 @@ class Run(models.Model):
         choices=choices,
         default=RunLifecycleStates.IN_PROGRESS,
     )
+    last_seen_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    missing_since = models.DateTimeField(blank=True, null=True)
+    ended_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    completion_reason = models.CharField(max_length=255, blank=True, null=True)
     last_event_at = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):

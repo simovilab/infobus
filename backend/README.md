@@ -70,7 +70,7 @@ sequenceDiagram
     participant engine@{ "type" : "queue" }
     participant database@{ "type" : "database" }
 
-    loop Every 15 s
+    loop Every 30 s
         G->>engine: polling
         engine->>database: does run exist?
         alt does not exist
@@ -99,16 +99,82 @@ The anatomy of the key is `trip:<run_id>:<field_name>`, where:
 | `<run_id>`     | The UUIDv7 of the run (an instance of a trip).    |
 | `<field_name>` | The name of the GTFS Realtime field being stored. |
 
-#### Runs in progress
+#### Active runs
 
-A set of all runs that are currently in progress.
+A transit-system-scoped set of runs that may still be operating. It includes
+both `In Progress` and `No Signal` runs. Only terminal lifecycle transitions
+remove a run from this set.
 
-| Key        | Value               |
-| ---------- | ------------------- |
-| Redis key  | `trip:in_progress`  |
-| Redis type | set                 |
-| Values     | `run_id`            |
-| Update     | on run registration |
+| Key        | Value                                             |
+| ---------- | ------------------------------------------------- |
+| Redis key  | `<transit_system>:runs:active`                    |
+| Redis type | set                                               |
+| Values     | `run_id`                                          |
+| Update     | on successful observation or lifecycle transition |
+
+The former `trip:in_progress` key is legacy data and is removed by the
+`reconcile_active_runs` management command.
+
+#### Run observation and feed health
+
+| Key                                                                        | Type       | Purpose                                                         |
+| -------------------------------------------------------------------------- | ---------- | --------------------------------------------------------------- |
+| `<transit_system>:runs:last_seen`                                          | sorted set | Server receipt time for each observed run, scored as Unix time. |
+| `<transit_system>:publisher:<publisher_id>:vehicle_positions:last_success` | string     | Last successful VehiclePositions poll.                          |
+| `<transit_system>:publisher:<publisher_id>:trip_updates:last_success`      | string     | Last successful TripUpdates poll.                               |
+| `<transit_system>:run:<run_id>:lifecycle_state`                            | string     | Current persisted lifecycle state mirrored in Redis.            |
+
+Server receipt time is used for silence detection. The GTFS entity timestamp is
+kept as telemetry but is not trusted as the lifecycle heartbeat.
+
+### Run lifecycle detection
+
+The task `engine.tasks.evaluate_run_lifecycles` runs every 60 seconds. It only
+uses absence as evidence when every configured run-bearing realtime source for
+the publisher has a recent successful poll. A publisher outage therefore does
+not age its runs.
+
+```mermaid
+stateDiagram-v2
+    InProgress --> NoSignal: unseen beyond signal grace
+    NoSignal --> InProgress: observed again
+    InProgress --> Completed: terminal evidence
+    NoSignal --> Completed: terminal evidence
+    NoSignal --> Interrupted: expected end passed away from terminal
+    InProgress --> Cancelled: GTFS-RT CANCELED or DELETED
+    NoSignal --> Cancelled: GTFS-RT CANCELED or DELETED
+```
+
+The evaluator combines feed health, server-side observation time, current stop
+sequence and status, final stop sequence, expected final arrival/departure, and
+explicit `CANCELED` or `DELETED` relationships.
+
+| Setting                              | Default | Purpose                                                   |
+| ------------------------------------ | ------: | --------------------------------------------------------- |
+| `RUN_FEED_HEALTH_MAX_AGE_SECONDS`    |      75 | Suspend absence evaluation when source health is older.   |
+| `RUN_NO_SIGNAL_AFTER_SECONDS`        |     120 | Silence before an observed run becomes `No Signal`.       |
+| `RUN_TERMINAL_SILENCE_GRACE_SECONDS` |     120 | Silence after stopping at the terminal before completion. |
+| `RUN_EXPECTED_END_GRACE_SECONDS`     |     900 | Grace after expected end before terminal classification.  |
+| `RUN_UNKNOWN_TIMEOUT_SECONDS`        |    1800 | Silence before interrupting a run with no expected end.   |
+| `RUN_TERMINAL_STATE_TTL_SECONDS`     |   86400 | Retention of terminal Redis state.                        |
+
+`No Signal` is nonterminal and remains active. Reappearance publishes
+`RunSignalRestored`. Terminal transitions persist `ended_at` and
+`completion_reason`, remove active membership, clean stop indexes, retain state
+with a TTL, and publish `RunCompleted`, `RunInterrupted`, or `RunCancelled`.
+
+Preview legacy reconciliation after canonical tracking has accumulated healthy
+polls:
+
+```bash
+python manage.py reconcile_active_runs --minimum-age-minutes 60
+```
+
+Apply only after reviewing the dry-run count:
+
+```bash
+python manage.py reconcile_active_runs --minimum-age-minutes 60 --apply
+```
 
 #### Vehicle Positions GTFS Realtime Feed Message
 

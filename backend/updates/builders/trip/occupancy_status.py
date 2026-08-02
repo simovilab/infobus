@@ -1,11 +1,35 @@
-"""
-In this file, I need to build the messages that will be sent
+from django.conf import settings
+from redis import Redis
+from runs.models import Run
 
-{
-    'transit_system': 'mbta',
-    'event_id': '019fc0a8-c557-70ed-a435-cf215e3412ac',
-    'event_type': 'OccupancyStatusChanged',
-    'run_id': '019fc09f-2af5-75b0-baab-c9ec701db592',
-    'current_state': '1'
-}
-"""
+from updates.topics import TopicKey
+
+
+r = Redis(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    db=settings.REDIS_CELERY_DB,
+    decode_responses=True,
+)
+
+
+def build_trip_occupancy_status(topic: TopicKey) -> dict | None:
+    run_id = topic.primary_value
+    run = Run.objects.filter(
+        id=run_id,
+        feed_publisher__transit_system__code=topic.transit_system,
+    ).first()
+    if run is None:
+        return None
+    occupancy_status = r.get(f"{topic.transit_system}:trip:{run_id}:occupancy_status")
+
+    return {
+        "topic": topic.render(),
+        "run_id": run_id,
+        "trip_id": run.trip_id,
+        "route_id": run.route_id,
+        "occupancy_status": (
+            int(occupancy_status) if occupancy_status is not None else None
+        ),
+        "lifecycle_state": run.run_lifecycle_state,
+    }

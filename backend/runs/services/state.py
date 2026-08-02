@@ -33,13 +33,13 @@ By trip updates:
 - trip:<run_id>:trip_properties
 """
 
-import json
-
 from redis import Redis
 from redis.exceptions import WatchError
+from uuid import UUID
 from django.conf import settings
 from runs.services.realtime import confirm_run
 from runs.events.detector import EventDetector
+from runs.services.stop_index import advance_remaining_stops, sync_remaining_stops
 
 r = Redis(
     host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_CELERY_DB
@@ -79,11 +79,16 @@ def _update_state_and_publish_event(
                 continue
 
 
-def update_vehicle_positions_state(feed_publisher, vehicle_positions):
+def update_vehicle_positions_state(feed_publisher, vehicle_positions) -> set[UUID]:
+    """Update vehicle state and return the runs observed in the feed."""
+    observed_run_ids: set[UUID] = set()
     entities = vehicle_positions.entity
     for entity in entities:
         v = entity.vehicle
+        if not v.HasField("trip"):
+            continue
         run_id = confirm_run(feed_publisher, v.trip)
+        observed_run_ids.add(run_id)
 
         # trip:<run_id>:position (Redis: hash)
         if v.HasField("position"):
@@ -113,13 +118,19 @@ def update_vehicle_positions_state(feed_publisher, vehicle_positions):
 
         # trip:<run_id>:current_stop_sequence (Redis: string)
         if v.HasField("current_stop_sequence"):
+            current_stop_sequence = int(v.current_stop_sequence)
             _update_state_and_publish_event(
                 f"{feed_publisher.transit_system.code}:trip:{run_id}:current_stop_sequence",
-                int(v.current_stop_sequence),
+                current_stop_sequence,
                 int,
                 EventDetector.current_stop_sequence,
                 feed_publisher,
                 run_id,
+            )
+            advance_remaining_stops(
+                feed_publisher.transit_system.code,
+                run_id,
+                current_stop_sequence,
             )
 
         # trip:<run_id>:stop_id (Redis: string)
@@ -186,12 +197,19 @@ def update_vehicle_positions_state(feed_publisher, vehicle_positions):
 
         # trip:<run_id>:multi_carriage_details (Redis: JSON)
 
+    return observed_run_ids
 
-def update_trip_updates_state(feed_publisher, trip_updates):
+
+def update_trip_updates_state(feed_publisher, trip_updates) -> set[UUID]:
+    """Update trip state and return the runs observed in the feed."""
+    observed_run_ids: set[UUID] = set()
     entities = trip_updates.entity
     for entity in entities:
         t = entity.trip_update
+        if not t.HasField("trip"):
+            continue
         run_id = confirm_run(feed_publisher, t.trip)
+        observed_run_ids.add(run_id)
 
         # trip:<run_id>:stop_time_updates (Redis: JSON)
         stop_time_updates = []
@@ -224,10 +242,19 @@ def update_trip_updates_state(feed_publisher, trip_updates):
                     },
                 }
             )
+        sync_remaining_stops(
+            feed_publisher.transit_system.code,
+            run_id,
+            (
+                (stu.stop_id, stu.stop_sequence)
+                for stu in t.stop_time_update
+                if stu.HasField("stop_id") and stu.HasField("stop_sequence")
+            ),
+        )
         r.json().set(
             f"{feed_publisher.transit_system.code}:trip:{run_id}:stop_time_updates",
             "$",
-            json.dumps(stop_time_updates),
+            stop_time_updates,
         )
 
         # trip:<run_id>:delay (Redis: string)
@@ -237,3 +264,5 @@ def update_trip_updates_state(feed_publisher, trip_updates):
                 t.delay,
             )
         # trip:<run_id>:trip_properties (Redis: JSON)
+
+    return observed_run_ids

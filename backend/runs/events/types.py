@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import IntEnum
 from typing import Literal
 from uuid import UUID, uuid7
@@ -45,35 +46,64 @@ class Event(BaseModel):
 
 class CurrentStopSequenceChanged(Event):
     event_type: Literal["CurrentStopSequenceChanged"] = "CurrentStopSequenceChanged"
-    previous_state: int | None
+    previous_state: int | None = None
     current_state: int
 
 
 class StopIDChanged(Event):
     event_type: Literal["StopIDChanged"] = "StopIDChanged"
-    previous_state: str | None
+    previous_state: str | None = None
     current_state: str
 
 
 class CurrentStatusChanged(Event):
     event_type: Literal["CurrentStatusChanged"] = "CurrentStatusChanged"
-    previous_state: VehicleStopStatus | None
+    previous_state: VehicleStopStatus | None = None
     current_state: VehicleStopStatus
 
 
 class CongestionLevelChanged(Event):
     event_type: Literal["CongestionLevelChanged"] = "CongestionLevelChanged"
-    previous_state: CongestionLevel | None
+    previous_state: CongestionLevel | None = None
     current_state: CongestionLevel
 
 
 class OccupancyStatusChanged(Event):
     event_type: Literal["OccupancyStatusChanged"] = "OccupancyStatusChanged"
-    previous_state: OccupancyStatus | None
+    previous_state: OccupancyStatus | None = None
     current_state: OccupancyStatus
 
 
 class OccupancyPercentageChanged(Event):
     event_type: Literal["OccupancyPercentageChanged"] = "OccupancyPercentageChanged"
-    previous_state: int | None
+    previous_state: int | None = None
     current_state: int
+
+
+class RunLifecycleEvent(Event):
+    """Describe a persisted transition in a run's lifecycle."""
+
+    reason: str
+    occurred_at: datetime
+    last_seen_at: datetime | None = None
+    affected_stop_ids_json: str | None = None
+
+
+class RunSignalLost(RunLifecycleEvent):
+    event_type: Literal["RunSignalLost"] = "RunSignalLost"
+
+
+class RunSignalRestored(RunLifecycleEvent):
+    event_type: Literal["RunSignalRestored"] = "RunSignalRestored"
+
+
+class RunCompleted(RunLifecycleEvent):
+    event_type: Literal["RunCompleted"] = "RunCompleted"
+
+
+class RunInterrupted(RunLifecycleEvent):
+    event_type: Literal["RunInterrupted"] = "RunInterrupted"
+
+
+class RunCancelled(RunLifecycleEvent):
+    event_type: Literal["RunCancelled"] = "RunCancelled"

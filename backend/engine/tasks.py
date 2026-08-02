@@ -17,6 +17,7 @@ from runs.services.state import (
     update_vehicle_positions_state,
     update_trip_updates_state,
 )
+from runs.services.lifecycle import evaluate_active_runs, record_successful_poll
 
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
@@ -76,7 +77,15 @@ def get_vehicle_positions():
                 continue
 
             save_vehicle_positions_to_database(feed_publisher, vehicle_positions)
-            update_vehicle_positions_state(feed_publisher, vehicle_positions)
+            observed_run_ids = update_vehicle_positions_state(
+                feed_publisher,
+                vehicle_positions,
+            )
+            record_successful_poll(
+                feed_publisher,
+                "vehicle_positions",
+                observed_run_ids,
+            )
 
     return "VehiclePositions have been processed"
 
@@ -114,7 +123,15 @@ def get_trip_updates():
                 continue
 
             save_trip_updates_to_database(feed_publisher, trip_updates)
-            update_trip_updates_state(feed_publisher, trip_updates)
+            observed_run_ids = update_trip_updates_state(
+                feed_publisher,
+                trip_updates,
+            )
+            record_successful_poll(
+                feed_publisher,
+                "trip_updates",
+                observed_run_ids,
+            )
 
     return "TripUpdates have been processed"
 
@@ -162,6 +179,12 @@ def update_gtfs_realtime():
     """
     fetching = group(get_vehicle_positions.s(), get_trip_updates.s(), get_alerts.s())
     return fetching.apply_async().id
+
+
+@shared_task
+def evaluate_run_lifecycles():
+    """Classify active runs using feed health, silence, and terminal evidence."""
+    return evaluate_active_runs()
 
 
 @shared_task
