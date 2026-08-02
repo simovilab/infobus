@@ -1,0 +1,305 @@
+name: infobus-prod
+
+# ---------------------------------------------------------------------------
+# Required environment variables (set in .env):
+#
+#   Domain routing (Traefik):
+#     ORCHESTRATOR_DOMAIN    – Django API / admin
+#     UI_DOMAIN              – Nuxt frontend
+#     KNOWLEDGE_DOMAIN       – Fuseki SPARQL endpoint
+#     CONTEXT_DOMAIN         – MCP context server
+#     BROKER_DOMAIN          – RabbitMQ management UI
+#     DOCS_DOMAIN            – Project documentation site
+#     CERT_RESOLVER          – Traefik cert resolver name (default: letsencrypt)
+#
+#   Credentials:
+#     SECRET_KEY             – Django secret key
+#     DB_PASSWORD            – PostgreSQL password
+#     REDIS_PASSWORD         – Redis password
+#     RABBITMQ_USER / RABBITMQ_PASS – RabbitMQ credentials
+# ---------------------------------------------------------------------------
+
+services:
+
+  # ── Django (Daphne ASGI) ──────────────────────────────────────────────────
+  orchestrator:
+    build:
+      context: ./backend
+      target: prod
+    environment:
+      - DJANGO_SETUP=True
+      - UV_PROJECT_ENVIRONMENT=/home/app/.venv
+    env_file:
+      - .env
+      - .env.prod
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - backend_venv:/home/app/.venv
+      - lake_data:/app/data
+      - static_files:/app/staticfiles
+    depends_on:
+      database:
+        condition: service_healthy
+      memory:
+        condition: service_healthy
+    networks:
+      - internal
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.orchestrator.rule=Host(`${ORCHESTRATOR_DOMAIN}`)"
+      - "traefik.http.routers.orchestrator.entrypoints=websecure"
+      - "traefik.http.routers.orchestrator.tls=true"
+      - "traefik.http.routers.orchestrator.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.orchestrator.middlewares=security-headers@file,rate-limit@file,compression@file"
+      - "traefik.http.services.orchestrator.loadbalancer.server.port=8000"
+      - "traefik.docker.network=traefik_proxy"
+
+  # ── Celery worker ─────────────────────────────────────────────────────────
+  engine:
+    build:
+      context: ./backend
+      target: engine
+    environment:
+      - DJANGO_SETUP=False
+      - UV_PROJECT_ENVIRONMENT=/home/app/.venv
+    env_file:
+      - .env
+      - .env.prod
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - backend_venv:/home/app/.venv
+      - lake_data:/app/data
+    depends_on:
+      database:
+        condition: service_healthy
+      memory:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ── Celery Beat ───────────────────────────────────────────────────────────
+  scheduler:
+    build:
+      context: ./backend
+      target: scheduler
+    environment:
+      - DJANGO_SETUP=False
+      - UV_PROJECT_ENVIRONMENT=/home/app/.venv
+    env_file:
+      - .env
+      - .env.prod
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - backend_venv:/home/app/.venv
+      - lake_data:/app/data
+    depends_on:
+      database:
+        condition: service_healthy
+      memory:
+        condition: service_healthy
+      broker:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # ── RabbitMQ (AMQP message broker) ────────────────────────────────────────
+  broker:
+    image: rabbitmq:4-management
+    volumes:
+      - broker_data:/var/lib/rabbitmq
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      # Management UI only; AMQP stays internal.
+      - "traefik.http.routers.broker.rule=Host(`${BROKER_DOMAIN}`)"
+      - "traefik.http.routers.broker.entrypoints=websecure"
+      - "traefik.http.routers.broker.tls=true"
+      - "traefik.http.routers.broker.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.broker.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.services.broker.loadbalancer.server.port=15672"
+      - "traefik.docker.network=traefik_proxy"
+
+  # ── PostgreSQL + PostGIS ──────────────────────────────────────────────────
+  database:
+    build:
+      context: ./database
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${DB_NAME:-infobus}
+      - POSTGRES_USER=${DB_USER:-postgres}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - database_data:/var/lib/postgresql
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DB_USER:-postgres}", "-d", "${DB_NAME:-infobus}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  memory:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - memory_data:/data
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a $$REDIS_PASSWORD ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ── FastMCP context server ────────────────────────────────────────────────
+  context:
+    build:
+      context: ./context
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+      - .env.prod
+    environment:
+      - CONTEXT_PORT=3278
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.context.rule=Host(`${CONTEXT_DOMAIN}`)"
+      - "traefik.http.routers.context.entrypoints=websecure"
+      - "traefik.http.routers.context.tls=true"
+      - "traefik.http.routers.context.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.context.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.services.context.loadbalancer.server.port=3278"
+      - "traefik.docker.network=traefik_proxy"
+
+  # ── Apache Jena Fuseki (SPARQL / knowledge graph) ────────────────────────
+  knowledge:
+    build:
+      context: ./knowledge
+      args:
+        JENA_VERSION: 5.3.0
+    image: fuseki
+    command: ["--tdb2", "--update", "--loc", "databases/DB2", "/ds"]
+    volumes:
+      - knowledge_logs:/fuseki/logs
+      - knowledge_data:/fuseki/databases
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.knowledge.rule=Host(`${KNOWLEDGE_DOMAIN}`)"
+      - "traefik.http.routers.knowledge.entrypoints=websecure"
+      - "traefik.http.routers.knowledge.tls=true"
+      - "traefik.http.routers.knowledge.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.knowledge.middlewares=security-headers@file,rate-limit@file"
+      - "traefik.http.services.knowledge.loadbalancer.server.port=3030"
+      - "traefik.docker.network=traefik_proxy"
+
+  # ── Documentation (static site) ────────────────────────────────────────
+  docs:
+    image: nginx:alpine
+    volumes:
+      - ./docs/site:/usr/share/nginx/html:ro
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      - internal
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.docs.rule=Host(`${DOCS_DOMAIN}`)"
+      - "traefik.http.routers.docs.entrypoints=websecure"
+      - "traefik.http.routers.docs.tls=true"
+      - "traefik.http.routers.docs.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.docs.middlewares=security-headers@file,compression@file"
+      - "traefik.http.services.docs.loadbalancer.server.port=80"
+      - "traefik.docker.network=traefik_proxy"
+
+  # ── Nuxt frontend ────────────────────────────────────────────────────────
+  user-interface:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: prod
+    environment:
+      - NUXT_PUBLIC_API_BASE=https://${ORCHESTRATOR_DOMAIN}
+      - NUXT_PORT=3000
+    env_file:
+      - .env
+      - .env.prod
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      orchestrator:
+        condition: service_started
+    networks:
+      - internal
+      - traefik_proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ui.rule=Host(`${UI_DOMAIN}`)"
+      - "traefik.http.routers.ui.entrypoints=websecure"
+      - "traefik.http.routers.ui.tls=true"
+      - "traefik.http.routers.ui.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.ui.middlewares=security-headers@file,compression@file"
+      - "traefik.http.services.ui.loadbalancer.server.port=3000"
+      - "traefik.docker.network=traefik_proxy"
+
+volumes:
+  database_data:
+  memory_data:
+  lake_data:
+  broker_data:
+  backend_venv:
+  static_files:
+  knowledge_logs:
+  knowledge_data:
+
+networks:
+  internal:
+    name: infobus_internal
+  traefik_proxy:
+    external: true
