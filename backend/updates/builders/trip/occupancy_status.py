@@ -22,6 +22,8 @@ def build_trip_occupancy_status(topic: TopicKey) -> dict | None:
     if run is None:
         return None
     occupancy_status = r.get(f"{topic.transit_system}:trip:{run_id}:occupancy_status")
+    if occupancy_status is None:
+        return None
 
     return {
         "topic": topic.render(),
