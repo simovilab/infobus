@@ -33,88 +33,91 @@ def validate_no_spaces_or_special_symbols(value):
 class TransitSystem(models.Model):
     """A transit system is a collection of GTFS providers that serve a common purpose, for example, the public transportation system of a city or country."""
 
-    name = models.CharField(
-        max_length=255, help_text="Nombre del sistema de transporte."
+    name = models.CharField(max_length=255, help_text="Name of the transit system.")
+    code = models.CharField(
+        max_length=31,
+        help_text="Transit system code (typically its acronym). It must not contain spaces or special characters.",
+        validators=[validate_no_spaces_or_special_symbols],
+        unique=True,
     )
     description = models.TextField(
-        blank=True, null=True, help_text="Descripción del sistema de transporte."
+        blank=True, null=True, help_text="Description of the transit system."
+    )
+    is_active = models.BooleanField(
+        default=False, help_text="Whether the transit system is active."
     )
 
     def __str__(self):
-        return self.name
+        return f"{self.code}: {self.name}"
 
 
 class FeedPublisher(models.Model):
-    """A feed publisher provides transportation services GTFS data.
+    """A feed publisher provides transportation services GTFS data for a single transit system.
 
     It might or might not be the same as the agency in the GTFS feed. A GTFS provider can serve multiple agencies.
     """
 
     transit_system = models.ForeignKey(
         TransitSystem,
-        blank=True,
-        null=True,
-        help_text="Sistema de transporte al que sirve el proveedor de datos.",
-        on_delete=models.SET_NULL,
+        help_text="Transit system served by the feed publisher.",
+        on_delete=models.CASCADE,
     )
     code = models.CharField(
         max_length=31,
-        help_text="Código (típicamente el acrónimo) de la empresa. No debe tener espacios ni símbolos especiales.",
+        help_text="Company code (typically its acronym). It must not contain spaces or special characters.",
         validators=[validate_no_spaces_or_special_symbols],
         unique=True,
     )
-    name = models.CharField(max_length=255, help_text="Nombre de la empresa.")
+    name = models.CharField(max_length=255, help_text="Name of the company.")
     description = models.TextField(
-        blank=True, null=True, help_text="Descripción de la institución o empresa."
+        blank=True, null=True, help_text="Description of the institution or company."
     )
     lang = models.CharField(
         max_length=15,
         blank=True,
         null=True,
-        help_text="Idioma de los datos proporcionados por el proveedor, en formato ISO 639-1 alpha-2 o alpha-3. Ejemplo: es, en, fr.",
+        help_text="Language of the data provided by the publisher, in ISO 639-1 alpha-2 or alpha-3 format. Examples: es, en, fr.",
     )
     contact_email = models.EmailField(
         blank=True,
         null=True,
-        help_text="Correo electrónico de contacto del proveedor de datos.",
+        help_text="Contact email address for the data publisher.",
     )
     contact_url = models.URLField(
-        blank=True, null=True, help_text="URL de contacto del proveedor de datos."
+        blank=True, null=True, help_text="Contact URL for the data publisher."
     )
-    website = models.URLField(
-        blank=True, null=True, help_text="Sitio web de la empresa."
-    )
+    website = models.URLField(blank=True, null=True, help_text="Company website.")
     schedule_url = models.URLField(
         blank=True,
         null=True,
-        help_text="URL del suministro (Feed) de GTFS Schedule (.zip).",
+        help_text="URL of the GTFS Schedule feed (.zip).",
     )
     trip_updates_url = models.URLField(
         blank=True,
         null=True,
-        help_text="URL del suministro (FeedMessage) de la entidad GTFS Realtime TripUpdates (.pb).",
+        help_text="URL of the GTFS Realtime TripUpdates FeedMessage (.pb).",
     )
     vehicle_positions_url = models.URLField(
         blank=True,
         null=True,
-        help_text="URL del suministro (FeedMessage) de la entidad GTFS Realtime VehiclePositions (.pb).",
+        help_text="URL of the GTFS Realtime VehiclePositions FeedMessage (.pb).",
     )
     alerts_url = models.URLField(
         blank=True,
         null=True,
-        help_text="URL del suministro (FeedMessage) de la entidad GTFS Realtime ServiceAlerts (.pb).",
+        help_text="URL of the GTFS Realtime ServiceAlerts FeedMessage (.pb).",
     )
     timezone = models.CharField(
         max_length=63,
-        help_text="Zona horaria del proveedor de datos (asume misma zona horaria para todas las agencias). Ejemplo: America/Costa_Rica.",
+        help_text="Time zone of the data publisher (assumed to be the same for all agencies). Example: America/Costa_Rica.",
     )
     is_active = models.BooleanField(
         default=False,
-        help_text="¿Está activo el proveedor de datos? Si no, no se importarán los datos de este proveedor.",
+        help_text="Whether the data publisher is active. If inactive, data from this publisher will not be imported.",
     )
 
     def __str__(self):
-        return f"{self.name} ({self.code})"
+        return f"{self.transit_system.code}: {self.name} ({self.code})"
 
 
 class Feed(models.Model):
@@ -125,6 +128,9 @@ class Feed(models.Model):
     feed_id = models.CharField(max_length=100, primary_key=True, unique=True)
     feed_publisher = models.ForeignKey(
         FeedPublisher, on_delete=models.SET_NULL, blank=True, null=True
+    )
+    transit_system = models.ForeignKey(
+        TransitSystem, on_delete=models.SET_NULL, blank=True, null=True
     )
     start_date = models.DateField(blank=True, null=True)
     end_date = models.DateField(blank=True, null=True)
@@ -291,7 +297,7 @@ class CalendarDate(BaseCalendarDate):
         blank=True,
         null=True,
         default="Feriado",
-        help_text="Nombre de la festividad o feriado.",
+        help_text="Name of the holiday or observance.",
     )
 
     class Meta:
@@ -426,10 +432,10 @@ class GeoShape(models.Model):
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
     shape_id = models.CharField(
-        max_length=255, help_text="Identificador único de la trayectoria."
+        max_length=255, help_text="Unique identifier for the shape."
     )
     geometry = models.LineStringField(
-        help_text="Trayectoria de la ruta.",
+        help_text="Route shape geometry.",
         # dim=3, # To store 3D coordinates (x, y, z)
     )
     shape_name = models.CharField(max_length=255, blank=True, null=True)
@@ -437,7 +443,7 @@ class GeoShape(models.Model):
     shape_from = models.CharField(max_length=255, blank=True, null=True)
     shape_to = models.CharField(max_length=255, blank=True, null=True)
     has_altitude = models.BooleanField(
-        help_text="Indica si la trayectoria tiene datos de altitud", default=False
+        help_text="Whether the shape includes altitude data.", default=False
     )
 
     class Meta:
@@ -674,10 +680,10 @@ class VehiclePosition(models.Model):
 
     # TripDescriptor (message)
     trip_trip_id = models.CharField(max_length=255)
-    trip_route_id = models.CharField(max_length=255, blank=True, null=True)
-    trip_direction_id = models.IntegerField(blank=True, null=True)
     trip_start_time = models.DurationField(blank=True, null=True)
     trip_start_date = models.DateField(blank=True, null=True)
+    trip_route_id = models.CharField(max_length=255, blank=True, null=True)
+    trip_direction_id = models.IntegerField(blank=True, null=True)
     trip_schedule_relationship = models.IntegerField(
         blank=True,
         null=True,

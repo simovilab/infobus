@@ -40,8 +40,10 @@ INSTALLED_APPS = [
     "feed.apps.FeedConfig",
     "website.apps.WebsiteConfig",
     "engine.apps.EngineConfig",
-    "alerts.apps.AlertsConfig",
+    "runs.apps.RunsConfig",
     "api.apps.ApiConfig",
+    "screens.apps.ScreensConfig",
+    "updates.apps.UpdatesConfig",
     "rest_framework",
     "rest_framework.authtoken",
     "drf_spectacular",
@@ -134,6 +136,26 @@ REDIS_HOST = config("REDIS_HOST")
 REDIS_PORT = config("REDIS_PORT")
 REDIS_CELERY_DB = config("REDIS_CELERY_DB", default=0, cast=int)
 
+# Run lifecycle detection
+RUN_NO_SIGNAL_AFTER_SECONDS = config(
+    "RUN_NO_SIGNAL_AFTER_SECONDS", default=120, cast=int
+)
+RUN_FEED_HEALTH_MAX_AGE_SECONDS = config(
+    "RUN_FEED_HEALTH_MAX_AGE_SECONDS", default=75, cast=int
+)
+RUN_TERMINAL_SILENCE_GRACE_SECONDS = config(
+    "RUN_TERMINAL_SILENCE_GRACE_SECONDS", default=120, cast=int
+)
+RUN_EXPECTED_END_GRACE_SECONDS = config(
+    "RUN_EXPECTED_END_GRACE_SECONDS", default=900, cast=int
+)
+RUN_UNKNOWN_TIMEOUT_SECONDS = config(
+    "RUN_UNKNOWN_TIMEOUT_SECONDS", default=1800, cast=int
+)
+RUN_TERMINAL_STATE_TTL_SECONDS = config(
+    "RUN_TERMINAL_STATE_TTL_SECONDS", default=86400, cast=int
+)
+
 # Celery settings
 
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
@@ -189,7 +211,7 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# HTTPS Security Settings
+# HTTPS and proxy security
 SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
 SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=0, cast=int)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
@@ -203,33 +225,79 @@ SECURE_BROWSER_XSS_FILTER = config(
     "SECURE_BROWSER_XSS_FILTER", default=False, cast=bool
 )
 SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default=None)
-
-# Cookie Security
 SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
 CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
-
-# Proxy SSL Header (for reverse proxy setups like nginx)
-
-# HTTPS Security Settings for Production
-# These are read from environment variables set in .env.prod and .env.local
-SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=False, cast=bool)
-SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=0, cast=int)
-SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
-    "SECURE_HSTS_INCLUDE_SUBDOMAINS", default=False, cast=bool
-)
-SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=False, cast=bool)
-SECURE_CONTENT_TYPE_NOSNIFF = config(
-    "SECURE_CONTENT_TYPE_NOSNIFF", default=False, cast=bool
-)
-SECURE_BROWSER_XSS_FILTER = config(
-    "SECURE_BROWSER_XSS_FILTER", default=False, cast=bool
-)
-SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default=None)
-
-# Cookie Security Settings
-SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
-CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
-
-# Proxy SSL Header for reverse proxy setups (nginx)
-# This tells Django to trust the X-Forwarded-Proto header from nginx
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Logging
+
+LOG_LEVEL = config("LOG_LEVEL", default="INFO").upper()
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "{asctime} {levelname} {name}: {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+            "stream": "ext://sys.stdout",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "WARNING",
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "api": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "engine": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "feed": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "infobus": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "runs": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "screens": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "updates": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "website": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+    },
+}

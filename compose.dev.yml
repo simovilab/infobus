@@ -67,6 +67,25 @@ services:
       broker:
         condition: service_healthy
 
+  streams-consumer:
+    build:
+      context: ./backend
+      target: streams-consumer
+    environment:
+      - DJANGO_SETUP=False
+      - UV_PROJECT_ENVIRONMENT=/home/app/.venv
+    env_file:
+      - .env
+      - .env.dev
+    volumes:
+      - ./backend:/app
+      - backend_venv:/home/app/.venv
+    depends_on:
+      database:
+        condition: service_healthy
+      memory:
+        condition: service_healthy
+
   broker:
     image: rabbitmq:4-management
     ports:
@@ -102,7 +121,7 @@ services:
       retries: 5
 
   memory:
-    image: redis:7-alpine
+    image: redis:8-alpine
     command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "${MEMORY_PORT:-6379}:6379"

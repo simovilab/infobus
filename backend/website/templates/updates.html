@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>MBTA occupancy stream | Infobús</title>
+		<style>
+			:root {
+				color-scheme: light;
+				--ink: #152017;
+				--muted: #5f6d61;
+				--paper: #f4f6ef;
+				--surface: #ffffff;
+				--line: #cbd4c9;
+				--accent: #d6382f;
+				--accent-dark: #ad241d;
+				--connected: #087f5b;
+			}
+
+			* {
+				box-sizing: border-box;
+			}
+
+			body {
+				margin: 0;
+				min-height: 100vh;
+				background:
+					linear-gradient(rgba(21, 32, 23, 0.035) 1px, transparent 1px),
+					linear-gradient(90deg, rgba(21, 32, 23, 0.035) 1px, transparent 1px),
+					var(--paper);
+				background-size: 24px 24px;
+				color: var(--ink);
+				font-family: "Avenir Next", "Segoe UI", sans-serif;
+			}
+
+			main {
+				width: min(1080px, calc(100% - 32px));
+				margin: 0 auto;
+				padding: 48px 0;
+			}
+
+			header {
+				display: flex;
+				align-items: end;
+				justify-content: space-between;
+				gap: 24px;
+				padding-bottom: 20px;
+				border-bottom: 2px solid var(--ink);
+			}
+
+			h1 {
+				margin: 0;
+				font-family: Georgia, "Times New Roman", serif;
+				font-size: clamp(2rem, 5vw, 4rem);
+				font-weight: 500;
+				line-height: 0.95;
+				letter-spacing: 0;
+			}
+
+			.system-mark {
+				color: var(--accent);
+				font-size: 0.8rem;
+				font-weight: 700;
+				letter-spacing: 0;
+				text-transform: uppercase;
+			}
+
+			.status {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				color: var(--muted);
+				font-size: 0.9rem;
+				white-space: nowrap;
+			}
+
+			.status::before {
+				width: 10px;
+				height: 10px;
+				border-radius: 50%;
+				background: var(--muted);
+				content: "";
+			}
+
+			.status[data-state="connected"]::before {
+				background: var(--connected);
+			}
+
+			.status[data-state="connecting"]::before {
+				background: #e59f00;
+			}
+
+			.controls {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) auto;
+				gap: 12px;
+				padding: 28px 0 20px;
+			}
+
+			label {
+				display: block;
+				margin-bottom: 7px;
+				color: var(--muted);
+				font-size: 0.75rem;
+				font-weight: 700;
+				text-transform: uppercase;
+			}
+
+			select,
+			button {
+				min-height: 48px;
+				border: 1px solid var(--line);
+				border-radius: 4px;
+				font: inherit;
+			}
+
+			select {
+				width: 100%;
+				padding: 0 14px;
+				background: var(--surface);
+				color: var(--ink);
+			}
+
+			button {
+				align-self: end;
+				padding: 0 22px;
+				border-color: var(--accent);
+				background: var(--accent);
+				color: #fff;
+				cursor: pointer;
+				font-weight: 700;
+			}
+
+			button:hover:not(:disabled) {
+				background: var(--accent-dark);
+			}
+
+			button:disabled {
+				cursor: not-allowed;
+				opacity: 0.45;
+			}
+
+			.topic {
+				min-height: 42px;
+				margin: 0 0 20px;
+				padding: 11px 14px;
+				overflow-wrap: anywhere;
+				border-left: 4px solid var(--accent);
+				background: var(--surface);
+				color: var(--muted);
+				font-family: "SFMono-Regular", Consolas, monospace;
+				font-size: 0.85rem;
+			}
+
+			.stream {
+				overflow: hidden;
+				border: 1px solid var(--ink);
+				border-radius: 4px;
+				background: #111612;
+			}
+
+			.stream-header {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				min-height: 44px;
+				padding: 0 14px;
+				border-bottom: 1px solid #344037;
+				color: #c9d4cb;
+				font-size: 0.75rem;
+				font-weight: 700;
+				text-transform: uppercase;
+			}
+
+			.clear-button {
+				min-height: 30px;
+				padding: 0 10px;
+				border-color: #526056;
+				background: transparent;
+				color: #c9d4cb;
+				font-size: 0.75rem;
+			}
+
+			pre {
+				min-height: 360px;
+				max-height: 60vh;
+				margin: 0;
+				padding: 18px;
+				overflow: auto;
+				color: #d8f3dc;
+				font-family: "SFMono-Regular", Consolas, monospace;
+				font-size: 0.82rem;
+				line-height: 1.6;
+				white-space: pre-wrap;
+				overflow-wrap: anywhere;
+			}
+
+			@media (max-width: 640px) {
+				main {
+					width: min(100% - 20px, 1080px);
+					padding: 28px 0;
+				}
+
+				header {
+					align-items: start;
+					flex-direction: column;
+				}
+
+				.controls {
+					grid-template-columns: 1fr;
+				}
+
+				button {
+					width: 100%;
+				}
+
+				.clear-button {
+					width: auto;
+				}
+			}
+		</style>
+	</head>
+	<body>
+		<main>
+			<header>
+				<div>
+					<div class="system-mark">{{ transit_system }} real-time</div>
+					<h1>Stop occupancy</h1>
+				</div>
+				<div id="connection-status" class="status" data-state="disconnected">
+					Disconnected
+				</div>
+			</header>
+
+			<section class="controls" aria-label="Subscription controls">
+				<div>
+					<label for="stop-select">Stop</label>
+					<select id="stop-select">
+						<option value="">Select a stop</option>
+						{% for stop in stops %}
+							<option value="{{ stop.stop_id }}">
+								{{ stop.stop_name|default:stop.stop_id }} — {{ stop.stop_id }}
+							</option>
+						{% endfor %}
+					</select>
+				</div>
+				<button id="connect-button" type="button" disabled>Connect</button>
+			</section>
+
+			<p id="topic" class="topic">No topic selected</p>
+
+			<section class="stream" aria-label="Raw WebSocket messages">
+				<div class="stream-header">
+					<span>Raw WebSocket messages</span>
+					<button id="clear-button" class="clear-button" type="button">
+						Clear
+					</button>
+				</div>
+				<pre id="messages" aria-live="polite"></pre>
+			</section>
+		</main>
+
+		<script>
+			const transitSystem = "{{ transit_system|escapejs }}";
+			const stopSelect = document.querySelector("#stop-select");
+			const connectButton = document.querySelector("#connect-button");
+			const clearButton = document.querySelector("#clear-button");
+			const statusElement = document.querySelector("#connection-status");
+			const topicElement = document.querySelector("#topic");
+			const messagesElement = document.querySelector("#messages");
+			let socket = null;
+
+			function selectedTopic() {
+				if (!stopSelect.value) return null;
+				return `${transitSystem}.stop.occupancy_status.by_stop.${stopSelect.value}`;
+			}
+
+			function setStatus(state, label) {
+				statusElement.dataset.state = state;
+				statusElement.textContent = label;
+			}
+
+			function appendMessage(message) {
+				const lines = messagesElement.textContent
+					? messagesElement.textContent.split("\n\n")
+					: [];
+				lines.push(message);
+				messagesElement.textContent = lines.slice(-200).join("\n\n");
+				messagesElement.scrollTop = messagesElement.scrollHeight;
+			}
+
+			function disconnect() {
+				if (socket) {
+					socket.onclose = null;
+					socket.close();
+					socket = null;
+				}
+			}
+
+			function connect() {
+				const topic = selectedTopic();
+				if (!topic) return;
+
+				disconnect();
+				messagesElement.textContent = "";
+				setStatus("connecting", "Connecting");
+				connectButton.disabled = true;
+
+				const scheme = window.location.protocol === "https:" ? "wss" : "ws";
+				socket = new WebSocket(`${scheme}://${window.location.host}/ws/updates/`);
+
+				socket.addEventListener("open", () => {
+					socket.send(JSON.stringify({ action: "subscribe", topic }));
+					setStatus("connected", "Connected");
+					connectButton.disabled = false;
+					connectButton.textContent = "Reconnect";
+				});
+
+				socket.addEventListener("message", (event) => {
+					appendMessage(event.data);
+				});
+
+				socket.addEventListener("error", () => {
+					setStatus("disconnected", "Connection error");
+					connectButton.disabled = false;
+				});
+
+				socket.addEventListener("close", () => {
+					socket = null;
+					setStatus("disconnected", "Disconnected");
+					connectButton.disabled = !stopSelect.value;
+					connectButton.textContent = "Connect";
+				});
+			}
+
+			stopSelect.addEventListener("change", () => {
+				const topic = selectedTopic();
+				topicElement.textContent = topic || "No topic selected";
+				connectButton.disabled = !topic;
+				connectButton.textContent = socket ? "Switch stop" : "Connect";
+			});
+
+			connectButton.addEventListener("click", connect);
+			clearButton.addEventListener("click", () => {
+				messagesElement.textContent = "";
+			});
+			window.addEventListener("beforeunload", disconnect);
+		</script>
+	</body>
+</html>

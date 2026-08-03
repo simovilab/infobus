@@ -2,27 +2,37 @@ from django.conf import settings
 from django.http import FileResponse
 from engine.models import InfoService
 from feed.models import (
+    Feed,
     FeedPublisher,
+    FeedMessage,
+    TripUpdate,
+    StopTimeUpdate,
     Agency,
+    RouteStop,
     Stop,
+    Calendar,
+    CalendarDate,
     Route,
+    Shape,
+    GeoShape,
+    FareAttribute,
+    FareRule,
     Trip,
     StopTime,
     FeedInfo,
+    Alert,
+    VehiclePosition,
 )
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status
-from shapely import geometry
 from datetime import datetime, timedelta
 import pytz
-from django.conf import settings
+from feed.services.queries import get_next_trips
 
 from .serializers import *
-
-# from .serializers import InfoServiceSerializer, FeedPublisherSerializer, RouteSerializer, TripSerializer
 
 
 class FilterMixin:
@@ -51,21 +61,10 @@ class FeedPublisherViewSet(viewsets.ModelViewSet):
 
 class NextTripView(APIView):
     def get(self, request):
-        timezone = pytz.timezone(settings.TIME_ZONE)
+        tz = pytz.timezone(settings.TIME_ZONE)
 
-        # Query parameters
-        if request.query_params.get("stop_id"):
-            stop_id = request.query_params.get("stop_id")
-            try:
-                Stop.objects.get(stop_id=stop_id)
-            except Stop.DoesNotExist:
-                return Response(
-                    {
-                        "error": f"No existe la parada especificada {stop_id} en la base de datos."
-                    },
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-        else:
+        # Validate stop_id
+        if not request.query_params.get("stop_id"):
             return Response(
                 {
                     "error": "Es necesario especificar el stop_id como parámetro de la solicitud: /next-trips?stop_id=bUCR-0-01, por ejemplo."
@@ -73,150 +72,32 @@ class NextTripView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if request.query_params.get("timestamp"):
-            timestamp = request.query_params.get("timestamp")
-            timestamp = datetime.strptime(timestamp, "%Y-%m-%dT%H:%M:%S")
-            timestamp = timezone.localize(timestamp)
-        else:
-            timestamp = datetime.now()
-            timestamp = timezone.localize(timestamp)
+        stop_id = request.query_params.get("stop_id")
+        try:
+            Stop.objects.get(stop_id=stop_id)
+        except Stop.DoesNotExist:
+            return Response(
+                {
+                    "error": f"No existe la parada especificada {stop_id} en la base de datos."
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        # Get the current GTFS feed
-        current_feed = Feed.objects.filter(is_current=True).latest("retrieved_at")
-        service_id = get_calendar(timestamp.date(), current_feed)
-        if service_id is None:
+        if request.query_params.get("timestamp"):
+            timestamp = datetime.strptime(
+                request.query_params.get("timestamp"), "%Y-%m-%dT%H:%M:%S"
+            )
+            timestamp = tz.localize(timestamp)
+        else:
+            timestamp = None
+
+        transit_system = request.query_params.get("transit_system", "default")
+        data = get_next_trips(transit_system, stop_id, timestamp)
+        if data is None:
             return Response(
                 {"error": "No hay servicio disponible para la fecha especificada."},
                 status=status.HTTP_204_NO_CONTENT,
             )
-
-        next_arrivals = []
-
-        # -----------------
-        # Trips in progress
-        # -----------------
-
-        latest_feed_message = (
-            FeedMessage.objects.filter(entity_type="trip_update")
-            .order_by("-timestamp")
-            .first()
-        )
-        # TODO: check TTL (time to live)
-        if latest_feed_message is None:
-            # No realtime messages available; keep trips_in_progress empty
-            stop_time_updates = StopTimeUpdate.objects.none()
-        else:
-            stop_time_updates = StopTimeUpdate.objects.filter(
-                feed_message=latest_feed_message, stop_id=stop_id
-            )
-        print("Checkpoint 1")
-
-        trips_in_progress = []
-
-        # Build the response for trips in progress
-        for stop_time_update in stop_time_updates:
-            trip_update = TripUpdate.objects.get(
-                id=stop_time_update.trip_update.id,
-            )
-            trip = Trip.objects.filter(
-                trip_id=trip_update.trip_trip_id, feed=current_feed
-            ).first()
-            trips_in_progress.append(trip)
-            route = Route.objects.filter(
-                route_id=trip.route_id, feed=current_feed
-            ).first()
-            vehicle_position = VehiclePosition.objects.filter(
-                # TODO: ponder if making a new table for TripDescriptor is better
-                vehicle_trip_trip_id=trip_update.trip_trip_id,
-                vehicle_trip_start_date=trip_update.trip_start_date,
-                vehicle_trip_start_time=trip_update.trip_start_time,
-            ).first()
-            geo_shape = GeoShape.objects.filter(
-                shape_id=trip.shape_id, feed=current_feed
-            ).first()
-            geo_shape = geometry.LineString(geo_shape.geometry.coords)
-            location = vehicle_position.vehicle_position_point
-            location = geometry.Point(location.x, location.y)
-            position_in_shape = geo_shape.project(location) / geo_shape.length
-
-            next_arrivals.append(
-                {
-                    "trip_id": trip.trip_id,
-                    "route_id": route.route_id,
-                    "route_short_name": route.route_short_name,
-                    "route_long_name": route.route_long_name,
-                    "trip_headsign": trip.trip_headsign,
-                    "wheelchair_accessible": trip.wheelchair_accessible,
-                    "arrival_time": stop_time_update.arrival_time,
-                    "departure_time": stop_time_update.departure_time,
-                    "in_progress": True,
-                    "progression": {
-                        "position_in_shape": position_in_shape,
-                        "current_stop_sequence": vehicle_position.vehicle_current_stop_sequence,
-                        "current_status": vehicle_position.vehicle_current_status,
-                        "occupancy_status": vehicle_position.vehicle_occupancy_status,
-                    },
-                }
-            )
-
-        print(trips_in_progress)
-
-        # ---------------
-        # Scheduled trips
-        # ---------------
-
-        stop_times = StopTime.objects.filter(
-            feed=current_feed,
-            stop_id=stop_id,
-            arrival_time__gte=timestamp.time(),
-            # _trip__service_id=service_id,
-        ).order_by("arrival_time")
-
-        print(
-            f"Checkpoint 2: {stop_times} {stop_id} {current_feed} {service_id} {timestamp.time()}"
-        )
-
-        # Build the response for scheduled trips
-        for stop_time in stop_times:
-            trip = Trip.objects.filter(
-                trip_id=stop_time.trip_id, feed=current_feed
-            ).first()
-            if trip in trips_in_progress:
-                continue
-            route = Route.objects.filter(
-                route_id=trip.route_id, feed=current_feed
-            ).first()
-
-            arrival_time = timezone.localize(
-                datetime.combine(timestamp.today(), stop_time.arrival_time)
-            )
-            departure_time = timezone.localize(
-                datetime.combine(timestamp.today(), stop_time.departure_time)
-            )
-
-            next_arrivals.append(
-                {
-                    "trip_id": trip.trip_id,
-                    "route_id": route.route_id,
-                    "route_short_name": route.route_short_name,
-                    "route_long_name": route.route_long_name,
-                    "trip_headsign": trip.trip_headsign,
-                    "wheelchair_accessible": trip.wheelchair_accessible,
-                    "arrival_time": arrival_time,
-                    "departure_time": departure_time,
-                    "in_progress": False,
-                    "progression": None,
-                }
-            )
-
-        # Sort the list by arrival time
-        next_arrivals.sort(key=lambda x: x["arrival_time"])
-
-        data = {
-            "stop_id": stop_id,
-            "timestamp": timestamp,
-            "next_arrivals": next_arrivals,
-        }
 
         serializer = NextTripSerializer(data)
         return Response(serializer.data)
@@ -276,12 +157,10 @@ class NextStopView(APIView):
         data = {
             "trip_id": trip_id,
             "start_date": start_date,
-            # The serializer needs the timedelta object
             "start_time": str_to_timedelta(start_time),
             "next_stop_sequence": next_stop_sequence,
         }
 
-        print(data)
         serializer = NextStopSerializer(data)
 
         return Response(serializer.data)
@@ -564,30 +443,6 @@ class ServiceAlertViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class WeatherViewSet(viewsets.ModelViewSet):
-    """
-    Condiciones climáticas.
-    """
-
-    queryset = Weather.objects.all()
-    serializer_class = WeatherSerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["weather_location", "weather_condition"]
-    # permission_classes = [permissions.IsAuthenticated]
-
-
-class SocialViewSet(viewsets.ModelViewSet):
-    """
-    Publicaciones en redes sociales.
-    """
-
-    queryset = Social.objects.all()
-    serializer_class = SocialSerializer
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["social_media", "social_content", "social_location"]
-    # permission_classes = [permissions.IsAuthenticated]
-
-
 class FeedMessageViewSet(viewsets.ModelViewSet):
     """
     Mensajes de alimentación.
@@ -673,24 +528,3 @@ def str_to_timedelta(time_str):
     hours, minutes, seconds = map(int, time_str.split(":"))
     duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
     return duration
-
-
-def get_calendar(date, current_feed):
-    """Get the service_id for the specified date."""
-    exception_type = 1  # Service has been added for the specified date.
-    exception = CalendarDate.objects.filter(
-        feed=current_feed, date=date, exception_type=exception_type
-    ).first()
-
-    if exception:
-        service_id = exception.service_id
-    else:
-        day_of_week = date.strftime("%A").lower()
-        kwargs = {"feed": current_feed, day_of_week: True}
-        calendar = Calendar.objects.filter(**kwargs).first()
-        if not calendar:
-            service_id = None
-        else:
-            service_id = calendar.service_id
-
-    return service_id

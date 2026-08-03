@@ -49,7 +49,6 @@ class CommonAlert(models.Model):
     """Common alerts for a specific time and location based on the Common Alerting Protocol (CAP) specification ITU X.1303."""
 
     id = models.BigAutoField(primary_key=True)
-    
 
 
 class Social(models.Model):
@@ -89,4 +88,3 @@ class Social(models.Model):
 
     def __str__(self):
         return self.social_id
-
