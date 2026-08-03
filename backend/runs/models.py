@@ -46,7 +46,7 @@ class Run(models.Model):
         blank=True,
         null=True,
         choices=choices,
-        default=RunLifecycleStates.IN_PROGRESS,
+        default=RunLifecycleStates.IN_PROGRESS.value,
     )
     last_seen_at = models.DateTimeField(blank=True, null=True, db_index=True)
     missing_since = models.DateTimeField(blank=True, null=True)
