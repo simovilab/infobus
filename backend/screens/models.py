@@ -33,7 +33,7 @@ class Vehicle(models.Model):
     )
 
     def __str__(self):
-        return self.vehicle_label
+        return self.vehicle_label or self.vehicle_id
 
 
 class Screen(models.Model):
