@@ -195,8 +195,9 @@ Unlike `InfoProvider`, `InfoService` has a connected output outside Admin.
 `api.InfoServiceSerializer` exposes all model fields, and
 `api.InfoServiceViewSet` supplies a `ModelViewSet` filtered by `type` and
 `name`. The API router publishes it at `/api/info-services/`, and the static
-OpenAPI document includes its schema. This is mutable CRUD exposure rather than
-a read-only endpoint. The ViewSet does not declare app-specific
+OpenAPI document references the resource at `backend/api/infobus.yml:751` and
+defines its schema at `backend/api/infobus.yml:1639`. This is mutable CRUD
+exposure rather than a read-only endpoint. The ViewSet does not declare app-specific
 `permission_classes`; access control remains the API app's responsibility.
 
 ### Migrations
