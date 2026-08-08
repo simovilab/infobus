@@ -38,6 +38,7 @@ from .models import (
 
 
 class StopAdmin(admin.GISModelAdmin):
+    """Configure stop administration to use GIS controls while excluding latitude and longitude fields derived from geometry."""
     exclude = ["stop_lat", "stop_lon"]
 
 
