@@ -41,12 +41,7 @@ def get_calendar(date, current_feed):
 
 
 def get_next_trips(transit_system, stop_id, timestamp=None):
-    """
-    Core logic for fetching next trips for a stop.
-
-    Returns the serialized data dict, or None if no service is available for
-    the given date. Raises Stop.DoesNotExist if the stop is not found.
-    """
+    """Return upcoming realtime and scheduled arrivals for a stop using the current feed."""
 
     # Get the current GTFS feed
     current_feed = Feed.objects.filter(

@@ -9,6 +9,7 @@ r = Redis(
 
 
 def confirm_run(feed_publisher, trip):
+    """Find or create a run for a GTFS trip descriptor and synchronize its database and Redis metadata."""
     schedule_relationship = None
     if trip.HasField("schedule_relationship"):
         enum_type = trip.DESCRIPTOR.fields_by_name["schedule_relationship"].enum_type

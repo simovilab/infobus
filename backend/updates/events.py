@@ -35,4 +35,5 @@ _event_adapter = TypeAdapter(UpdateEvent)
 
 
 def parse_event(fields: dict[str, str]) -> UpdateEvent:
+    """Validate a field mapping and instantiate the update-event variant selected by its discriminator."""
     return _event_adapter.validate_python(fields)

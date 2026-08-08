@@ -284,6 +284,8 @@ def evaluate_active_runs(now: datetime | None = None) -> dict[str, int]:
 
 @dataclass(frozen=True)
 class _TimingEvidence:
+    """Bundle terminal sequence, expected end time, and proximity flags for lifecycle evaluation."""
+
     terminal_sequence: int | None
     expected_end_at: datetime | None
     at_terminal_stop: bool

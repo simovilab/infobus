@@ -27,6 +27,7 @@ logging.basicConfig(
 
 
 def save_schedule_to_database(feed_publisher, result):
+    """Import a publisher's GTFS Schedule archive when its remote ETag changes."""
     logging.info(
         f"Active feed publisher found: {feed_publisher.name} ({feed_publisher.code}). Proceeding with schedule update."
     )

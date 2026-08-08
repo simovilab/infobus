@@ -54,6 +54,7 @@ def _update_state_and_publish_event(
     feed_publisher,
     run_id,
 ):
+    """Atomically store one Redis state value and publish an event when its detector reports a change."""
     while True:
         with r.pipeline() as pipe:
             try:
