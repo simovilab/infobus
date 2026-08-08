@@ -308,6 +308,12 @@ actions produce an error message:
 }
 ```
 
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `no encontrado`. `/ws/updates/` no aplica autenticación ni
+> autorización: ASGI monta `URLRouter` sin middleware de autenticación
+> (`backend/infobus/asgi.py:19-23`) y `connect()` acepta la conexión
+> inmediatamente (`backend/updates/consumers.py:36-40`).
+
 ## Topic model
 
 Public topics have either five or seven dot-separated segments:
@@ -667,6 +673,11 @@ Maps an `OccupancyStatusChanged` event to exactly one direct topic:
 <transit_system>.trip.occupancy_status.by_run.<run_id>
 ```
 
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `parcial`. El resolver también acepta `RunLifecycleEvent`, no solo
+> `OccupancyStatusChanged`
+> (`backend/updates/projections/trip/occupancy_status.py:6-8`).
+
 No database or Redis query is required because the event already identifies the
 transit system and run.
 
@@ -681,6 +692,14 @@ every stop that the run has not passed:
 <transit_system>.stop.occupancy_status.by_stop.<stop_id>
 ```
 
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `parcial`. `remaining_stop_ids()` solo se llama para eventos de
+> ocupación; los eventos de ciclo de vida leen `affected_stop_ids_json`
+> directamente (`backend/updates/projections/stop/occupancy_status.py:9-15`).
+> Este comportamiento corresponde a la limitación ya indicada más abajo sobre
+> los IDs de parada afectados por eventos terminales; es una aclaración del
+> cuerpo principal, no un hallazgo nuevo.
+
 Topic resolution answers **where** an update belongs. It does not build the
 outgoing message.
 
@@ -694,6 +713,11 @@ Builds the current occupancy snapshot for one run:
 2. Queries the `Run` row while enforcing the topic's transit-system scope.
 3. Returns the public topic, run ID, GTFS trip ID, route ID, and integer
    occupancy status.
+
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `parcial`. El payload real también incluye `lifecycle_state`, campo no
+> reflejado en la enumeración anterior
+> (`backend/updates/builders/trip/occupancy_status.py:28-36`).
 
 It returns `None` when the Redis state or matching run is absent.
 
@@ -717,6 +741,12 @@ arrays.
 5. Adds trip, route, and arrival information.
 6. Sorts runs by known arrival time and then run ID.
 
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `parcial`. Antes de comprobar si cada run todavía se aproxima a la
+> parada, el builder también descarta los runs fuera del conjunto activo; ese
+> filtro no aparece en la enumeración anterior
+> (`backend/updates/builders/stop/occupancy_status.py:40-45`).
+
 The resulting snapshot has this shape:
 
 ```json
@@ -734,6 +764,11 @@ The resulting snapshot has this shape:
   ]
 }
 ```
+
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `parcial`. Cada entrada del payload real también incluye
+> `lifecycle_state`, campo no reflejado en el ejemplo anterior
+> (`backend/updates/builders/stop/occupancy_status.py:62-70`).
 
 An empty `runs` list is a valid snapshot.
 
@@ -753,6 +788,13 @@ The current focused tests cover:
 
 The tests mock projection dependencies and do not replace the live integration
 checks for Redis Streams, RedisJSON, Channels, or the database.
+
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `parcial`. El archivo contiene once tests. Además de los casos
+> enumerados, cubre el rechazo de un tópico que no es string
+> (`backend/updates/tests.py:46-51`), el parsing de un evento de ciclo de vida
+> (`backend/updates/tests.py:106-118`) y la resolución de las paradas afectadas
+> por un evento terminal (`backend/updates/tests.py:153-167`).
 
 ### `exceptions.py`
 
@@ -792,6 +834,12 @@ Creates the database tables for the models in `models.py`.
 ### `migrations/__init__.py`
 
 An empty package marker for Django's migration discovery.
+
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `no encontrado`. En el árbol actual no existe
+> `backend/updates/migrations/` y `git ls-files -- backend/updates/migrations`
+> devuelve vacío: no hay migraciones de `updates` versionadas. La regla que
+> excluye esos directorios está en `.gitignore:87`.
 
 ### `views.py`
 
@@ -866,6 +914,22 @@ they do not need to share an in-memory registry.
 The app requires Redis Streams and RedisJSON. Development uses Redis 8, which
 provides the JSON commands used by the stop occupancy builder and run state
 service.
+
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado de producción: `roto` en los tres puntos siguientes. Primero,
+> `streams-consumer` está declarado en desarrollo (`compose.dev.yml:70-87`),
+> pero no tiene un servicio equivalente en el mapa de servicios de producción
+> (`compose.prod.yml:22-289`). Segundo, producción usa `redis:7-alpine` sin
+> módulos declarados (`compose.prod.yml:167-170`), mientras el builder de parada
+> y el estado de runs ejecutan comandos RedisJSON
+> (`backend/updates/builders/stop/occupancy_status.py:20-24`,
+> `backend/runs/services/state.py:254-258`). Tercero, el servidor exige
+> contraseña (`compose.prod.yml:170-179`), pero settings, Channels, el consumer
+> WebSocket y el cliente del stream omiten credenciales
+> (`backend/infobus/settings.py:133-137`,
+> `backend/infobus/settings.py:159-162`,
+> `backend/infobus/settings.py:178-186`,
+> `backend/updates/consumers.py:17-19`, `backend/updates/client.py:75-82`).
 
 ## Adding a new projection
 
@@ -952,3 +1016,21 @@ shows raw WebSocket messages.
 - Several builder/projection modules are placeholders.
 - Terminal lifecycle events carry affected stop IDs so occupancy snapshots are
   rebuilt after remaining-stop indexes are cleaned up.
+
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `no encontrado`. Ni `ScreenConsumer` ni `StatusConsumer` existen en
+> ningún archivo Python del repositorio. El routing importa únicamente
+> `UpdatesConsumer` (`backend/updates/routing.py:3`) y registra ese único
+> consumer (`backend/updates/routing.py:5-9`), cuya clase está en
+> `backend/updates/consumers.py:31`. `engine/status.html` es un cliente separado
+> y no relacionado: abre `/ws/status/`
+> (`backend/engine/templates/status.html:44-47`), espera un payload distinto
+> (`backend/engine/templates/status.html:65-70`) y ASGI solo monta el routing de
+> `updates` (`backend/infobus/asgi.py:15-22`).
+
+> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
+> Estado: `no encontrado`; decisión abierta. El contrato de tópico, evento y
+> mensaje no declara una versión: `Event` no incluye un campo de versión
+> (`backend/runs/events/types.py:35-44`) y `TopicKey` no contiene un segmento de
+> versión (`backend/updates/topics.py:8-16`). Esta nota no define ni resuelve el
+> esquema de versionado.
