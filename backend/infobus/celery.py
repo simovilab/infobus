@@ -21,6 +21,7 @@ app.autodiscover_tasks()
 
 @app.task(bind=True, ignore_result=True)
 def debug_task(self):
+    """Print the current Celery request for worker diagnostics."""
     print(f"Celery request: {self.request!r}")
 
 

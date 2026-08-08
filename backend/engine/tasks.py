@@ -28,6 +28,7 @@ logging.basicConfig(
 
 @shared_task
 def get_schedule():
+    """Check active publishers for updated GTFS Schedule feeds and report which ones changed."""
     feed_publishers = FeedPublisher.objects.filter(is_active=True)
     result = {"has_feed_publishers": feed_publishers.exists(), "has_new_feed": {}}
 
@@ -45,6 +46,7 @@ def get_schedule():
 
 @shared_task
 def get_vehicle_positions():
+    """Fetch and persist vehicle-position feeds for active publishers, update run state, and record observed runs."""
     transit_systems = TransitSystem.objects.filter(is_active=True)
     if not transit_systems.exists():
         logging.warning(
@@ -92,6 +94,7 @@ def get_vehicle_positions():
 
 @shared_task
 def get_trip_updates():
+    """Fetch and persist trip-update feeds for active publishers, update run state, and record observed runs."""
     transit_systems = TransitSystem.objects.filter(is_active=True)
     if not transit_systems.exists():
         logging.warning(
@@ -138,6 +141,7 @@ def get_trip_updates():
 
 @shared_task
 def get_alerts():
+    """Fetch and persist GTFS Realtime alert feeds for active publishers."""
     transit_systems = TransitSystem.objects.filter(is_active=True)
     if not transit_systems.exists():
         logging.warning(
@@ -173,10 +177,7 @@ def get_alerts():
 
 @shared_task
 def update_gtfs_realtime():
-    """Fetches GTFS Realtime feeds (VehiclePositions, TripUpdates, and Alerts)
-    every few seconds from all active feed publishers, and then updates the connected services
-    consuming next trips and next stops for a current trip (run).
-    """
+    """Dispatch a Celery group that ingests vehicle positions, trip updates, and alerts from active publishers."""
     fetching = group(get_vehicle_positions.s(), get_trip_updates.s(), get_alerts.s())
     return fetching.apply_async().id
 
@@ -189,22 +190,21 @@ def evaluate_run_lifecycles():
 
 @shared_task
 def save_vehicle_positions(use_current_hour=False):
+    """Export the selected hourly vehicle-position window to GeoParquet and return a task completion message."""
     output = vehicle_positions_to_parquet(use_current_hour=use_current_hour)
     return f"Task completed: VehiclePositions exported to parquet -> {output}"
 
 
 @shared_task
 def save_stop_time_updates(use_current_hour=False):
+    """Export the selected hourly stop-time-update window to Parquet and return a task completion message."""
     output = stop_time_updates_to_parquet(use_current_hour=use_current_hour)
     return f"Task completed: StopTimeUpdates exported to parquet -> {output}"
 
 
 @shared_task
 def save_gtfs_realtime():
-    """Saves GTFS Realtime VehiclePosition and StopTimeUpdate records every hour into Hive partitions
-    for historical analysis. By default it exports the last complete hour. Set `use_current_hour=True`
-    to export records from the current hour (debug mode).
-    """
+    """Dispatch a Celery group that exports the last complete hour of vehicle positions and stop-time updates to Hive partitions."""
     saving = group(
         save_vehicle_positions.s(),
         save_stop_time_updates.s(),

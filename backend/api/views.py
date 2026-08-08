@@ -36,7 +36,9 @@ from .serializers import *
 
 
 class FilterMixin:
+    """Provide allowlisted query-parameter filtering for class-level querysets."""
     def get_filtered_queryset(self, allowed_query_params):
+        """Filter the configured queryset using only non-null request parameters in the supplied allowlist."""
         queryset = self.queryset
         query_params = self.request.query_params
         filter_args = {
@@ -48,9 +50,7 @@ class FilterMixin:
 
 
 class FeedPublisherViewSet(viewsets.ModelViewSet):
-    """
-    Proveedores de datos GTFS.
-    """
+    """Provide CRUD access to GTFS feed publishers with filtering by code or name."""
 
     queryset = FeedPublisher.objects.all()
     serializer_class = FeedPublisherSerializer
@@ -60,7 +60,9 @@ class FeedPublisherViewSet(viewsets.ModelViewSet):
 
 
 class NextTripView(APIView):
+    """Serve upcoming realtime and scheduled arrivals for a requested stop, transit system, and optional timestamp."""
     def get(self, request):
+        """Validate the stop and optional timestamp, then serialize upcoming arrivals for the selected transit system."""
         tz = pytz.timezone(settings.TIME_ZONE)
 
         # Validate stop_id
@@ -104,7 +106,9 @@ class NextTripView(APIView):
 
 
 class NextStopView(APIView):
+    """Serve latest stop-time predictions for a trip identified by ID, date, and start time."""
     def get(self, request):
+        """Validate a trip instance descriptor and combine its latest stop-time updates with current-feed stop details."""
         # Get query parameters
         trip_id = request.query_params.get("trip_id")
         start_date = request.query_params.get("start_date")
@@ -167,7 +171,9 @@ class NextStopView(APIView):
 
 
 class RouteStopView(APIView):
+    """Serve route-and-shape stop sequences as GeoJSON features."""
     def get(self, request):
+        """Validate route and shape identifiers, then combine indexed stops with current-feed geometry and properties."""
         # Get and validate query parameters
         if request.query_params.get("route_id") and request.query_params.get(
             "shape_id"
@@ -241,9 +247,7 @@ class RouteStopView(APIView):
 
 
 class AgencyViewSet(viewsets.ModelViewSet):
-    """
-    Agencias de transporte público.
-    """
+    """Provide CRUD access to transit agencies with filtering by agency identifier or name."""
 
     queryset = Agency.objects.all()
     serializer_class = AgencySerializer
@@ -253,9 +257,7 @@ class AgencyViewSet(viewsets.ModelViewSet):
 
 
 class StopViewSet(viewsets.ModelViewSet):
-    """
-    Paradas de transporte público.
-    """
+    """Provide CRUD access to stops with filtering by identifier, code, name, coordinates, or URL."""
 
     queryset = Stop.objects.all()
     serializer_class = StopSerializer
@@ -272,9 +274,7 @@ class StopViewSet(viewsets.ModelViewSet):
 
 
 class GeoStopViewSet(viewsets.ModelViewSet):
-    """
-    Paradas como GeoJSON.
-    """
+    """Provide GeoJSON CRUD representations of stops filterable by identifier, location type, zone, parent station, or accessibility."""
 
     queryset = Stop.objects.all()
     serializer_class = GeoStopSerializer
@@ -290,9 +290,7 @@ class GeoStopViewSet(viewsets.ModelViewSet):
 
 
 class RouteViewSet(viewsets.ModelViewSet):
-    """
-    Rutas de transporte público.
-    """
+    """Provide CRUD access to routes with filtering by route type or identifier."""
 
     queryset = Route.objects.all()
     serializer_class = RouteSerializer
@@ -310,9 +308,7 @@ class RouteViewSet(viewsets.ModelViewSet):
 
 
 class CalendarViewSet(viewsets.ModelViewSet):
-    """
-    Calendarios de transporte público.
-    """
+    """Provide CRUD access to service calendars filterable by service identifier."""
 
     queryset = Calendar.objects.all()
     serializer_class = CalendarSerializer
@@ -322,9 +318,7 @@ class CalendarViewSet(viewsets.ModelViewSet):
 
 
 class CalendarDateViewSet(viewsets.ModelViewSet):
-    """
-    Fechas de calendario de transporte público.
-    """
+    """Provide CRUD access to service-date exceptions filterable by service identifier."""
 
     queryset = CalendarDate.objects.all()
     serializer_class = CalendarDateSerializer
@@ -334,9 +328,7 @@ class CalendarDateViewSet(viewsets.ModelViewSet):
 
 
 class ShapeViewSet(viewsets.ModelViewSet):
-    """
-    Formas de transporte público.
-    """
+    """Provide CRUD access to scheduled shape points filterable by shape identifier."""
 
     queryset = Shape.objects.all()
     serializer_class = ShapeSerializer
@@ -346,9 +338,7 @@ class ShapeViewSet(viewsets.ModelViewSet):
 
 
 class GeoShapeViewSet(viewsets.ModelViewSet):
-    """
-    Formas geográficas de transporte público.
-    """
+    """Provide GeoJSON CRUD representations of route shapes filterable by shape identifier."""
 
     queryset = GeoShape.objects.all()
     serializer_class = GeoShapeSerializer
@@ -358,9 +348,7 @@ class GeoShapeViewSet(viewsets.ModelViewSet):
 
 
 class TripViewSet(viewsets.ModelViewSet):
-    """
-    Viajes de transporte público.
-    """
+    """Provide CRUD access to trips with filtering by shape, direction, trip, route, or service identifiers."""
 
     queryset = Trip.objects.all()
     serializer_class = TripSerializer
@@ -376,9 +364,7 @@ class TripViewSet(viewsets.ModelViewSet):
 
 
 class StopTimeViewSet(viewsets.ModelViewSet):
-    """
-    Horarios de paradas de transporte público.
-    """
+    """Provide CRUD access to scheduled stop times filterable by trip or stop identifier."""
 
     queryset = StopTime.objects.all()
     serializer_class = StopTimeSerializer
@@ -388,9 +374,7 @@ class StopTimeViewSet(viewsets.ModelViewSet):
 
 
 class FeedInfoViewSet(viewsets.ModelViewSet):
-    """
-    Información de alimentación de transporte público.
-    """
+    """Provide CRUD access to feed metadata filterable by publisher name."""
 
     queryset = FeedInfo.objects.all()
     serializer_class = FeedInfoSerializer
@@ -400,9 +384,7 @@ class FeedInfoViewSet(viewsets.ModelViewSet):
 
 
 class FareAttributeViewSet(viewsets.ModelViewSet):
-    """
-    Atributos de tarifa de transporte público.
-    """
+    """Provide CRUD access to fare attributes."""
 
     queryset = FareAttribute.objects.all()
     serializer_class = FareAttributeSerializer
@@ -413,9 +395,7 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
 
 
 class FareRuleViewSet(viewsets.ModelViewSet):
-    """
-    Reglas de tarifa de transporte público.
-    """
+    """Provide CRUD access to fare rules, filterable by route identifier."""
 
     queryset = FareRule.objects.all()
     serializer_class = FareRuleSerializer
@@ -426,9 +406,7 @@ class FareRuleViewSet(viewsets.ModelViewSet):
 
 
 class ServiceAlertViewSet(viewsets.ModelViewSet):
-    """
-    Alertas de servicio de transporte público.
-    """
+    """Provide CRUD access to service alerts with filtering by alert, route, trip, start time, or service date."""
 
     queryset = Alert.objects.all()
     serializer_class = ServiceAlertSerializer
@@ -444,9 +422,7 @@ class ServiceAlertViewSet(viewsets.ModelViewSet):
 
 
 class FeedMessageViewSet(viewsets.ModelViewSet):
-    """
-    Mensajes de alimentación.
-    """
+    """Provide CRUD access to feed messages."""
 
     queryset = FeedMessage.objects.all()
     serializer_class = FeedMessageSerializer
@@ -457,9 +433,7 @@ class FeedMessageViewSet(viewsets.ModelViewSet):
 
 
 class TripUpdateViewSet(viewsets.ModelViewSet):
-    """
-    Actualizaciones de viaje.
-    """
+    """Provide CRUD access to trip updates filterable by trip descriptor fields or vehicle identifier."""
 
     queryset = TripUpdate.objects.all()
     serializer_class = TripUpdateSerializer
@@ -474,9 +448,7 @@ class TripUpdateViewSet(viewsets.ModelViewSet):
 
 
 class StopTimeUpdateViewSet(viewsets.ModelViewSet):
-    """
-    Actualizaciones de horario de parada.
-    """
+    """Provide CRUD access to stop-time updates."""
 
     queryset = StopTimeUpdate.objects.all()
     serializer_class = StopTimeUpdateSerializer
@@ -488,9 +460,7 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
 
 
 class VehiclePositionViewSet(viewsets.ModelViewSet):
-    """
-    Posiciones de vehículos.
-    """
+    """Provide CRUD access to vehicle positions with filtering by vehicle and trip descriptor fields."""
 
     queryset = VehiclePosition.objects.all()
     serializer_class = VehiclePositionSerializer
@@ -506,9 +476,7 @@ class VehiclePositionViewSet(viewsets.ModelViewSet):
 
 
 class InfoServiceViewSet(viewsets.ModelViewSet):
-    """
-    Aplicaciones conectadas al servidor de datos.
-    """
+    """Provide CRUD access to connected information services ordered by creation time and filterable by type or name."""
 
     queryset = InfoService.objects.all().order_by("created_at")
     serializer_class = InfoServiceSerializer
@@ -518,6 +486,7 @@ class InfoServiceViewSet(viewsets.ModelViewSet):
 
 
 def get_schema(request):
+    """Return the bundled API schema YAML file as a downloadable attachment."""
     file_path = settings.BASE_DIR / "api" / "infobus.yml"
     return FileResponse(
         open(file_path, "rb"), as_attachment=True, filename="infobus.yml"
@@ -525,6 +494,7 @@ def get_schema(request):
 
 
 def str_to_timedelta(time_str):
+    """Convert a colon-separated hour, minute, and second string into a timedelta."""
     hours, minutes, seconds = map(int, time_str.split(":"))
     duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
     return duration

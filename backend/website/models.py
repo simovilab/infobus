@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 
 
 class User(models.Model):
+    """Store optional company and position metadata for a linked Django user account."""
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, blank=True, null=True)
     company = models.CharField(max_length=100, blank=True, null=True)

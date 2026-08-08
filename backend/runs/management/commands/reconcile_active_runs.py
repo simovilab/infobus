@@ -11,6 +11,7 @@ from runs.services.stop_index import clear_remaining_stops
 
 
 class Command(BaseCommand):
+    """Provide a guarded command that reports or interrupts aged active runs absent from canonical Redis sets."""
     help = (
         "Reconcile legacy in-progress runs after canonical heartbeat tracking "
         "has completed at least one successful polling cycle."
