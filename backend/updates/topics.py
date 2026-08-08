@@ -7,6 +7,7 @@ from .exceptions import InvalidTopicException
 
 @dataclass(frozen=True)
 class TopicKey:
+    """Represent a public update topic as transit, entity, information, selector, and optional qualifier segments."""
     transit_system: str
     entity: str
     info: str
@@ -71,6 +72,7 @@ class TopicKey:
 
 @dataclass(frozen=True)
 class TopicPattern:
+    """Represent the entity, information, and selector constraints used to match concrete update topics."""
     entity: str
     info: str
     primary_selector: str
