@@ -17,10 +17,10 @@ Including another URLconf
 
 from django.contrib import admin
 from django.urls import path, include
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse
 
 
-def health_check(request):
+def health_check(request: HttpRequest) -> HttpResponse:
     """Simple health check endpoint for container health monitoring."""
     return HttpResponse("OK", content_type="text/plain")
 

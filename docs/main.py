@@ -1,4 +1,4 @@
-def main():
+def main() -> None:
     """Print a placeholder greeting when the documentation module is run directly."""
     print("Hello from docs!")
 
