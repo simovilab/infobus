@@ -1,25 +1,26 @@
+from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 from feed.models import Stop
 
 # Create your views here.
 
 
-def index(request):
+def index(request: HttpRequest) -> HttpResponse:
     """Render the public landing-page template."""
     return render(request, "index.html")
 
 
-def about(request):
+def about(request: HttpRequest) -> HttpResponse:
     """Render the project information template."""
     return render(request, "about.html")
 
 
-def profile(request):
+def profile(request: HttpRequest) -> HttpResponse:
     """Render the user profile template."""
     return render(request, "profile.html")
 
 
-def updates(request):
+def updates(request: HttpRequest) -> HttpResponse:
     """Render the update viewer with distinct current MBTA stops."""
     stops = (
         Stop.objects.filter(

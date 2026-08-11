@@ -1,5 +1,7 @@
 from django.conf import settings
+from django.db.models import Model, QuerySet
 from django.http import FileResponse
+from django.http import HttpRequest
 from engine.models import InfoService
 from feed.models import (
     Feed,
@@ -24,6 +26,7 @@ from feed.models import (
     VehiclePosition,
 )
 from rest_framework import viewsets
+from rest_framework.request import Request
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
@@ -37,7 +40,10 @@ from .serializers import *
 
 class FilterMixin:
     """Provide allowlisted query-parameter filtering for class-level querysets."""
-    def get_filtered_queryset(self, allowed_query_params):
+    def get_filtered_queryset(
+        self,
+        allowed_query_params: list[str],
+    ) -> QuerySet[Model]:
         """Filter the configured queryset using only non-null request parameters in the supplied allowlist."""
         queryset = self.queryset
         query_params = self.request.query_params
@@ -61,7 +67,7 @@ class FeedPublisherViewSet(viewsets.ModelViewSet):
 
 class NextTripView(APIView):
     """Serve upcoming realtime and scheduled arrivals for a requested stop, transit system, and optional timestamp."""
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         """Validate the stop and optional timestamp, then serialize upcoming arrivals for the selected transit system."""
         tz = pytz.timezone(settings.TIME_ZONE)
 
@@ -107,7 +113,7 @@ class NextTripView(APIView):
 
 class NextStopView(APIView):
     """Serve latest stop-time predictions for a trip identified by ID, date, and start time."""
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         """Validate a trip instance descriptor and combine its latest stop-time updates with current-feed stop details."""
         # Get query parameters
         trip_id = request.query_params.get("trip_id")
@@ -172,7 +178,7 @@ class NextStopView(APIView):
 
 class RouteStopView(APIView):
     """Serve route-and-shape stop sequences as GeoJSON features."""
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         """Validate route and shape identifiers, then combine indexed stops with current-feed geometry and properties."""
         # Get and validate query parameters
         if request.query_params.get("route_id") and request.query_params.get(
@@ -485,7 +491,7 @@ class InfoServiceViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-def get_schema(request):
+def get_schema(request: HttpRequest) -> FileResponse:
     """Return the bundled API schema YAML file as a downloadable attachment."""
     file_path = settings.BASE_DIR / "api" / "infobus.yml"
     return FileResponse(
@@ -493,7 +499,7 @@ def get_schema(request):
     )
 
 
-def str_to_timedelta(time_str):
+def str_to_timedelta(time_str: str) -> timedelta:
     """Convert a colon-separated hour, minute, and second string into a timedelta."""
     hours, minutes, seconds = map(int, time_str.split(":"))
     duration = timedelta(hours=hours, minutes=minutes, seconds=seconds)
