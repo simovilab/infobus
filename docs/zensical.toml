@@ -19,7 +19,7 @@ docs_dir = "content"
 # meaningful description of the site content for use by search engines.
 #
 # Read more: https://zensical.org/docs/setup/basics/#site_description
-site_description = "A platform for managing and publishing GTFS data."
+site_description = "Technical documentation for Infobús®, a public transit information system that acquires and stores GTFS Schedule and GTFS Realtime data, tracks runs through their lifecycle, and distributes current updates through REST APIs and WebSockets."
 
 # The site_author attribute. This is used in the HTML head element.
 #
@@ -29,7 +29,11 @@ site_author = "https://simovilab.org"
 # The site_url is the canonical URL for your site. When building online
 # documentation you should set this.
 # Read more: https://zensical.org/docs/setup/basics/#site_url
-#site_url = "https://www.example.com/"
+site_url = "https://docs.infobus.simovilab.com/"
+
+repo_url = "https://github.com/simovilab/infobus"
+repo_name = "simovilab/infobus"
+edit_uri = "edit/main/docs/content/"
 
 # The copyright notice appears in the page footer and can contain an HTML
 # fragment.
@@ -46,10 +50,24 @@ Copyright &copy; 2026 SIMOVI Lab
 # can be defined using TOML syntax.
 #
 # Read more: https://zensical.org/docs/setup/navigation/
-# nav = [
-#   { "Get started" = "index.md" },
-#   { "Markdown in 5min" = "markdown.md" },
-# ]
+# Kept flat rather than nested like sibling projects: this site provides
+# cross-cutting explanations, while per-app technical depth remains in each
+# application's README instead of being duplicated here.
+nav = [
+  { "Home" = "index.md" },
+  { "Concepts" = "concepts.md" },
+  { "Architecture" = "architecture.md" },
+  { "Django Applications" = "django-applications.md" },
+  { "GTFS Schedule" = "gtfs-schedule.md" },
+  { "GTFS Realtime" = "gtfs-realtime.md" },
+  { "Runs and Lifecycle" = "runs-lifecycle.md" },
+  { "Updates and WebSockets" = "updates-websockets.md" },
+  { "API and OpenAPI" = "api-openapi.md" },
+  { "Local Development" = "local-development.md" },
+  { "Deployment and Operations" = "deployment-operations.md" },
+  { "Testing" = "testing.md" },
+  { "Decisions and Limitations" = "decisions-limitations.md" },
+]
 
 # With the "extra_css" option you can add your own CSS styling to customize
 # your Zensical project according to your needs. You can add any number of
@@ -124,13 +142,13 @@ features = [
   # will generate an edit button for the page. This works for common
   # repository hosting services.
   # https://zensical.org/docs/setup/repository/#content-actions
-  #"content.action.edit",
+  "content.action.edit",
 
   # If you have a repository configured and turn on this feature, Zensical
   # will generate a button that allows the user to view the Markdown
   # code for the current page.
   # https://zensical.org/docs/setup/repository/#content-actions
-  #"content.action.view",
+  "content.action.view",
 
   # Code annotations allow you to add an icon with a tooltip to your
   # code blocks to provide explanations at crucial points.
@@ -302,9 +320,13 @@ toggle.name = "Switch to light mode"
 # ----------------------------------------------------------------------------
 # The "extra" section contains miscellaneous settings.
 # ----------------------------------------------------------------------------
-#[[project.extra.social]]
-#icon = "fontawesome/brands/github"
-#link = "https://github.com/user/repo"
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/simovilab/infobus"
+
+[[project.extra.social]]
+icon = "lucide/globe"
+link = "https://simovilab.org"
 
 # ----------------------------------------------------------------------------
 # In this section you can configure the Markdown extensions that are used when
