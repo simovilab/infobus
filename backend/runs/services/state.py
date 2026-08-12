@@ -33,13 +33,24 @@ By trip updates:
 - trip:<run_id>:trip_properties
 """
 
+from collections.abc import Callable
 from redis import Redis
 from redis.exceptions import WatchError
+from typing import TypeAlias, TypeVar
 from uuid import UUID
 from django.conf import settings
+from feed.models import FeedPublisher
+from google.transit import gtfs_realtime_pb2 as gtfs_rt
 from runs.services.realtime import confirm_run
 from runs.events.detector import EventDetector
 from runs.services.stop_index import advance_remaining_stops, sync_remaining_stops
+
+StateT = TypeVar("StateT", int, str)
+StateDeserializer: TypeAlias = Callable[[bytes], StateT]
+StateDetector: TypeAlias = Callable[
+    [FeedPublisher, UUID, StateT | None, StateT],
+    dict[str, object] | None,
+]
 
 r = Redis(
     host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_CELERY_DB
@@ -47,13 +58,13 @@ r = Redis(
 
 
 def _update_state_and_publish_event(
-    key,
-    current_state,
-    deserialize,
-    detector,
-    feed_publisher,
-    run_id,
-):
+    key: str,
+    current_state: StateT,
+    deserialize: StateDeserializer[StateT],
+    detector: StateDetector[StateT],
+    feed_publisher: FeedPublisher,
+    run_id: UUID,
+) -> None:
     """Atomically store one Redis state value and publish an event when its detector reports a change."""
     while True:
         with r.pipeline() as pipe:
@@ -80,7 +91,10 @@ def _update_state_and_publish_event(
                 continue
 
 
-def update_vehicle_positions_state(feed_publisher, vehicle_positions) -> set[UUID]:
+def update_vehicle_positions_state(
+    feed_publisher: FeedPublisher,
+    vehicle_positions: gtfs_rt.FeedMessage,
+) -> set[UUID]:
     """Update vehicle state and return the runs observed in the feed."""
     observed_run_ids: set[UUID] = set()
     entities = vehicle_positions.entity
@@ -201,7 +215,10 @@ def update_vehicle_positions_state(feed_publisher, vehicle_positions) -> set[UUI
     return observed_run_ids
 
 
-def update_trip_updates_state(feed_publisher, trip_updates) -> set[UUID]:
+def update_trip_updates_state(
+    feed_publisher: FeedPublisher,
+    trip_updates: gtfs_rt.FeedMessage,
+) -> set[UUID]:
     """Update trip state and return the runs observed in the feed."""
     observed_run_ids: set[UUID] = set()
     entities = trip_updates.entity

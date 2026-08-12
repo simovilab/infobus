@@ -19,5 +19,5 @@ class RunLifecycleStates(str, Enum):
     SHORT_TURNED = "Short Turned"
 
 
-def choices():
+def choices() -> list[tuple[str, str]]:
     return [(status.value, status.name) for status in RunLifecycleStates]

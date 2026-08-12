@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.core.management.base import BaseCommand, CommandError
+from django.core.management.base import BaseCommand, CommandError, CommandParser
 from django.utils import timezone
 
 from feed.models import TransitSystem
@@ -17,13 +17,13 @@ class Command(BaseCommand):
         "has completed at least one successful polling cycle."
     )
 
-    def add_arguments(self, parser) -> None:
+    def add_arguments(self, parser: CommandParser) -> None:
         """Register dry-run and age-safety command options."""
         parser.add_argument("--apply", action="store_true")
         parser.add_argument("--minimum-age-minutes", type=int, default=60)
         parser.add_argument("--allow-empty-canonical", action="store_true")
 
-    def handle(self, *args, **options) -> None:
+    def handle(self, *args: object, **options: object) -> None:
         """Report or interrupt legacy runs absent from canonical active sets."""
         canonical_ids: set[str] = set()
         for system_code in TransitSystem.objects.values_list("code", flat=True):

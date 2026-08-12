@@ -48,7 +48,7 @@ class Event(BaseModel):
     event_type: str
     run_id: UUID
 
-    def redis_fields(self):
+    def redis_fields(self) -> dict[str, object]:
         """Serialize an event as JSON-compatible Redis fields while omitting null values."""
         return self.model_dump(mode="json", exclude_none=True)
 
