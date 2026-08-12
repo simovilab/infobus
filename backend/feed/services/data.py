@@ -10,7 +10,9 @@ import json
 from feed.models import VehiclePosition, StopTimeUpdate
 
 
-def vehicle_positions_to_parquet(use_current_hour=False):
+def vehicle_positions_to_parquet(
+    use_current_hour: bool | str = False,
+) -> str:
     """Export an hourly window of vehicle positions to a Hive-partitioned GeoParquet file."""
     app_timezone = ZoneInfo(settings.TIME_ZONE)
     now_local = timezone.localtime(timezone.now(), app_timezone)
@@ -184,7 +186,10 @@ def vehicle_positions_to_parquet(use_current_hour=False):
     writer = None
     batch_rows = []
 
-    def flush_batch(records, parquet_writer):
+    def flush_batch(
+        records: list[dict[str, object]],
+        parquet_writer: pq.ParquetWriter | None,
+    ) -> pq.ParquetWriter | None:
         """Write a nonempty batch of vehicle-position records and return the active Parquet writer."""
         nonlocal row_count
         if not records:
@@ -281,7 +286,9 @@ def vehicle_positions_to_parquet(use_current_hour=False):
     )
 
 
-def stop_time_updates_to_parquet(use_current_hour=False):
+def stop_time_updates_to_parquet(
+    use_current_hour: bool | str = False,
+) -> str:
     """Export an hourly window of stop-time updates to a Hive-partitioned Parquet file."""
     app_timezone = ZoneInfo(settings.TIME_ZONE)
     now_local = timezone.localtime(timezone.now(), app_timezone)
@@ -384,7 +391,10 @@ def stop_time_updates_to_parquet(use_current_hour=False):
     writer = None
     batch_rows = []
 
-    def flush_batch(records, parquet_writer):
+    def flush_batch(
+        records: list[dict[str, object]],
+        parquet_writer: pq.ParquetWriter | None,
+    ) -> pq.ParquetWriter | None:
         """Write a nonempty batch of stop-time-update records and return the active Parquet writer."""
         nonlocal row_count
         if not records:

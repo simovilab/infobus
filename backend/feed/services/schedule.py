@@ -1,5 +1,7 @@
 import logging
+from typing import TYPE_CHECKING
 from feed.models import (
+    FeedPublisher,
     Feed,
     Agency,
     Stop,
@@ -19,6 +21,10 @@ from datetime import datetime
 import pytz
 from gtfs.utils import gtfs_date, normalize_gtfs_value
 
+if TYPE_CHECKING:
+    from engine.tasks import ScheduleUpdateResult
+
+
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
     encoding="utf-8",
@@ -26,7 +32,10 @@ logging.basicConfig(
 )
 
 
-def save_schedule_to_database(feed_publisher, result):
+def save_schedule_to_database(
+    feed_publisher: FeedPublisher,
+    result: "ScheduleUpdateResult",
+) -> None:
     """Import a publisher's GTFS Schedule archive when its remote ETag changes."""
     logging.info(
         f"Active feed publisher found: {feed_publisher.name} ({feed_publisher.code}). Proceeding with schedule update."

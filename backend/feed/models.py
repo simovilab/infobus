@@ -18,7 +18,7 @@ from gtfs.models import (
 )
 
 
-def validate_no_spaces_or_special_symbols(value):
+def validate_no_spaces_or_special_symbols(value: str) -> None:
     """Reject identifiers containing characters other than ASCII letters, digits, or underscores."""
     if re.search(r"[^a-zA-Z0-9_]", value):
         raise ValidationError(
@@ -222,7 +222,7 @@ class Stop(BaseStop):
         ]
 
     # Build stop_point or stop_lat and stop_lon
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
         """Synchronize the geographic point with latitude and longitude before persisting the stop."""
         if self.stop_point:
             self.stop_lat = self.stop_point.y
@@ -454,7 +454,7 @@ class RouteStop(models.Model):
             )
         ]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
         """Resolve route, geographic shape, and stop foreign keys from their feed-scoped identifiers before saving."""
         self.linked_route = Route.objects.get(feed=self.feed, route_id=self.route_id)
         self.linked_shape = GeoShape.objects.get(feed=self.feed, shape_id=self.shape_id)
@@ -501,7 +501,7 @@ class TripDuration(models.Model):
             )
         ]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
         """Resolve route, shape, and service records from feed-scoped identifiers before persisting a trip-duration row."""
         self.linked_route = Route.objects.get(feed=self.feed, route_id=self.route_id)
         self.linked_shape = Shape.objects.get(feed=self.feed, shape_id=self.shape_id)
@@ -542,7 +542,7 @@ class TripTime(models.Model):
             )
         ]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
         """Resolve trip and stop foreign keys from their feed-scoped identifiers before saving a trip timepoint."""
         self.linked_trip = Trip.objects.get(feed=self.feed, trip_id=self.trip_id)
         self.linked_stop = Stop.objects.get(feed=self.feed, stop_id=self.stop_id)
@@ -737,7 +737,7 @@ class VehiclePosition(models.Model):
             models.Index(fields=["timestamp"], name="vehiclepos_timestamp_idx"),
         ]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
         """Derive the stored geographic point from longitude and latitude before persisting the vehicle observation."""
         if self.position_longitude is not None and self.position_latitude is not None:
             try:

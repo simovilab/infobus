@@ -1,4 +1,5 @@
 from feed.models import (
+    FeedPublisher,
     FeedMessage,
     VehiclePosition,
     TripUpdate,
@@ -13,13 +14,18 @@ from feed.models import (
     TranslatedImage,
     LocalizedImage,
 )
+from google.protobuf.message import Message
+from google.transit import gtfs_realtime_pb2 as gtfs_rt
 from gtfs.utils import gtfs_time, gtfs_date, gtfs_timestamp
 import pytz
 from django.contrib.gis.geos import Point
 from django.db import transaction
 
 
-def save_vehicle_positions_to_database(feed_publisher, vehicle_positions):
+def save_vehicle_positions_to_database(
+    feed_publisher: FeedPublisher,
+    vehicle_positions: gtfs_rt.FeedMessage,
+) -> None:
     """Persist a GTFS Realtime vehicle-position feed message and its entities."""
     # Save FeedMessage object
     feed_message = FeedMessage(
@@ -110,7 +116,10 @@ def save_vehicle_positions_to_database(feed_publisher, vehicle_positions):
         )
 
 
-def save_trip_updates_to_database(feed_publisher, trip_updates):
+def save_trip_updates_to_database(
+    feed_publisher: FeedPublisher,
+    trip_updates: gtfs_rt.FeedMessage,
+) -> None:
     """Persist a GTFS Realtime trip-update feed message with its stop-time updates."""
     # Save FeedMessage object
     feed_message = FeedMessage(
@@ -214,7 +223,7 @@ def save_trip_updates_to_database(feed_publisher, trip_updates):
                 )
 
 
-def has_optional_field(message, field_name):
+def has_optional_field(message: Message, field_name: str) -> bool:
     """Return whether a protobuf message declares and sets an optional field."""
     descriptor = getattr(message, "DESCRIPTOR", None)
     if descriptor is None or field_name not in descriptor.fields_by_name:
@@ -225,7 +234,10 @@ def has_optional_field(message, field_name):
         return False
 
 
-def save_alerts_to_database(feed_publisher, alerts):
+def save_alerts_to_database(
+    feed_publisher: FeedPublisher,
+    alerts: gtfs_rt.FeedMessage,
+) -> None:
     """Persist an alerts feed message and any previously unseen alerts with their nested data."""
     # Save FeedMessage object
     feed_message = FeedMessage(
