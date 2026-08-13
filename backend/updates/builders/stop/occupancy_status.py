@@ -17,7 +17,12 @@ r = Redis(
 )
 
 
-def _arrival_time(transit_system: str, run_id: str, stop_id: str):
+def _arrival_time(
+    transit_system: str,
+    run_id: str,
+    stop_id: str,
+) -> int | None:
+    """Retrieve the predicted arrival time for a stop from a run's RedisJSON stop-time updates."""
     value = r.json().get(
         f"{transit_system}:trip:{run_id}:stop_time_updates",
         "$",
@@ -36,6 +41,7 @@ def _arrival_time(transit_system: str, run_id: str, stop_id: str):
 
 
 def build_stop_occupancy_status(topic: TopicKey) -> dict:
+    """Assemble a stop-topic payload from active approaching runs, Redis occupancy states, and predicted arrival times."""
     stop_id = topic.primary_value
     run_ids = [
         run_id

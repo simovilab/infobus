@@ -7,12 +7,14 @@ from rest_framework_gis.serializers import GeoFeatureModelSerializer, GeometryFi
 
 
 class FeedPublisherSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose all GTFS feed-publisher fields through hyperlinked API representations."""
     class Meta:
         model = FeedPublisher
         fields = "__all__"
 
 
 class ProgressionSerializer(serializers.Serializer):
+    """Represent live vehicle progress along a shape with stop-sequence, status, and occupancy data."""
     position_in_shape = serializers.FloatField()
     current_stop_sequence = serializers.IntegerField()
     current_status = serializers.CharField()
@@ -20,6 +22,7 @@ class ProgressionSerializer(serializers.Serializer):
 
 
 class NextArrivalSerializer(serializers.Serializer):
+    """Represent route, timing, accessibility, and live progression data for an upcoming arrival."""
     trip_id = serializers.CharField()
     route_id = serializers.CharField()
     route_short_name = serializers.CharField()
@@ -33,12 +36,14 @@ class NextArrivalSerializer(serializers.Serializer):
 
 
 class NextTripSerializer(serializers.Serializer):
+    """Package a stop and query timestamp with its upcoming arrival collection."""
     stop_id = serializers.CharField()
     timestamp = serializers.DateTimeField()
     next_arrivals = NextArrivalSerializer(many=True)
 
 
 class NextStopSequenceSerializer(serializers.Serializer):
+    """Represent an upcoming stop with sequence, location, and predicted arrival and departure times."""
     stop_sequence = serializers.IntegerField()
     stop_id = serializers.CharField()
     stop_name = serializers.CharField()
@@ -49,6 +54,7 @@ class NextStopSequenceSerializer(serializers.Serializer):
 
 
 class NextStopSerializer(serializers.Serializer):
+    """Package a trip instance with its ordered upcoming stop predictions."""
     trip_id = serializers.CharField()
     start_date = serializers.DateField()
     start_time = serializers.DurationField()
@@ -56,10 +62,12 @@ class NextStopSerializer(serializers.Serializer):
 
 
 class RoutesAtStopSerializer(serializers.Serializer):
+    """Represent an optional route identifier associated with a stop."""
     route_id = serializers.CharField(required=False)
 
 
 class RouteStopPropertiesSerializer(serializers.Serializer):
+    """Represent route, shape, stop, sequencing, timing-point, and accessibility properties for a map feature."""
     route_id = serializers.CharField()
     shape_id = serializers.CharField()
     stop_id = serializers.CharField()
@@ -78,22 +86,26 @@ class RouteStopPropertiesSerializer(serializers.Serializer):
 
 
 class RouteStopGeometrySerializer(serializers.Serializer):
+    """Represent a GeoJSON geometry type with numeric coordinates."""
     type = serializers.CharField()
     coordinates = serializers.ListField(child=serializers.FloatField())
 
 
 class RouteStopFeatureSerializer(serializers.Serializer):
+    """Combine route-stop geometry and transit properties into a GeoJSON feature."""
     type = serializers.CharField()
     geometry = RouteStopGeometrySerializer()
     properties = RouteStopPropertiesSerializer()
 
 
 class RouteStopSerializer(serializers.Serializer):
+    """Package route-stop features into a GeoJSON feature collection."""
     type = serializers.CharField()
     features = RouteStopFeatureSerializer(many=True)
 
 
 class AgencySerializer(serializers.HyperlinkedModelSerializer):
+    """Expose agency fields with feed ownership represented as a read-only primary-key reference."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -102,6 +114,7 @@ class AgencySerializer(serializers.HyperlinkedModelSerializer):
 
 
 class StopSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose stop fields with feed ownership represented as a read-only primary-key reference."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -110,6 +123,7 @@ class StopSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class GeoStopSerializer(GeoFeatureModelSerializer):
+    """Transform stop records into GeoJSON features using stop-point geometry and a read-only feed reference."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
     stop_point = GeometryField()
 
@@ -120,6 +134,7 @@ class GeoStopSerializer(GeoFeatureModelSerializer):
 
 
 class RouteSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose route fields while keeping feed ownership read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -128,6 +143,7 @@ class RouteSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class CalendarSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose service-calendar fields while keeping feed ownership read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -136,6 +152,7 @@ class CalendarSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class CalendarDateSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose service-exception-date fields while keeping feed ownership read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -144,6 +161,7 @@ class CalendarDateSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class ShapeSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose scheduled shape-point fields while keeping feed ownership read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -152,6 +170,7 @@ class ShapeSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class GeoShapeSerializer(GeoFeatureModelSerializer):
+    """Transform geographic shape records into GeoJSON features with a read-only feed reference."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
     geometry = GeometryField()
 
@@ -162,6 +181,7 @@ class GeoShapeSerializer(GeoFeatureModelSerializer):
 
 
 class TripSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose scheduled-trip fields while keeping feed ownership read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -170,6 +190,7 @@ class TripSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class StopTimeSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose scheduled stop-time fields while keeping feed ownership read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -178,6 +199,7 @@ class StopTimeSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FeedInfoSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose feed-metadata fields while keeping the associated feed read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -186,6 +208,7 @@ class FeedInfoSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FareAttributeSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose fare-product attributes while keeping feed ownership read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -194,6 +217,7 @@ class FareAttributeSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FareRuleSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose fare applicability rules while keeping feed ownership read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -202,6 +226,7 @@ class FareRuleSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class ServiceAlertSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose service-alert fields while keeping feed ownership read-only."""
     feed = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -210,6 +235,7 @@ class ServiceAlertSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class FeedMessageSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose feed-message fields with the declared provider relation represented by a read-only primary key."""
     provider = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -218,6 +244,7 @@ class FeedMessageSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class TripUpdateSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose trip-update fields with the parent feed message represented by a read-only primary key."""
     feed_message = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -226,6 +253,7 @@ class TripUpdateSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class StopTimeUpdateSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose stop-time-update fields with the parent trip update represented by a read-only primary key."""
     trip_update = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -234,6 +262,7 @@ class StopTimeUpdateSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class VehiclePositionSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose vehicle-position fields with the parent feed message represented by a read-only primary key."""
     feed_message = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -242,6 +271,7 @@ class VehiclePositionSerializer(serializers.HyperlinkedModelSerializer):
 
 
 class InfoServiceSerializer(serializers.HyperlinkedModelSerializer):
+    """Expose all connected information-service fields through hyperlinked API representations."""
     class Meta:
         model = InfoService
         fields = "__all__"

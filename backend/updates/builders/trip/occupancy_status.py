@@ -14,6 +14,7 @@ r = Redis(
 
 
 def build_trip_occupancy_status(topic: TopicKey) -> dict | None:
+    """Assemble a trip-topic payload from persisted run metadata and its Redis occupancy state."""
     run_id = topic.primary_value
     run = Run.objects.filter(
         id=run_id,

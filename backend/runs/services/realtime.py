@@ -1,4 +1,8 @@
+from uuid import UUID
+
 from django.conf import settings
+from feed.models import FeedPublisher
+from google.transit import gtfs_realtime_pb2 as gtfs_rt
 from runs.models import Run
 from gtfs.utils import gtfs_date, gtfs_time
 from redis import Redis
@@ -8,7 +12,11 @@ r = Redis(
 )
 
 
-def confirm_run(feed_publisher, trip):
+def confirm_run(
+    feed_publisher: FeedPublisher,
+    trip: gtfs_rt.TripDescriptor,
+) -> UUID:
+    """Find or create a run for a GTFS trip descriptor and synchronize its database and Redis metadata."""
     schedule_relationship = None
     if trip.HasField("schedule_relationship"):
         enum_type = trip.DESCRIPTOR.fields_by_name["schedule_relationship"].enum_type

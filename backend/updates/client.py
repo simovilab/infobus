@@ -27,7 +27,11 @@ def _ensure_consumer_group(redis: Redis) -> None:
             raise
 
 
-def _process_entries(redis: Redis, entries, consumer_name: str) -> None:
+def _process_entries(
+    redis: Redis,
+    entries: list[tuple[str, dict[str, str]]],
+    consumer_name: str,
+) -> None:
     """Validate, process, and acknowledge a batch of stream entries."""
     from .events import parse_event
     from .planner import process_event

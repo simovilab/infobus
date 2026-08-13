@@ -18,7 +18,8 @@ from gtfs.models import (
 )
 
 
-def validate_no_spaces_or_special_symbols(value):
+def validate_no_spaces_or_special_symbols(value: str) -> None:
+    """Reject identifiers containing characters other than ASCII letters, digits, or underscores."""
     if re.search(r"[^a-zA-Z0-9_]", value):
         raise ValidationError(
             "Este campo no puede contener espacios ni símbolos especiales, solamente letras, números y guiones bajos."
@@ -52,10 +53,7 @@ class TransitSystem(models.Model):
 
 
 class FeedPublisher(models.Model):
-    """A feed publisher provides transportation services GTFS data for a single transit system.
-
-    It might or might not be the same as the agency in the GTFS feed. A GTFS provider can serve multiple agencies.
-    """
+    """Represent a GTFS data publisher for one transit system, potentially distinct from and serving multiple feed agencies, with schedule and realtime endpoints."""
 
     transit_system = models.ForeignKey(
         TransitSystem,
@@ -121,9 +119,7 @@ class FeedPublisher(models.Model):
 
 
 class Feed(models.Model):
-    """
-    A GTFS Schedule feed.
-    """
+    """Track a retrieved GTFS Schedule feed and its publisher, transit system, validity window, HTTP metadata, version, and current status."""
 
     feed_id = models.CharField(max_length=100, primary_key=True, unique=True)
     feed_publisher = models.ForeignKey(
@@ -145,9 +141,7 @@ class Feed(models.Model):
 
 
 class FeedMessage(models.Model):
-    """
-    A GTFS Realtime feed message.
-    """
+    """Record GTFS Realtime header metadata and entity category for a publisher, with newest messages ordered first."""
 
     ENTITY_TYPE_CHOICES = (
         ("trip_update", "TripUpdate"),
@@ -183,9 +177,7 @@ class FeedMessage(models.Model):
 
 
 class Agency(BaseAgency):
-    """One or more transit agencies that provide the data in this feed.
-    Maps to agency.txt in the GTFS feed.
-    """
+    """Store an agency named in agency.txt and scope its inherited GTFS data to one schedule feed."""
 
     feed = models.ForeignKey(Feed, to_field="feed_id", on_delete=models.CASCADE)
 
@@ -200,9 +192,7 @@ class Agency(BaseAgency):
 
 
 class Stop(BaseStop):
-    """Individual locations where vehicles pick up or drop off riders.
-    Maps to stops.txt in the GTFS feed.
-    """
+    """Store a feed-scoped boarding location from stops.txt with an optional heading and a geographic point synchronized with its coordinates."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
@@ -232,7 +222,8 @@ class Stop(BaseStop):
         ]
 
     # Build stop_point or stop_lat and stop_lon
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
+        """Synchronize the geographic point with latitude and longitude before persisting the stop."""
         if self.stop_point:
             self.stop_lat = self.stop_point.y
             self.stop_lon = self.stop_point.x
@@ -251,11 +242,7 @@ class Stop(BaseStop):
 
 
 class Route(BaseRoute):
-    """A group of trips that are displayed to riders as a single service.
-    Maps to routes.txt in the GTFS feed.
-
-    agency is a field to store the Agency object related to the route.
-    """
+    """Store a feed-scoped rider-facing service imported from routes.txt, including its agency association."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
@@ -269,9 +256,7 @@ class Route(BaseRoute):
 
 
 class Calendar(BaseCalendar):
-    """Dates for service IDs using a weekly schedule.
-    Maps to calendar.txt in the GTFS feed.
-    """
+    """Store a feed-scoped weekly service pattern imported from calendar.txt."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
@@ -287,9 +272,7 @@ class Calendar(BaseCalendar):
 
 
 class CalendarDate(BaseCalendarDate):
-    """Exceptions for the service IDs defined in the calendar.txt file.
-    Maps to calendar_dates.txt in the GTFS feed.
-    """
+    """Store a feed-scoped exception from calendar_dates.txt with an optional holiday or observance name."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
     holiday_name = models.CharField(
@@ -312,9 +295,7 @@ class CalendarDate(BaseCalendarDate):
 
 
 class Shape(BaseShape):
-    """Rules for drawing lines on a map to represent a transit organization's routes.
-    Maps to shapes.txt in the GTFS feed.
-    """
+    """Store a feed-scoped ordered route-shape point imported from shapes.txt."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
@@ -331,9 +312,7 @@ class Shape(BaseShape):
 
 
 class Trip(BaseTrip):
-    """Trips for each route. A trip is a sequence of two or more stops that occurs at specific time.
-    Maps to trips.txt in the GTFS feed.
-    """
+    """Store a feed-scoped scheduled journey from trips.txt as a timed sequence of at least two stops."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
@@ -347,9 +326,7 @@ class Trip(BaseTrip):
 
 
 class StopTime(BaseStopTime):
-    """Times that a vehicle arrives at and departs from individual stops for each trip.
-    Maps to stop_times.txt in the GTFS feed.
-    """
+    """Store a feed-scoped scheduled arrival and departure at one trip stop from stop_times.txt."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
@@ -366,9 +343,7 @@ class StopTime(BaseStopTime):
 
 
 class FareAttribute(BaseFareAttribute):
-    """Rules for how to calculate the fare for a certain kind of trip.
-    Maps to fare_attributes.txt in the GTFS feed.
-    """
+    """Store a feed-scoped fare product and its calculation rules imported from fare_attributes.txt."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
@@ -384,9 +359,7 @@ class FareAttribute(BaseFareAttribute):
 
 
 class FareRule(BaseFareRule):
-    """Rules for which fare to apply in a given situation.
-    Maps to fare_rules.txt in the GTFS feed.
-    """
+    """Store feed-scoped route and zone conditions from fare_rules.txt that determine when a fare applies."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
@@ -410,9 +383,7 @@ class FareRule(BaseFareRule):
 
 
 class FeedInfo(BaseFeedInfo):
-    """Additional information about the feed itself, including publisher, version, and expiration information.
-    Maps to feed_info.txt in the GTFS feed.
-    """
+    """Store publisher, version, language, and validity metadata from feed_info.txt for a schedule feed."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
 
@@ -426,9 +397,7 @@ class FeedInfo(BaseFeedInfo):
 
 
 class GeoShape(models.Model):
-    """Rules for drawing lines on a map to represent a transit organization's routes.
-    Maps to shapes.txt in the GTFS feed.
-    """
+    """Store a feed-scoped LineString representation of a shapes.txt route with optional labels, endpoints, and altitude metadata."""
 
     feed = models.ForeignKey(Feed, on_delete=models.CASCADE)
     shape_id = models.CharField(
@@ -485,7 +454,8 @@ class RouteStop(models.Model):
             )
         ]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
+        """Resolve route, geographic shape, and stop foreign keys from their feed-scoped identifiers before saving."""
         self.linked_route = Route.objects.get(feed=self.feed, route_id=self.route_id)
         self.linked_shape = GeoShape.objects.get(feed=self.feed, shape_id=self.shape_id)
         self.linked_stop = Stop.objects.get(feed=self.feed, stop_id=self.stop_id)
@@ -531,7 +501,8 @@ class TripDuration(models.Model):
             )
         ]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
+        """Resolve route, shape, and service records from feed-scoped identifiers before persisting a trip-duration row."""
         self.linked_route = Route.objects.get(feed=self.feed, route_id=self.route_id)
         self.linked_shape = Shape.objects.get(feed=self.feed, shape_id=self.shape_id)
         self.linked_service = Calendar.objects.get(
@@ -571,7 +542,8 @@ class TripTime(models.Model):
             )
         ]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
+        """Resolve trip and stop foreign keys from their feed-scoped identifiers before saving a trip timepoint."""
         self.linked_trip = Trip.objects.get(feed=self.feed, trip_id=self.trip_id)
         self.linked_stop = Stop.objects.get(feed=self.feed, stop_id=self.stop_id)
         super(TripTime, self).save(*args, **kwargs)
@@ -586,11 +558,7 @@ class TripTime(models.Model):
 
 
 class TripUpdate(models.Model):
-    """
-    GTFS Realtime TripUpdate entity v2.0 (normalized).
-
-    Trip updates represent fluctuations in the timetable.
-    """
+    """Store a normalized GTFS Realtime v2.0 timetable deviation with trip and vehicle descriptors, timestamp, and delay data."""
 
     id = models.BigAutoField(primary_key=True)
     entity_id = models.CharField(max_length=127, db_index=True)
@@ -633,11 +601,7 @@ class TripUpdate(models.Model):
 
 
 class StopTimeUpdate(models.Model):
-    """
-    GTFS Realtime TripUpdate message v2.0 (normalized).
-
-    Realtime update for arrival and/or departure events for a given stop on a trip, linked to a TripUpdate entity in a FeedMessage.
-    """
+    """Store a normalized GTFS Realtime v2.0 stop update with arrival and departure events linked to a TripUpdate."""
 
     id = models.BigAutoField(primary_key=True)
     trip_update = models.ForeignKey(TripUpdate, on_delete=models.CASCADE)
@@ -664,11 +628,7 @@ class StopTimeUpdate(models.Model):
 
 
 class VehiclePosition(models.Model):
-    """
-    GTFS Realtime VehiclePosition entity v2.0 (normalized).
-
-    Vehicle position represents a few basic pieces of information about a particular vehicle on the network.
-    """
+    """Store a normalized GTFS Realtime v2.0 vehicle observation with trip, vehicle, position, progress, traffic, and occupancy data."""
 
     id = models.BigAutoField(primary_key=True)
     entity_id = models.CharField(max_length=127, db_index=True)
@@ -777,7 +737,8 @@ class VehiclePosition(models.Model):
             models.Index(fields=["timestamp"], name="vehiclepos_timestamp_idx"),
         ]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args: object, **kwargs: object) -> None:
+        """Derive the stored geographic point from longitude and latitude before persisting the vehicle observation."""
         if self.position_longitude is not None and self.position_latitude is not None:
             try:
                 self.position_point = Point(
@@ -794,6 +755,7 @@ class VehiclePosition(models.Model):
 
 
 class Alert(models.Model):
+    """Store a GTFS Realtime service alert's identifier, feed message, cause, effect, and severity."""
     entity_id = models.CharField(max_length=127, db_index=True)
     feed_message = models.ForeignKey(
         FeedMessage, on_delete=models.CASCADE, blank=True, null=True
@@ -846,6 +808,7 @@ class Alert(models.Model):
 
 
 class TimeRange(models.Model):
+    """Store an optional start and end interval for a service alert's active-period field."""
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
     field_name = models.CharField(
         max_length=255,
@@ -858,6 +821,7 @@ class TimeRange(models.Model):
 
 
 class EntitySelector(models.Model):
+    """Store agency, route, route-type, direction, and stop constraints for an alert's informed entity."""
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
     field_name = models.CharField(
         max_length=255,
@@ -873,6 +837,7 @@ class EntitySelector(models.Model):
 
 
 class TripDescriptor(models.Model):
+    """Store trip-instance and schedule-relationship constraints nested under an alert entity selector."""
     entity_selector = models.ForeignKey(
         EntitySelector, on_delete=models.CASCADE, blank=True, null=True
     )
@@ -904,6 +869,7 @@ class TripDescriptor(models.Model):
 
 
 class ModifiedTripSelector(models.Model):
+    """Store modification identifiers and replacement timing nested under an alert trip descriptor."""
     trip_descriptor = models.ForeignKey(
         TripDescriptor, on_delete=models.CASCADE, blank=True, null=True
     )
@@ -920,6 +886,7 @@ class ModifiedTripSelector(models.Model):
 
 
 class TranslatedString(models.Model):
+    """Group localized text variants for a selected service-alert text field."""
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
     field_name = models.CharField(
         max_length=255,
@@ -939,6 +906,7 @@ class TranslatedString(models.Model):
 
 
 class Translation(models.Model):
+    """Store localized text and its language for a translated service-alert string."""
     translated_string = models.ForeignKey(
         TranslatedString, on_delete=models.CASCADE, blank=True, null=True
     )
@@ -953,6 +921,7 @@ class Translation(models.Model):
 
 
 class TranslatedImage(models.Model):
+    """Group localized image variants for a service alert's image field."""
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, blank=True, null=True)
     field_name = models.CharField(
         max_length=255, blank=True, null=True, choices=(("image", "Image"),)
@@ -960,6 +929,7 @@ class TranslatedImage(models.Model):
 
 
 class LocalizedImage(models.Model):
+    """Store the URL, media type, and language of an image variant attached to a translated alert image."""
     translated_image = models.ForeignKey(
         TranslatedImage, on_delete=models.CASCADE, blank=True, null=True
     )

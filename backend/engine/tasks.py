@@ -1,5 +1,7 @@
 from celery import shared_task, group
 import logging
+from typing import TypedDict
+
 import requests
 from google.transit import gtfs_realtime_pb2 as gtfs_rt
 from feed.models import TransitSystem, FeedPublisher
@@ -26,10 +28,19 @@ logging.basicConfig(
 )
 
 
+class ScheduleUpdateResult(TypedDict):
+    has_feed_publishers: bool
+    has_new_feed: dict[str, bool]
+
+
 @shared_task
-def get_schedule():
+def get_schedule() -> ScheduleUpdateResult:
+    """Check active publishers for updated GTFS Schedule feeds and report which ones changed."""
     feed_publishers = FeedPublisher.objects.filter(is_active=True)
-    result = {"has_feed_publishers": feed_publishers.exists(), "has_new_feed": {}}
+    result: ScheduleUpdateResult = {
+        "has_feed_publishers": feed_publishers.exists(),
+        "has_new_feed": {},
+    }
 
     if not result["has_feed_publishers"]:
         logging.warning(
@@ -44,7 +55,8 @@ def get_schedule():
 
 
 @shared_task
-def get_vehicle_positions():
+def get_vehicle_positions() -> str:
+    """Fetch and persist vehicle-position feeds for active publishers, update run state, and record observed runs."""
     transit_systems = TransitSystem.objects.filter(is_active=True)
     if not transit_systems.exists():
         logging.warning(
@@ -91,7 +103,8 @@ def get_vehicle_positions():
 
 
 @shared_task
-def get_trip_updates():
+def get_trip_updates() -> str:
+    """Fetch and persist trip-update feeds for active publishers, update run state, and record observed runs."""
     transit_systems = TransitSystem.objects.filter(is_active=True)
     if not transit_systems.exists():
         logging.warning(
@@ -137,7 +150,8 @@ def get_trip_updates():
 
 
 @shared_task
-def get_alerts():
+def get_alerts() -> str:
+    """Fetch and persist GTFS Realtime alert feeds for active publishers."""
     transit_systems = TransitSystem.objects.filter(is_active=True)
     if not transit_systems.exists():
         logging.warning(
@@ -172,39 +186,35 @@ def get_alerts():
 
 
 @shared_task
-def update_gtfs_realtime():
-    """Fetches GTFS Realtime feeds (VehiclePositions, TripUpdates, and Alerts)
-    every few seconds from all active feed publishers, and then updates the connected services
-    consuming next trips and next stops for a current trip (run).
-    """
+def update_gtfs_realtime() -> str:
+    """Dispatch a Celery group that ingests vehicle positions, trip updates, and alerts from active publishers."""
     fetching = group(get_vehicle_positions.s(), get_trip_updates.s(), get_alerts.s())
     return fetching.apply_async().id
 
 
 @shared_task
-def evaluate_run_lifecycles():
+def evaluate_run_lifecycles() -> dict[str, int]:
     """Classify active runs using feed health, silence, and terminal evidence."""
     return evaluate_active_runs()
 
 
 @shared_task
-def save_vehicle_positions(use_current_hour=False):
+def save_vehicle_positions(use_current_hour: bool | str = False) -> str:
+    """Export the selected hourly vehicle-position window to GeoParquet and return a task completion message."""
     output = vehicle_positions_to_parquet(use_current_hour=use_current_hour)
     return f"Task completed: VehiclePositions exported to parquet -> {output}"
 
 
 @shared_task
-def save_stop_time_updates(use_current_hour=False):
+def save_stop_time_updates(use_current_hour: bool | str = False) -> str:
+    """Export the selected hourly stop-time-update window to Parquet and return a task completion message."""
     output = stop_time_updates_to_parquet(use_current_hour=use_current_hour)
     return f"Task completed: StopTimeUpdates exported to parquet -> {output}"
 
 
 @shared_task
-def save_gtfs_realtime():
-    """Saves GTFS Realtime VehiclePosition and StopTimeUpdate records every hour into Hive partitions
-    for historical analysis. By default it exports the last complete hour. Set `use_current_hour=True`
-    to export records from the current hour (debug mode).
-    """
+def save_gtfs_realtime() -> str:
+    """Dispatch a Celery group that exports the last complete hour of vehicle positions and stop-time updates to Hive partitions."""
     saving = group(
         save_vehicle_positions.s(),
         save_stop_time_updates.s(),

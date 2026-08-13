@@ -1,6 +1,7 @@
 import pytz
 from django.conf import settings
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from typing import TypedDict
 from feed.models import (
     Feed,
     Agency,
@@ -19,7 +20,7 @@ from feed.models import (
 from shapely import geometry
 
 
-def get_calendar(date, current_feed):
+def get_calendar(date: date, current_feed: Feed) -> str | None:
     """Get the service_id for the specified date."""
     exception_type = 1  # Service has been added for the specified date.
     exception = CalendarDate.objects.filter(
@@ -40,13 +41,38 @@ def get_calendar(date, current_feed):
     return service_id
 
 
-def get_next_trips(transit_system, stop_id, timestamp=None):
-    """
-    Core logic for fetching next trips for a stop.
+class NextTripProgression(TypedDict):
+    position_in_shape: float
+    current_stop_sequence: int | None
+    current_status: int | None
+    occupancy_status: int | None
 
-    Returns the serialized data dict, or None if no service is available for
-    the given date. Raises Stop.DoesNotExist if the stop is not found.
-    """
+
+class NextArrival(TypedDict):
+    trip_id: str
+    route_id: str
+    route_short_name: str | None
+    route_long_name: str | None
+    trip_headsign: str | None
+    wheelchair_accessible: int
+    arrival_time: datetime | None
+    departure_time: datetime | None
+    in_progress: bool
+    progression: NextTripProgression | None
+
+
+class NextTripsResult(TypedDict):
+    stop_id: str
+    timestamp: datetime
+    next_arrivals: list[NextArrival]
+
+
+def get_next_trips(
+    transit_system: str,
+    stop_id: str,
+    timestamp: datetime | None = None,
+) -> NextTripsResult | None:
+    """Return upcoming realtime and scheduled arrivals for a stop using the current feed."""
 
     # Get the current GTFS feed
     current_feed = Feed.objects.filter(
