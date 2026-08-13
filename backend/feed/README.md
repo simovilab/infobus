@@ -324,7 +324,13 @@ member exists (`backend/feed/services/schedule.py:98`).
 ### Realtime inputs
 
 The three Realtime functions accept a `FeedPublisher` plus an already decoded
-protobuf feed object; their signatures carry no type annotations
+protobuf feed object. Their signatures are
+`save_vehicle_positions_to_database(feed_publisher: FeedPublisher,
+vehicle_positions: gtfs_rt.FeedMessage) -> None`,
+`save_trip_updates_to_database(feed_publisher: FeedPublisher,
+trip_updates: gtfs_rt.FeedMessage) -> None`, and
+`save_alerts_to_database(feed_publisher: FeedPublisher,
+alerts: gtfs_rt.FeedMessage) -> None`
 (`backend/feed/services/realtime.py:22`,
 `backend/feed/services/realtime.py:112`,
 `backend/feed/services/realtime.py:225`). `engine.tasks` constructs and parses
@@ -335,16 +341,19 @@ those protobuf objects before calling the functions
 
 ### Query inputs
 
-`get_calendar(date, current_feed)` accepts a date-like object supporting
-`strftime()` and a current `Feed`; the signature has no annotations
+`get_calendar(date: date, current_feed: Feed) -> str | None` accepts a date and
+the current `Feed`
 (`backend/feed/services/queries.py:22`,
-`backend/feed/services/queries.py:32`). `get_next_trips(transit_system,
-stop_id, timestamp=None)` accepts a transit-system value, stop identifier, and
-optional timestamp without annotations (`backend/feed/services/queries.py:43`).
+`backend/feed/services/queries.py:32`).
+`get_next_trips(transit_system: str, stop_id: str,
+timestamp: datetime | None = None) -> NextTripsResult | None` accepts a
+transit-system code, stop identifier, and optional timestamp
+(`backend/feed/services/queries.py:43`).
 
 ### Export inputs
 
-Both exporters accept `use_current_hour=False` without annotations
+Both exporters use the signature
+`(use_current_hour: bool | str = False) -> str`
 (`backend/feed/services/data.py:13`, `backend/feed/services/data.py:287`). A
 string input is normalized against `1`, `true`, `yes`, `y`, and `on`
 (`backend/feed/services/data.py:22`, `backend/feed/services/data.py:29`,

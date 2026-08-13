@@ -55,9 +55,12 @@ models, or own `InfoService`. Those responsibilities remain in `feed` and
   APIViews (`backend/api/views.py:67`, `backend/api/views.py:102`,
   `backend/api/views.py:113`, `backend/api/views.py:164`,
   `backend/api/views.py:172`, `backend/api/views.py:234`).
-- Construct the route-stop response as a GeoJSON `FeatureCollection`
+- Attempt to construct the route-stop response as a GeoJSON `FeatureCollection`
   (`backend/api/views.py:199`, `backend/api/views.py:200`,
-  `backend/api/views.py:207`, `backend/api/views.py:232`).
+  `backend/api/views.py:207`, `backend/api/views.py:232`). This path is
+  **broken** when matching stops exist: the loop reads `stop.shelter`, but
+  `Stop` defines no such field or property (`backend/api/views.py:218`,
+  `backend/feed/models.py:194`).
 - Expose the DRF browsable-API login routes and the Redoc UI
   (`backend/api/urls.py:32`, `backend/api/urls.py:34`).
 
@@ -112,13 +115,18 @@ The serializers divide the delegated domain into three groups:
   `backend/api/serializers.py:246`).
 
 All model serializers use `fields = "__all__"`. Selected foreign-key fields
-are redeclared read-only, including `feed`, `provider`, `feed_message`, and
-`trip_update` (`backend/api/serializers.py:97`,
+are redeclared read-only, including valid `feed`, `feed_message`, and
+`trip_update` declarations (`backend/api/serializers.py:97`,
 `backend/api/serializers.py:101`, `backend/api/serializers.py:213`,
 `backend/api/serializers.py:217`, `backend/api/serializers.py:221`,
-`backend/api/serializers.py:229`, `backend/api/serializers.py:237`). The file
-defines no custom `validate`, `create`, or `update` method; its last serializer
-ends with the inherited `Meta` configuration
+`backend/api/serializers.py:229`, `backend/api/serializers.py:237`). Two
+declarations are **broken**: `ServiceAlertSerializer` declares `feed`, while
+`Alert` has `feed_message`, and `FeedMessageSerializer` declares `provider`,
+while `FeedMessage` has `publisher` (`backend/api/serializers.py:230`,
+`backend/feed/models.py:760`, `backend/api/serializers.py:239`,
+`backend/feed/models.py:153`). The file defines no custom `validate`, `create`,
+or `update` method; its last serializer ends with the inherited `Meta`
+configuration
 (`backend/api/serializers.py:244`, `backend/api/serializers.py:247`).
 
 Migration ownership is **not found**: there is no `backend/api/migrations/`
@@ -200,13 +208,16 @@ as the GeoJSON geometry (`backend/api/serializers.py:112`,
   coordinates and arrival/departure values
   (`backend/api/serializers.py:41`, `backend/api/serializers.py:55`,
   `backend/api/views.py:157`, `backend/api/views.py:166`).
-- `RouteStopView` returns a GeoJSON-shaped `FeatureCollection` containing
-  point geometry and route-stop properties
+- `RouteStopView` is intended to return a GeoJSON-shaped `FeatureCollection`
+  containing point geometry and route-stop properties
   (`backend/api/views.py:200`, `backend/api/views.py:207`,
   `backend/api/views.py:213`, `backend/api/views.py:232`,
-  `backend/api/views.py:236`). The view does not explicitly select an
-  `application/geo+json` media type; it returns serializer data through DRF's
-  `Response` (`backend/api/views.py:234`, `backend/api/views.py:236`).
+  `backend/api/views.py:236`). The output path is **broken** for any route with
+  matching stops because it accesses the nonexistent `Stop.shelter` attribute
+  before constructing the response (`backend/api/views.py:218`,
+  `backend/feed/models.py:194`). If execution reached the response, the view
+  would not explicitly select an `application/geo+json` media type; it uses
+  DRF's `Response` (`backend/api/views.py:234`, `backend/api/views.py:236`).
 
 ### Documentation output
 
@@ -292,10 +303,16 @@ Non-router entrypoints are:
 2. `DefaultRouter` resolves one of the 15 registered ViewSets
    (`backend/api/urls.py:7`, `backend/api/urls.py:8`,
    `backend/api/urls.py:22`, `backend/api/urls.py:28`).
-3. The ViewSet starts from its delegated model queryset and applies its local
-   `DjangoFilterBackend` configuration
+3. **Status: partial.** Each ViewSet starts from its delegated model queryset
+   and declares a local `DjangoFilterBackend` configuration
    (`backend/api/views.py:55`, `backend/api/views.py:57`,
-   `backend/api/views.py:513`, `backend/api/views.py:515`).
+   `backend/api/views.py:513`, `backend/api/views.py:515`). Thirteen registered
+   resources declare valid model fields. `FareAttributeViewSet` is **broken**:
+   none of its five declared fields exists on `FareAttribute`.
+   `FareRuleViewSet` is also **broken**: of the same five fields, only
+   `route_id` exists on `FareRule` (`backend/api/views.py:398`,
+   `backend/feed/models.py:345`, `backend/api/views.py:409`,
+   `backend/feed/models.py:361`).
 4. The selected serializer reads or writes the delegated model. Model
    serializers include all model fields, with specific relationships marked
    read-only (`backend/api/serializers.py:12`,
@@ -331,13 +348,16 @@ than locally implemented request handlers (`backend/api/views.py:50`,
 
 ### Route-stop flow
 
+**Status: broken.**
+
 1. Require `route_id` and `shape_id`, then select matching `RouteStop` rows
    (`backend/api/views.py:172`, `backend/api/views.py:178`).
 2. Resolve each stop in the current feed
    (`backend/api/views.py:197`, `backend/api/views.py:204`).
-3. Build, validate, and return a GeoJSON-shaped collection
-   (`backend/api/views.py:200`, `backend/api/views.py:232`,
-   `backend/api/views.py:234`, `backend/api/views.py:236`).
+3. Before building each feature, read `stop.shelter`. That attribute does not
+   exist on `Stop`, so any non-empty route-stop result fails before the
+   GeoJSON-shaped collection can be validated or returned
+   (`backend/api/views.py:218`, `backend/feed/models.py:194`).
 
 ### Documentation flow
 
@@ -475,12 +495,6 @@ not enforced, and the static OpenAPI document is desynchronized
   one `InfoService` projection from `engine`
   (`backend/api/urls.py:8`, `backend/api/urls.py:22`,
   `backend/api/views.py:3`, `backend/api/views.py:4`).
-- Per-resource filtering through `DjangoFilterBackend`
-  (`backend/api/views.py:29`, `backend/api/views.py:57`,
-  `backend/api/views.py:515`).
-- Next-trip, next-stop, and route-stop query views
-  (`backend/api/urls.py:29`, `backend/api/urls.py:30`,
-  `backend/api/urls.py:31`).
 - GeoJSON serializers for stops and shapes
   (`backend/api/serializers.py:112`, `backend/api/serializers.py:118`,
   `backend/api/serializers.py:154`, `backend/api/serializers.py:160`).
@@ -490,6 +504,17 @@ not enforced, and the static OpenAPI document is desynchronized
 
 ### Partial
 
+- **Per-resource filtering:** thirteen registered resources declare valid
+  model fields. `FareAttributeViewSet` is **broken** because none of its five
+  filter fields exists on `FareAttribute`; `FareRuleViewSet` is **broken**
+  because only `route_id` exists among the same five declared fields
+  (`backend/api/views.py:398`, `backend/feed/models.py:345`,
+  `backend/api/views.py:409`, `backend/feed/models.py:361`).
+- **Query views:** next-trip and next-stop are connected, while
+  `RouteStopView` is **broken** for any route with matching stops because it
+  reads the nonexistent `Stop.shelter` attribute before constructing the
+  response (`backend/api/urls.py:29`, `backend/api/urls.py:30`,
+  `backend/api/views.py:218`, `backend/feed/models.py:194`).
 - Five Realtime `ModelViewSet` implementations exist but are not registered:
   `ServiceAlertViewSet`, `FeedMessageViewSet`, `TripUpdateViewSet`,
   `StopTimeUpdateViewSet`, and `VehiclePositionViewSet`
@@ -589,10 +614,13 @@ not enforced, and the static OpenAPI document is desynchronized
   (`backend/api/views.py:520`, `backend/api/views.py:523`,
   `backend/api/infobus.yml:18`, `backend/api/infobus.yml:717`,
   `backend/api/urls.py:8`, `backend/api/urls.py:22`).
-- **Realtime integration gap:** five complete Realtime ViewSets have no router
-  registration (`backend/api/views.py:428`,
-  `backend/api/views.py:446`, `backend/api/views.py:459`,
-  `backend/api/views.py:476`, `backend/api/views.py:490`,
+- **Realtime integration gap — partial:** all five Realtime ViewSet classes
+  exist, but none has a router registration. Only `TripUpdateViewSet` declares
+  valid filter fields. `ServiceAlertViewSet`, `FeedMessageViewSet`,
+  `StopTimeUpdateViewSet`, and `VehiclePositionViewSet` each declare filters
+  containing fields absent from their models (`backend/api/views.py:420`,
+  `backend/api/views.py:436`, `backend/api/views.py:447`,
+  `backend/api/views.py:462`, `backend/api/views.py:474`,
   `backend/api/urls.py:22`).
 - **No route versioning:** neither the URL hierarchy nor DRF settings define a
   versioning mechanism (`backend/infobus/urls.py:32`,

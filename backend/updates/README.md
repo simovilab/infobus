@@ -1028,6 +1028,10 @@ shows raw WebSocket messages.
 > (`backend/engine/templates/status.html:65-70`) y ASGI solo monta el routing de
 > `updates` (`backend/infobus/asgi.py:15-22`).
 
+> **[Aclaración documental]** La ruta real de esa plantilla es
+> `backend/engine/templates/status.html`; `engine/status.html` es una abreviación
+> imprecisa.
+
 > **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
 > Estado: `no encontrado`; decisión abierta. El contrato de tópico, evento y
 > mensaje no declara una versión: `Event` no incluye un campo de versión

@@ -247,8 +247,10 @@ broken.
 - HTTP timeout behavior is inconsistent. TripUpdates and Alerts use ten-second
   timeouts, while VehiclePositions has no timeout.
 - None of the reviewed HTTP calls uses `raise_for_status()`.
-- Export window selection accepts booleans and selected truthy strings, but the
-  relevant task and service signatures have no type hints.
+- Export window selection has a broad input contract: it accepts both booleans
+  and selected truthy strings. The task and service signatures document that
+  breadth with `use_current_hour: bool | str` rather than narrowing the
+  parameter to booleans; return values are annotated as `str`.
 - Task logging reports missing configuration and request failures, but there
   are no app-specific metrics, traces, structured logs, or error-reporting
   integration.
@@ -432,11 +434,12 @@ current hour and ends one hour later. Both database filters use half-open
 intervals `[window_start, window_end)`.
 
 When `use_current_hour` arrives as a string, `1`, `true`, `yes`, `y`, and `on`
-are treated as true after trimming and lowercasing. The parameter has no type
-hint in `engine.tasks.save_vehicle_positions`,
-`engine.tasks.save_stop_time_updates`,
-`feed.services.data.vehicle_positions_to_parquet`, or
-`feed.services.data.stop_time_updates_to_parquet`.
+are treated as true after trimming and lowercasing. The task wrappers
+`engine.tasks.save_vehicle_positions` and
+`engine.tasks.save_stop_time_updates` and the delegated services
+`feed.services.data.vehicle_positions_to_parquet` and
+`feed.services.data.stop_time_updates_to_parquet` all annotate the parameter as
+`use_current_hour: bool | str = False` and the return type as `str`.
 
 ## Configuration
 
@@ -596,8 +599,10 @@ corresponding API resource.
 
 `engine/urls.py` is empty, and the root URLconf at
 `backend/infobus/urls.py:28` includes `website.urls`, `api.urls`, and
-`screens.urls`, but not `engine.urls`. `engine/views.py` defines no view. There
-is therefore no engine-owned HTTP endpoint.
+`screens.urls`, but not `engine.urls`. The `screens` app is discontinued but
+remains present in the current code; its removal is pending in a separate PR.
+`engine/views.py` defines no view. There is therefore no engine-owned HTTP
+endpoint.
 
 ### WebSocket
 
@@ -800,14 +805,16 @@ schedules it every 60 seconds. All evaluation behavior belongs to
 #### `save_vehicle_positions(use_current_hour=False)` — `backend/engine/tasks.py:191`
 
 Calls `vehicle_positions_to_parquet(use_current_hour=use_current_hour)` at line
-192 and returns a human-readable completion string. It has no standalone Beat
-entry and no type hint for `use_current_hour`.
+192 and returns a human-readable completion string. Its signature is
+`save_vehicle_positions(use_current_hour: bool | str = False) -> str`. It has no
+standalone Beat entry.
 
 #### `save_stop_time_updates(use_current_hour=False)` — `backend/engine/tasks.py:197`
 
 Calls `stop_time_updates_to_parquet(use_current_hour=use_current_hour)` at line
-198 and returns a human-readable completion string. It has no standalone Beat
-entry and no type hint for `use_current_hour`.
+198 and returns a human-readable completion string. Its signature is
+`save_stop_time_updates(use_current_hour: bool | str = False) -> str`. It has no
+standalone Beat entry.
 
 #### `save_gtfs_realtime()` — `backend/engine/tasks.py:203`
 
@@ -1011,9 +1018,6 @@ app and deployment configuration; `engine` does not define those policies.
   task.
 - No task decorator declares an app-specific retry, backoff, rate limit, or
   time limit.
-- `use_current_hour` has no type hint in `backend/engine/tasks.py:191`,
-  `backend/engine/tasks.py:197`, `backend/feed/services/data.py:13`, or
-  `backend/feed/services/data.py:287`.
 - `InfoProvider` has no consumer outside Admin and its relationship to runtime
   feed publishers is not modeled.
 - `InfoService` is exposed by a mutable API ViewSet; permission policy belongs
@@ -1046,3 +1050,9 @@ app and deployment configuration; `engine` does not define those policies.
 6. **RabbitMQ:** either configure an observable application producer/consumer
    that uses the provisioned broker or remove RabbitMQ as a Compose health
    dependency and undeclared operational requirement.
+7. **`screens` catalog value:** the long-term status of the
+   `("screens", "Sistema de pantallas")` value in `InfoService.TYPE_CHOICES` is
+   **uncertain**. Decide whether it should remain, be renamed, or be retired
+   when the discontinued `screens` app is removed; the shared name does not by
+   itself establish that the catalog value and Django app have identical
+   lifecycles (`backend/engine/models.py:19`).
