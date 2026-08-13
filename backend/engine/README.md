@@ -446,7 +446,7 @@ are treated as true after trimming and lowercasing. The task wrappers
 ### Celery Beat schedule
 
 Scheduling is external to the app. `engine` declares tasks, but the schedule is
-configured in `backend/infobus/celery.py:31`, not under `backend/engine/`:
+configured in `backend/infobus/celery.py:32`, not under `backend/engine/`:
 
 ```python
 app.conf.beat_schedule = {
@@ -493,9 +493,9 @@ CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
 ```
 
 RabbitMQ is nevertheless provisioned at `compose.dev.yml:89` and
-`compose.prod.yml:114`. The worker and scheduler wait for its health through
-`depends_on: broker` at `compose.dev.yml:40`, `compose.dev.yml:62`,
-`compose.prod.yml:77`, and `compose.prod.yml:104`, and
+`compose.prod.yml:115`. The worker and scheduler wait for its health through
+`depends_on: broker` at `compose.dev.yml:45`, `compose.dev.yml:67`,
+`compose.prod.yml:82`, and `compose.prod.yml:109`, and
 `celery[librabbitmq]` is declared at `backend/pyproject.toml:27`.
 
 No application producer or consumer was found: application code contains no
@@ -510,10 +510,10 @@ environment variables:
 
 | Feed | Source field |
 |---|---|
-| GTFS Schedule | `FeedPublisher.schedule_url` — `backend/feed/models.py:90` |
-| GTFS Realtime TripUpdates | `FeedPublisher.trip_updates_url` — `backend/feed/models.py:95` |
-| GTFS Realtime VehiclePositions | `FeedPublisher.vehicle_positions_url` — `backend/feed/models.py:100` |
-| GTFS Realtime Alerts | `FeedPublisher.alerts_url` — `backend/feed/models.py:105` |
+| GTFS Schedule | `FeedPublisher.schedule_url` — `backend/feed/models.py:88` |
+| GTFS Realtime TripUpdates | `FeedPublisher.trip_updates_url` — `backend/feed/models.py:93` |
+| GTFS Realtime VehiclePositions | `FeedPublisher.vehicle_positions_url` — `backend/feed/models.py:98` |
+| GTFS Realtime Alerts | `FeedPublisher.alerts_url` — `backend/feed/models.py:103` |
 
 The task module does not read environment variables directly.
 
@@ -610,7 +610,7 @@ endpoint.
 `routing.py`, view, or URLconf for that endpoint exists in the current backend.
 The project's connected WebSocket path is instead `ws/updates/`, implemented by
 `UpdatesConsumer` at `backend/updates/consumers.py:31`, routed at
-`backend/updates/routing.py:5`, and mounted by `backend/infobus/asgi.py:15`.
+`backend/updates/routing.py:5`, and mounted by `backend/infobus/asgi.py:22`.
 
 The status page is therefore orphaned and cannot be reached through an engine
 HTTP route or complete its intended WebSocket exchange.
@@ -723,104 +723,104 @@ app's own operational logging.
 
 - `shared_task` and `group` come from Celery at line 1.
 - Standard-library `logging` is imported at line 2.
-- `requests` is imported at line 3.
-- `google.transit.gtfs_realtime_pb2` is imported as `gtfs_rt` at line 4.
-- `TransitSystem` and `FeedPublisher` are imported from `feed.models` at line 5.
-- Schedule persistence is imported at line 6.
-- Realtime persistence functions are imported at lines 7–11.
-- Parquet export functions are imported at lines 12–15.
-- Run state functions are imported at lines 16–19.
-- Lifecycle functions are imported at line 20.
+- `requests` is imported at line 5.
+- `google.transit.gtfs_realtime_pb2` is imported as `gtfs_rt` at line 6.
+- `TransitSystem` and `FeedPublisher` are imported from `feed.models` at line 7.
+- Schedule persistence is imported at line 8.
+- Realtime persistence functions are imported at lines 9–13.
+- Parquet export functions are imported at lines 14–17.
+- Run state functions are imported at lines 18–21.
+- Lifecycle functions are imported at line 22.
 
-`logging.basicConfig()` at lines 22–26 configures level `INFO`, UTF-8 encoding,
+`logging.basicConfig()` at lines 24–28 configures level `INFO`, UTF-8 encoding,
 and the format `%(levelname)s: %(message)s`.
 
-#### `get_schedule()` — `backend/engine/tasks.py:30`
+#### `get_schedule()` — `backend/engine/tasks.py:37`
 
 Queries active `FeedPublisher` rows, initializes its result mapping, warns and
 returns early when none exist, and otherwise calls
-`save_schedule_to_database(feed_publisher, result)` at line 41 for every active
+`save_schedule_to_database(feed_publisher, result)` at line 52 for every active
 publisher.
 
 This task delegates both network access and persistence. It is scheduled
 directly every hour at minute 30.
 
-#### `get_vehicle_positions()` — `backend/engine/tasks.py:47`
+#### `get_vehicle_positions()` — `backend/engine/tasks.py:58`
 
 Queries active `TransitSystem` rows and then active publishers belonging to
 each system. Missing systems or publishers produce warnings.
 
 For every publisher, the task:
 
-1. creates `gtfs_rt.FeedMessage()` at line 67;
+1. creates `gtfs_rt.FeedMessage()` at line 79;
 2. calls `requests.get(feed_publisher.vehicle_positions_url)` without a timeout
-   at lines 69–71;
-3. decodes `response.content` with `ParseFromString()` at line 72;
-4. logs `requests.RequestException` at line 74 and continues with the next
+   at lines 81–83;
+3. decodes `response.content` with `ParseFromString()` at line 84;
+4. logs `requests.RequestException` at line 86 and continues with the next
    publisher;
-5. calls `save_vehicle_positions_to_database()` at line 79;
-6. calls `update_vehicle_positions_state()` at line 80;
-7. calls `record_successful_poll()` at line 84.
+5. calls `save_vehicle_positions_to_database()` at line 91;
+6. calls `update_vehicle_positions_state()` at line 92;
+7. calls `record_successful_poll()` at line 96.
 
 It has no standalone Beat entry. `update_gtfs_realtime()` dispatches it.
 
-#### `get_trip_updates()` — `backend/engine/tasks.py:94`
+#### `get_trip_updates()` — `backend/engine/tasks.py:106`
 
 Uses the same transit-system and publisher selection pattern. It creates a
-`FeedMessage` at line 113, calls `requests.get(..., timeout=10)` at lines
-115–117, decodes the body at line 118, and logs request exceptions at line 120.
+`FeedMessage` at line 126, calls `requests.get(..., timeout=10)` at lines
+128–130, decodes the body at line 131, and logs request exceptions at line 133.
 
-Successful messages go to `save_trip_updates_to_database()` at line 125,
-`update_trip_updates_state()` at line 126, and `record_successful_poll()` at
-line 130. It has no standalone Beat entry.
+Successful messages go to `save_trip_updates_to_database()` at line 138,
+`update_trip_updates_state()` at line 139, and `record_successful_poll()` at
+line 143. It has no standalone Beat entry.
 
-#### `get_alerts()` — `backend/engine/tasks.py:140`
+#### `get_alerts()` — `backend/engine/tasks.py:153`
 
 Selects active transit systems and publishers, creates a `FeedMessage` at line
-159, calls `requests.get(..., timeout=10)` at line 161, and decodes the body at
-line 162. Request failures are logged at line 164. Successful messages are
-passed to `save_alerts_to_database()` at line 169.
+173, calls `requests.get(..., timeout=10)` at line 175, and decodes the body at
+line 176. Request failures are logged at line 178. Successful messages are
+passed to `save_alerts_to_database()` at line 183.
 
 Alerts do not call the reviewed run-state or lifecycle services. This task has
 no standalone Beat entry.
 
-#### `update_gtfs_realtime()` — `backend/engine/tasks.py:175`
+#### `update_gtfs_realtime()` — `backend/engine/tasks.py:189`
 
-The `@shared_task` decorator is at line 174 and the function signature is at
-line 175. It builds this group at line 180:
+The `@shared_task` decorator is at line 188 and the function signature is at
+line 189. It builds this group at line 191:
 
 ```python
 group(get_vehicle_positions.s(), get_trip_updates.s(), get_alerts.s())
 ```
 
 It dispatches the group with `apply_async()` and returns the group result ID at
-line 181. Beat schedules this task every 30 seconds.
+line 192. Beat schedules this task every 30 seconds.
 
-#### `evaluate_run_lifecycles()` — `backend/engine/tasks.py:185`
+#### `evaluate_run_lifecycles()` — `backend/engine/tasks.py:196`
 
-This thin scheduled adapter returns `evaluate_active_runs()` at line 187. Beat
+This thin scheduled adapter returns `evaluate_active_runs()` at line 198. Beat
 schedules it every 60 seconds. All evaluation behavior belongs to
 `runs.services.lifecycle`.
 
-#### `save_vehicle_positions(use_current_hour=False)` — `backend/engine/tasks.py:191`
+#### `save_vehicle_positions(use_current_hour=False)` — `backend/engine/tasks.py:202`
 
 Calls `vehicle_positions_to_parquet(use_current_hour=use_current_hour)` at line
-192 and returns a human-readable completion string. Its signature is
+204 and returns a human-readable completion string. Its signature is
 `save_vehicle_positions(use_current_hour: bool | str = False) -> str`. It has no
 standalone Beat entry.
 
-#### `save_stop_time_updates(use_current_hour=False)` — `backend/engine/tasks.py:197`
+#### `save_stop_time_updates(use_current_hour=False)` — `backend/engine/tasks.py:209`
 
 Calls `stop_time_updates_to_parquet(use_current_hour=use_current_hour)` at line
-198 and returns a human-readable completion string. Its signature is
+211 and returns a human-readable completion string. Its signature is
 `save_stop_time_updates(use_current_hour: bool | str = False) -> str`. It has no
 standalone Beat entry.
 
-#### `save_gtfs_realtime()` — `backend/engine/tasks.py:203`
+#### `save_gtfs_realtime()` — `backend/engine/tasks.py:216`
 
 Builds a group containing `save_vehicle_positions.s()` and
-`save_stop_time_updates.s()` at lines 208–211, dispatches it, and returns the
-group result ID at line 212. Beat schedules it hourly at minute 0.
+`save_stop_time_updates.s()` at lines 218–221, dispatches it, and returns the
+group result ID at line 222. Beat schedules it hourly at minute 0.
 
 ### `models.py`
 
@@ -855,8 +855,8 @@ custom `ModelAdmin` symbols.
 
 #### `EngineConfig` — `backend/engine/apps.py:4`
 
-Sets `default_auto_field = "django.db.models.BigAutoField"` at line 5 and
-`name = "engine"` at line 6. It defines no `ready()` method.
+Sets `default_auto_field = "django.db.models.BigAutoField"` at line 6 and
+`name = "engine"` at line 7. It defines no `ready()` method.
 
 ### `migrations/0001_initial.py`
 
@@ -970,11 +970,11 @@ log to observe their five child tasks.
 The app's own observability is limited to standard Python logging in
 `tasks.py`:
 
-- `logging.basicConfig()` configures `INFO` output at lines 22–26.
+- `logging.basicConfig()` configures `INFO` output at lines 24–28.
 - `logging.warning()` reports missing active publishers or transit systems at
-  lines 35, 50, 60, 97, 107, 143, and 153.
+  lines 46, 62, 72, 110, 120, 157, and 167.
 - `logging.error()` reports caught `requests.RequestException` instances at
-  lines 74, 120, and 164.
+  lines 86, 133, and 178.
 
 The reviewed app code contains no named module `logger`, `print()` call,
 `sentry_sdk`, or `structlog`. It also defines no app-owned metric, trace,
@@ -1055,4 +1055,4 @@ app and deployment configuration; `engine` does not define those policies.
    **uncertain**. Decide whether it should remain, be renamed, or be retired
    when the discontinued `screens` app is removed; the shared name does not by
    itself establish that the catalog value and Django app have identical
-   lifecycles (`backend/engine/models.py:19`).
+   lifecycles (`backend/engine/models.py:21`).
