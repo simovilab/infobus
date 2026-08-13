@@ -114,10 +114,10 @@ status of each group is described below.
 
 ## Current implementation status
 
-**Overall status: partially implemented.** The GTFS Realtime-to-state,
-heartbeat, lifecycle, and event path is connected, but clean-clone migrations
-are broken, several declared states have no producer, and some model and
-realtime fields remain unused.
+**Overall status: partial.** The GTFS Realtime-to-state, heartbeat, lifecycle,
+and event path is implemented, while migrations are intentionally local-only,
+several declared states have no producer, and some model and realtime fields
+remain unused.
 
 ### Implemented
 
@@ -147,13 +147,6 @@ realtime fields remain unused.
 - Only the pure lifecycle decision policy has focused tests; PostgreSQL, Redis,
   Celery, reconciliation, and downstream event consumption are not covered by
   integration tests in this app.
-
-### Broken
-
-- A clean clone cannot migrate `runs`: `HEAD` contains only
-  `migrations/0002_run_lifecycle_tracking.py`, which depends on the absent and
-  ignored `runs.0001_initial` migration. See
-  [Migrations](#migrations).
 
 ### Scaffolding and not found
 
@@ -374,8 +367,8 @@ evidence.
 
 The Django default database uses the PostGIS backend. It stores `Run` identity,
 lifecycle state, observation timestamps, end timestamps, and completion reason.
-The repository's broken migration graph currently prevents this schema from
-being reproduced from a clean clone.
+Each environment derives this schema locally from the current Django models
+rather than from a versioned migration graph.
 
 ### Redis
 
@@ -401,7 +394,8 @@ start values before lookup and persistence.
 
 ## Source layout
 
-The versioned `backend/runs/` tree at the current `HEAD` is:
+The versioned `backend/runs/` source tree, excluding locally generated
+migrations, is:
 
 ```text
 runs/
@@ -424,18 +418,16 @@ runs/
 │   ├── realtime.py
 │   ├── state.py
 │   └── stop_index.py
-├── management/
-│   ├── __init__.py
-│   └── commands/
-│       ├── __init__.py
-│       └── reconcile_active_runs.py
-└── migrations/
-    └── 0002_run_lifecycle_tracking.py
+└── management/
+    ├── __init__.py
+    └── commands/
+        ├── __init__.py
+        └── reconcile_active_runs.py
 ```
 
-The ignored local `migrations/0001_initial.py` and
-`migrations/__init__.py` files are not part of `HEAD` and therefore are not
-shown as versioned source.
+The `migrations/` directory is intentionally excluded from versioned source by
+the `migrations/` rule at `.gitignore:87`. Files generated there remain local;
+no `runs` migration is versioned in the repository.
 
 ## File-by-file reference
 
@@ -671,29 +663,36 @@ The `SimpleTestCase` suite covers these pure decisions:
   `backend/runs/management/commands/__init__.py` are empty package markers and
   define no symbols.
 
-### `migrations/0002_run_lifecycle_tracking.py`
+### Model-backed lifecycle schema
 
-The tracked migration declares `runs.0001_initial` as its dependency at
-`backend/runs/migrations/0002_run_lifecycle_tracking.py:5`. Its `Migration`
-class starts at `backend/runs/migrations/0002_run_lifecycle_tracking.py:4` and
-adds `completion_reason`, `ended_at`, `last_seen_at`, and `missing_since`.
-
-This is the only runs migration in `HEAD`. The missing dependency is covered
-below.
+The lifecycle tracking schema is defined by the current `Run` model, not by a
+versioned migration. It declares the optional indexed `last_seen_at`
+`DateTimeField` at `backend/runs/models.py:51`, optional `missing_since` at
+`backend/runs/models.py:52`, optional indexed `ended_at` at
+`backend/runs/models.py:53`, and optional 255-character `completion_reason` at
+`backend/runs/models.py:54`.
 
 ## Development and operations
 
 ### Migrations
 
-**Status: broken for clean clones.** The current `HEAD` contains only
-`backend/runs/migrations/0002_run_lifecycle_tracking.py`. It depends on
-`("runs", "0001_initial")`, but `backend/runs/migrations/0001_initial.py` is
-ignored by the repository's `migrations/` rule and is not part of `HEAD`.
-`migrations/__init__.py` is also absent from `HEAD`.
+**Status: partial.** The app does not version migrations. The repository-wide
+`migrations/` rule at `.gitignore:87` covers this directory, so generated files
+remain local and no `runs` migration is committed. During DEBUG startup, the
+entrypoint generates migrations automatically only for `feed` and `engine` at
+`backend/docker-entrypoint.sh:320`; `runs` therefore requires the manual step
+below.
 
-An ignored local `0001_initial.py` may make one developer worktree look more
-complete, but it is not delivered by a clone. The versioned migration graph
-therefore cannot reproducibly create and migrate `Run` from an empty database.
+After the development services are running, generate the local migration from
+the current models and apply it through the `orchestrator` Compose service:
+
+```bash
+docker compose -f compose.dev.yml exec orchestrator uv run python manage.py makemigrations runs
+docker compose -f compose.dev.yml exec orchestrator uv run python manage.py migrate
+```
+
+Repeat this local generation when the model schema changes. The team keeps
+migrations unversioned while the app is not in production.
 
 ### Lifecycle settings
 
@@ -746,8 +745,8 @@ entire legacy set `trip:in_progress`. It does not emit lifecycle events.
 
 ### Run focused tests
 
-Once the migration graph is repaired, run the current app test module from
-`backend/` with:
+After local migrations have been generated and applied, run the current app
+test module from `backend/` with:
 
 ```bash
 uv run python manage.py test runs
@@ -764,8 +763,10 @@ REST endpoint, WebSocket endpoint, or public protocol to exercise.
 
 ## Known limitations
 
-- **Broken migration graph:** a clean clone lacks the ignored
-  `runs.0001_initial` dependency and cannot reproducibly migrate the app.
+- **Partial migration workflow:** no `runs` migration is versioned, and startup
+  generation includes only `feed` and `engine` at
+  `backend/docker-entrypoint.sh:320`; each development environment must generate
+  and apply the `runs` migration manually.
 - **Partial lifecycle vocabulary:** `Requested`, `Validated`, `Initialized`,
   `Confirmed`, and `Tracking` have no connected producers or transitions.
 - **Incomplete terminal state:** `Short Turned` is terminal in policy constants

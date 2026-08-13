@@ -247,10 +247,10 @@ broken.
 - HTTP timeout behavior is inconsistent. TripUpdates and Alerts use ten-second
   timeouts, while VehiclePositions has no timeout.
 - None of the reviewed HTTP calls uses `raise_for_status()`.
-- Export window selection has a broad input contract: it accepts both booleans
-  and selected truthy strings. The task and service signatures document that
-  breadth with `use_current_hour: bool | str` rather than narrowing the
-  parameter to booleans; return values are annotated as `str`.
+- Export window selection has a broad input contract: `use_current_hour`
+  accepts both booleans and selected truthy strings. The task and service
+  signatures use `bool | str` to document that widened contract rather than
+  narrowing the accepted input to booleans.
 - Task logging reports missing configuration and request failures, but there
   are no app-specific metrics, traces, structured logs, or error-reporting
   integration.
