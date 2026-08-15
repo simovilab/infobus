@@ -46,7 +46,7 @@ def resolve_stop_time_updates_topics(
 
     try:
         raw_stop_ids = json.loads(event.affected_stop_ids_json or "[]")
-    except TypeError, ValueError:
+    except (TypeError, ValueError):
         return []
     if not isinstance(raw_stop_ids, list):
         return []
