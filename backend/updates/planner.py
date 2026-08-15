@@ -1,5 +1,6 @@
 from .dispatcher import dispatch
 from .events import UpdateEvent
+from .exceptions import InvalidTopicException
 from .registry import Snapshot, projections_for_event, projection_for_topic
 from .topics import TopicKey
 
@@ -19,3 +20,12 @@ def build_topic_snapshot(topic: TopicKey) -> Snapshot | None:
     if projection is None:
         return None
     return projection.build(topic)
+
+
+def validate_topic(topic: TopicKey) -> None:
+    """Reject unregistered topics and apply projection-specific semantics."""
+    projection = projection_for_topic(topic)
+    if projection is None:
+        raise InvalidTopicException(topic.render(), "Topic is not registered.")
+    if projection.validate_topic is not None:
+        projection.validate_topic(topic)

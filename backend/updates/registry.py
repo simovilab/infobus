@@ -13,9 +13,14 @@ from runs.events.types import (
 )
 
 from .builders.stop.occupancy_status import build_stop_occupancy_status
+from .builders.stop.stop_time_updates import build_stop_time_updates
 from .builders.trip.occupancy_status import build_trip_occupancy_status
 from .events import UpdateEvent
 from .projections.stop.occupancy_status import resolve_stop_occupancy_topics
+from .projections.stop.stop_time_updates import (
+    resolve_stop_time_updates_topics,
+    validate_stop_time_updates_topic,
+)
 from .projections.trip.occupancy_status import resolve_trip_occupancy_topics
 from .topics import TopicKey, TopicPattern
 
@@ -23,6 +28,7 @@ from .topics import TopicKey, TopicPattern
 Snapshot: TypeAlias = dict[str, object]
 TopicResolver: TypeAlias = Callable[[UpdateEvent], list[TopicKey]]
 SnapshotBuilder: TypeAlias = Callable[[TopicKey], Snapshot | None]
+TopicValidator: TypeAlias = Callable[[TopicKey], None]
 
 
 @dataclass(frozen=True)
@@ -35,6 +41,7 @@ class ProjectionSpec:
     triggers: tuple[type[Event], ...]
     resolve_topics: TopicResolver
     build: SnapshotBuilder
+    validate_topic: TopicValidator | None = None
 
 
 PROJECTIONS = (
@@ -75,6 +82,29 @@ PROJECTIONS = (
         ),
         resolve_topics=resolve_stop_occupancy_topics,
         build=build_stop_occupancy_status,
+    ),
+    ProjectionSpec(
+        name="stop_stop_time_updates",
+        description=(
+            "The current stop-time predictions for runs coming to a stop, "
+            "by stop ID and GTFS direction ID."
+        ),
+        topic_pattern=TopicPattern(
+            entity="stop",
+            info="stop_time_updates",
+            primary_selector="by_stop",
+            qualifier_selector="by_direction",
+        ),
+        triggers=(
+            RunSignalLost,
+            RunSignalRestored,
+            RunCompleted,
+            RunInterrupted,
+            RunCancelled,
+        ),
+        resolve_topics=resolve_stop_time_updates_topics,
+        build=build_stop_time_updates,
+        validate_topic=validate_stop_time_updates_topic,
     ),
 )
 

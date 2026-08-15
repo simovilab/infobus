@@ -20,6 +20,7 @@ from runs.services.state import (
     update_trip_updates_state,
 )
 from runs.services.lifecycle import evaluate_active_runs, record_successful_poll
+from updates.refresh import refresh_active_stop_time_update_topics
 
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
@@ -112,6 +113,7 @@ def get_trip_updates() -> str:
             "Please add at least one active transit system to fetch trip updates."
         )
         return "No active transit systems found."
+    successfully_polled_systems: set[str] = set()
     for transit_system in transit_systems:
         feed_publishers = FeedPublisher.objects.filter(
             transit_system=transit_system, is_active=True
@@ -144,6 +146,16 @@ def get_trip_updates() -> str:
                 feed_publisher,
                 "trip_updates",
                 observed_run_ids,
+            )
+            successfully_polled_systems.add(transit_system.code)
+
+    for transit_system_code in sorted(successfully_polled_systems):
+        try:
+            refresh_active_stop_time_update_topics(transit_system_code)
+        except Exception:
+            logging.exception(
+                "Failed to refresh active StopTimeUpdates topics for %s",
+                transit_system_code,
             )
 
     return "TripUpdates have been processed"

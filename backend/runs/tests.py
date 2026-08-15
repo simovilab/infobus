@@ -1,9 +1,14 @@
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from unittest.mock import patch
+from uuid import uuid4
 
 from django.test import SimpleTestCase, override_settings
+from google.transit import gtfs_realtime_pb2 as gtfs_rt
 
 from runs.domain.lifecycle import RunLifecycleStates
 from runs.services.lifecycle import LifecycleEvidence, decide_run_lifecycle
+from runs.services.state import update_trip_updates_state
 
 
 @override_settings(
@@ -93,3 +98,43 @@ class RunLifecyclePolicyTests(SimpleTestCase):
         )
 
         self.assertEqual(decision.state, RunLifecycleStates.INTERRUPTED.value)
+
+
+class TripUpdatesStateTests(SimpleTestCase):
+    @patch("runs.services.state.sync_remaining_stops")
+    @patch("runs.services.state.confirm_run")
+    @patch("runs.services.state.r")
+    def test_preserves_presence_and_schedule_relationship_name(
+        self,
+        redis,
+        confirm_run,
+        sync_remaining_stops,
+    ):
+        run_id = uuid4()
+        confirm_run.return_value = run_id
+        feed_publisher = SimpleNamespace(transit_system=SimpleNamespace(code="mbta"))
+        message = gtfs_rt.FeedMessage()
+        entity = message.entity.add()
+        entity.trip_update.trip.trip_id = "trip-1"
+        first = entity.trip_update.stop_time_update.add()
+        first.stop_id = "A"
+        first.stop_sequence = 0
+        first.arrival.delay = 0
+        first.arrival.time = 123
+        first.schedule_relationship = 1
+        second = entity.trip_update.stop_time_update.add()
+        second.stop_id = "B"
+
+        observed = update_trip_updates_state(feed_publisher, message)
+
+        self.assertEqual(observed, {run_id})
+        state = redis.json.return_value.set.call_args.args[2]
+        self.assertEqual(state[0]["stop_sequence"], 0)
+        self.assertEqual(state[0]["arrival"]["delay"], 0)
+        self.assertEqual(state[0]["schedule_relationship"], "SKIPPED")
+        self.assertIsNone(state[1]["stop_sequence"])
+        self.assertEqual(
+            state[1]["arrival"],
+            {"delay": None, "time": None, "uncertainty": None},
+        )
+        sync_remaining_stops.assert_called_once()

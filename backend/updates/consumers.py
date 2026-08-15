@@ -8,7 +8,7 @@ from django.conf import settings
 from redis import Redis
 
 from .exceptions import InvalidTopicException
-from .planner import build_topic_snapshot
+from .planner import build_topic_snapshot, validate_topic
 from .registry import Snapshot
 from .subscriptions import add_subscription, remove_subscription
 from .topics import TopicKey
@@ -83,6 +83,7 @@ class UpdatesConsumer(WebsocketConsumer):
 
     def subscribe(self, topic: TopicKey) -> None:
         """Join a topic and send its current snapshot when available."""
+        validate_topic(topic)
         group_name = topic.group_name()
         async_to_sync(self.channel_layer.group_add)(group_name, self.channel_name)
         try:
