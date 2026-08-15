@@ -5,6 +5,7 @@ from django.conf import settings
 from feed.models import Feed, StopTime
 from redis import Redis
 from runs.models import Run
+from runs.services.lifecycle import TERMINAL_STATES
 
 
 r = Redis(
@@ -65,7 +66,12 @@ def ensure_remaining_stops(transit_system: str, run_id: UUID | str) -> None:
         id=run_id,
         feed_publisher__transit_system__code=transit_system,
     ).first()
-    if run is None or not run.trip_id:
+    if (
+        run is None
+        or not run.trip_id
+        or run.run_lifecycle_state in TERMINAL_STATES
+        or run.schedule_relationship in {"CANCELED", "DELETED"}
+    ):
         return
 
     current_feed = (

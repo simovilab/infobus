@@ -3,6 +3,7 @@ import logging
 from typing import TypedDict
 
 import requests
+from django.conf import settings
 from google.transit import gtfs_realtime_pb2 as gtfs_rt
 from feed.models import TransitSystem, FeedPublisher
 from feed.services.schedule import save_schedule_to_database
@@ -19,7 +20,11 @@ from runs.services.state import (
     update_vehicle_positions_state,
     update_trip_updates_state,
 )
-from runs.services.lifecycle import evaluate_active_runs, record_successful_poll
+from runs.services.lifecycle import (
+    evaluate_active_runs,
+    r as lifecycle_redis,
+    record_successful_poll,
+)
 from updates.refresh import refresh_active_stop_time_update_topics
 
 logging.basicConfig(
@@ -207,7 +212,18 @@ def update_gtfs_realtime() -> str:
 @shared_task
 def evaluate_run_lifecycles() -> dict[str, int]:
     """Classify active runs using feed health, silence, and terminal evidence."""
-    return evaluate_active_runs()
+    lock = lifecycle_redis.lock(
+        "runs:lifecycle:evaluation_lock",
+        timeout=settings.RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS,
+        blocking_timeout=0,
+    )
+    if not lock.acquire(blocking=False):
+        logging.info("Skipping overlapping run lifecycle evaluation.")
+        return {}
+    try:
+        return evaluate_active_runs(heartbeat=lock.reacquire)
+    finally:
+        lock.release()
 
 
 @shared_task

@@ -1,5 +1,5 @@
 import json
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from typing import Literal
@@ -36,6 +36,22 @@ TERMINAL_STATES = {
     RunLifecycleStates.INTERRUPTED.value,
     RunLifecycleStates.SHORT_TURNED.value,
 }
+
+TERMINAL_TRIP_STATE_SUFFIXES = (
+    "position",
+    "current_stop_sequence",
+    "stop_id",
+    "current_status",
+    "timestamp",
+    "congestion_level",
+    "occupancy_status",
+    "occupancy_percentage",
+    "multi_carriage_details",
+    "stop_time_updates",
+    "delay",
+    "trip_properties",
+    "vehicle",
+)
 
 r = Redis(
     host=settings.REDIS_HOST,
@@ -153,6 +169,7 @@ def record_successful_poll(
         if run.run_lifecycle_state not in TERMINAL_STATES
         and run.schedule_relationship not in {"CANCELED", "DELETED"}
     ]
+    terminal_runs = [run for run in runs if run.run_lifecycle_state in TERMINAL_STATES]
     transit_system = feed_publisher.transit_system.code
 
     with r.pipeline(transaction=True) as pipe:
@@ -178,6 +195,9 @@ def record_successful_poll(
                 occurred_at=observed_at,
                 last_seen_at=observed_at,
             )
+
+    for run in terminal_runs:
+        _apply_redis_transition(run, publish_event=False)
 
     for run in runs:
         if (
@@ -214,7 +234,11 @@ def publisher_realtime_healthy(
     return True
 
 
-def evaluate_active_runs(now: datetime | None = None) -> dict[str, int]:
+def evaluate_active_runs(
+    now: datetime | None = None,
+    *,
+    heartbeat: Callable[[], None] | None = None,
+) -> dict[str, int]:
     """Evaluate all canonical active sets and apply justified transitions."""
     now = now or timezone.now()
     counts: dict[str, int] = {}
@@ -234,7 +258,9 @@ def evaluate_active_runs(now: datetime | None = None) -> dict[str, int]:
         last_seen_by_id = dict(zip(run_ids, last_seen_scores))
         health_by_publisher: dict[int, bool] = {}
 
-        for run in runs:
+        for index, run in enumerate(runs):
+            if heartbeat is not None and index % 25 == 0:
+                heartbeat()
             if run.run_lifecycle_state in TERMINAL_STATES:
                 _apply_redis_transition(run, publish_event=False)
                 continue
@@ -253,6 +279,11 @@ def evaluate_active_runs(now: datetime | None = None) -> dict[str, int]:
                 else run.last_seen_at
             )
             if last_seen_at is None:
+                continue
+            if not health_by_publisher[publisher_id]:
+                continue
+            unseen_for = max(now - last_seen_at, timedelta())
+            if unseen_for < timedelta(seconds=settings.RUN_NO_SIGNAL_AFTER_SECONDS):
                 continue
 
             timing = _timing_evidence(run)
@@ -408,6 +439,10 @@ def transition_run(
 ) -> bool:
     """Persist one lifecycle transition and synchronize Redis after commit."""
     occurred_at = occurred_at or timezone.now()
+    changed = False
+    apply_redis_transition = False
+    publish_event = False
+    previous_state: str | None = None
     with r.lock(f"run:{run_id}:lifecycle_lock", timeout=15, blocking_timeout=5):
         with transaction.atomic():
             run = (
@@ -416,48 +451,49 @@ def transition_run(
                 .get(id=run_id)
             )
             previous_state = run.run_lifecycle_state
-            if previous_state == new_state:
-                if new_state in TERMINAL_STATES:
-                    transaction.on_commit(
-                        lambda: _apply_redis_transition(run, publish_event=False)
-                    )
-                return False
-            if previous_state in TERMINAL_STATES:
-                return False
+            if previous_state == new_state or previous_state in TERMINAL_STATES:
+                apply_redis_transition = previous_state in TERMINAL_STATES
+            else:
+                run.run_lifecycle_state = new_state
+                run.last_event_at = occurred_at
+                if last_seen_at is not None:
+                    run.last_seen_at = last_seen_at
+                if new_state == RunLifecycleStates.NO_SIGNAL.value:
+                    run.missing_since = last_seen_at or occurred_at
+                elif new_state == RunLifecycleStates.IN_PROGRESS.value:
+                    run.missing_since = None
+                    run.ended_at = None
+                    run.completion_reason = None
+                elif new_state in TERMINAL_STATES:
+                    run.ended_at = occurred_at
+                    run.completion_reason = reason
 
-            run.run_lifecycle_state = new_state
-            run.last_event_at = occurred_at
-            if last_seen_at is not None:
-                run.last_seen_at = last_seen_at
-            if new_state == RunLifecycleStates.NO_SIGNAL.value:
-                run.missing_since = last_seen_at or occurred_at
-            elif new_state == RunLifecycleStates.IN_PROGRESS.value:
-                run.missing_since = None
-                run.ended_at = None
-                run.completion_reason = None
-            elif new_state in TERMINAL_STATES:
-                run.ended_at = occurred_at
-                run.completion_reason = reason
-
-            run.save(
-                update_fields=[
-                    "run_lifecycle_state",
-                    "last_event_at",
-                    "last_seen_at",
-                    "missing_since",
-                    "ended_at",
-                    "completion_reason",
-                ]
-            )
-            transaction.on_commit(
-                lambda: _apply_redis_transition(
-                    run,
-                    reason=reason,
-                    previous_state=previous_state,
-                    publish_event=True,
+                run.save(
+                    update_fields=[
+                        "run_lifecycle_state",
+                        "last_event_at",
+                        "last_seen_at",
+                        "missing_since",
+                        "ended_at",
+                        "completion_reason",
+                    ]
                 )
+                changed = True
+                apply_redis_transition = True
+                publish_event = True
+
+    if apply_redis_transition:
+        # Register cleanup only after leaving the expirable Redis lock. This is
+        # still commit-safe if transition_run() is inside a wider transaction.
+        transaction.on_commit(
+            lambda: _apply_redis_transition(
+                run,
+                reason=reason,
+                previous_state=previous_state,
+                publish_event=publish_event,
             )
-    return True
+        )
+    return changed
 
 
 def _apply_redis_transition(
@@ -474,10 +510,11 @@ def _apply_redis_transition(
     terminal = state in TERMINAL_STATES
     remaining_stops_key = f"{system_code}:run:{run_id}:remaining_stops"
     stop_ids = r.zrange(remaining_stops_key, 0, -1)
-    state_keys = []
-    if terminal:
-        state_keys.extend(r.scan_iter(match=f"{system_code}:trip:{run_id}:*"))
-        state_keys.extend(r.scan_iter(match=f"{system_code}:run:{run_id}:*"))
+    state_keys = [
+        f"{system_code}:trip:{run_id}:{suffix}"
+        for suffix in TERMINAL_TRIP_STATE_SUFFIXES
+    ]
+    state_keys.append(f"{system_code}:run:{run_id}:lifecycle_state")
 
     with r.pipeline(transaction=True) as pipe:
         pipe.set(f"{system_code}:run:{run_id}:lifecycle_state", state)
@@ -486,7 +523,11 @@ def _apply_redis_transition(
             pipe.srem("trip:in_progress", run_id)
             pipe.zrem(last_seen_key(system_code), run_id)
             pipe.delete(remaining_stops_key)
-            pipe.delete(f"{system_code}:run:{run_id}:remaining_stops_initialized")
+            pipe.set(
+                f"{system_code}:run:{run_id}:remaining_stops_initialized",
+                "terminal",
+                ex=settings.RUN_TERMINAL_STATE_TTL_SECONDS,
+            )
             for stop_id in stop_ids:
                 pipe.srem(
                     f"{system_code}:stop:{stop_id}:approaching_runs",

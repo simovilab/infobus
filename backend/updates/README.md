@@ -903,6 +903,14 @@ by stop projections:
 - `advance_remaining_stops()` removes stops with lower sequences.
 - `clear_remaining_stops()` removes the index when a run is decommissioned.
 
+The stop `stop_time_updates` builder keeps those indexes and the canonical
+active-run set authoritative. As a public-boundary safeguard, it also excludes
+an update when its `arrival.time` (or `departure.time` when arrival is absent)
+is older than `GTFS_RT_STOP_TIME_UPDATE_PAST_TOLERANCE_SECONDS`, which defaults
+to 120 seconds. This covers polling/processing delay and vehicles dwelling at a
+stop; it does not replace terminal lifecycle cleanup. Updates with neither
+timestamp remain eligible from index/progress evidence and sort last.
+
 ### Django Channels
 
 The channel layer is configured in `infobus.settings`. The dispatcher and

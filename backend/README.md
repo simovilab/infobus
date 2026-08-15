@@ -157,6 +157,8 @@ explicit `CANCELED` or `DELETED` relationships.
 | `RUN_EXPECTED_END_GRACE_SECONDS`     |     900 | Grace after expected end before terminal classification.  |
 | `RUN_UNKNOWN_TIMEOUT_SECONDS`        |    1800 | Silence before interrupting a run with no expected end.   |
 | `RUN_TERMINAL_STATE_TTL_SECONDS`     |   86400 | Retention of terminal Redis state.                        |
+| `RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS` | 120 | Renewable TTL preventing overlapping lifecycle evaluations. |
+| `GTFS_RT_STOP_TIME_UPDATE_PAST_TOLERANCE_SECONDS` | 120 | Past-time tolerance for public stop prediction snapshots. |
 
 `No Signal` is nonterminal and remains active. Reappearance publishes
 `RunSignalRestored`. Terminal transitions persist `ended_at` and

@@ -3,6 +3,7 @@ import logging
 from typing import Any, cast
 
 from django.conf import settings
+from django.utils import timezone
 from pydantic import ValidationError
 from redis import Redis
 from runs.models import Run
@@ -42,7 +43,7 @@ def _decode_stop_time_updates(value: object) -> list[dict[str, Any]]:
     if isinstance(value, str):
         try:
             value = json.loads(value)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             return []
     if not isinstance(value, list):
         return []
@@ -96,24 +97,23 @@ def _current_documents(
     for value in sequence_values:
         try:
             current_sequences.append(int(value) if value is not None else None)
-        except TypeError, ValueError:
+        except (TypeError, ValueError):
             current_sequences.append(None)
     return document_values, current_sequences
 
 
-def _sort_key(update: StopTimeUpdateSnapshot) -> tuple[int, int, str, bool, int]:
+def _predicted_time(update: StopTimeUpdateSnapshot) -> int | None:
+    """Return the GTFS-RT event time relevant to this stop visit."""
     if update.arrival.time is not None:
-        time_rank = 0
-        event_time = update.arrival.time
-    elif update.departure.time is not None:
-        time_rank = 1
-        event_time = update.departure.time
-    else:
-        time_rank = 2
-        event_time = 0
+        return update.arrival.time
+    return update.departure.time
+
+
+def _sort_key(update: StopTimeUpdateSnapshot) -> tuple[bool, int, str, bool, int]:
+    predicted_time = _predicted_time(update)
     return (
-        time_rank,
-        event_time,
+        predicted_time is None,
+        predicted_time or 0,
         str(update.run_id),
         update.stop_sequence is None,
         update.stop_sequence or 0,
@@ -121,9 +121,18 @@ def _sort_key(update: StopTimeUpdateSnapshot) -> tuple[int, int, str, bool, int]
 
 
 def build_stop_time_updates(topic: TopicKey) -> dict[str, object]:
-    """Build a complete current stop/direction snapshot from active Redis state."""
+    """Build a complete current stop/direction snapshot from active Redis state.
+
+    Lifecycle and stop indexes remain authoritative. A small temporal tolerance
+    at this public boundary also prevents delayed cleanup from exposing
+    predictions that are hours or days old. Timestamp-free updates remain valid
+    because their indexed run/progress evidence can still be current.
+    """
     stop_id = topic.primary_value
     direction_id = direction_id_from_topic(topic)
+    earliest_relevant_time = int(timezone.now().timestamp()) - int(
+        settings.GTFS_RT_STOP_TIME_UPDATE_PAST_TOLERANCE_SECONDS
+    )
     active_run_ids = {
         str(run_id) for run_id in r.smembers(active_runs_key(topic.transit_system))
     }
@@ -166,7 +175,7 @@ def build_stop_time_updates(topic: TopicKey) -> dict[str, object]:
             raw_sequence = raw_update.get("stop_sequence")
             try:
                 stop_sequence = int(raw_sequence) if raw_sequence is not None else None
-            except TypeError, ValueError:
+            except (TypeError, ValueError):
                 continue
             if current_sequence is not None and (
                 stop_sequence is None or stop_sequence < current_sequence
@@ -196,6 +205,9 @@ def build_stop_time_updates(topic: TopicKey) -> dict[str, object]:
                 )
                 continue
             if update.schedule_relationship == "SKIPPED":
+                continue
+            predicted_time = _predicted_time(update)
+            if predicted_time is not None and predicted_time < earliest_relevant_time:
                 continue
             updates.append(update)
 

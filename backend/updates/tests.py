@@ -1,9 +1,11 @@
+from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from channels.testing import WebsocketCommunicator
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 from runs.events.types import OccupancyStatusChanged
 from runs.events.types import RunCompleted
@@ -275,6 +277,10 @@ class StopTimeUpdatesProjectionTests(SimpleTestCase):
 
     @patch("updates.builders.stop.stop_time_updates._current_documents")
     @patch(
+        "updates.builders.stop.stop_time_updates.timezone.now",
+        return_value=datetime(1970, 1, 1, tzinfo=UTC),
+    )
+    @patch(
         "updates.builders.stop.stop_time_updates.run_is_approaching_stop",
         return_value=True,
     )
@@ -287,6 +293,7 @@ class StopTimeUpdatesProjectionTests(SimpleTestCase):
         filter_runs,
         approaching_run_ids,
         _run_is_approaching_stop,
+        _now,
         current_documents,
     ):
         run_a_id = uuid4()
@@ -354,15 +361,319 @@ class StopTimeUpdatesProjectionTests(SimpleTestCase):
         self.assertEqual(snapshot["direction_id"], 1)
         self.assertEqual(
             [update["run_id"] for update in snapshot["stop_time_updates"]],
-            [str(run_b_id), str(run_a_id)],
+            [str(run_a_id), str(run_b_id)],
         )
         self.assertEqual(
             [update["stop_sequence"] for update in snapshot["stop_time_updates"]],
-            [9, 8],
+            [8, 9],
         )
         self.assertEqual(
             snapshot["stop_time_updates"][0]["schedule_relationship"],
             "SCHEDULED",
+        )
+
+
+@override_settings(GTFS_RT_STOP_TIME_UPDATE_PAST_TOLERANCE_SECONDS=120)
+class StopTimeUpdatesBuilderRegressionTests(SimpleTestCase):
+    now_timestamp = 1_800_000_000
+
+    def _run(
+        self,
+        *,
+        route_id: str = "route-a",
+        direction_id: int = 1,
+        transit_system: str = "mbta",
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=uuid4(),
+            trip_id=f"trip-{route_id}",
+            route_id=route_id,
+            direction_id=direction_id,
+            feed_publisher=SimpleNamespace(
+                transit_system=SimpleNamespace(code=transit_system)
+            ),
+        )
+
+    def _snapshot(
+        self,
+        runs: list[SimpleNamespace],
+        documents: dict[str, list[dict[str, object]]],
+        *,
+        current_sequences: dict[str, int | None] | None = None,
+        active_ids: set[str] | None = None,
+        candidate_ids: list[str] | None = None,
+        approaching_ids: set[str] | None = None,
+        transit_system: str = "mbta",
+        stop_id: str = "X",
+        direction_id: int = 1,
+    ) -> dict[str, Any]:
+        run_ids = [str(run.id) for run in runs]
+        active_ids = set(run_ids) if active_ids is None else active_ids
+        candidate_ids = run_ids if candidate_ids is None else candidate_ids
+        approaching_ids = (
+            set(candidate_ids) if approaching_ids is None else approaching_ids
+        )
+        current_sequences = current_sequences or {}
+
+        with (
+            patch("updates.builders.stop.stop_time_updates.r") as redis,
+            patch(
+                "updates.builders.stop.stop_time_updates.Run.objects.filter"
+            ) as filter_runs,
+            patch(
+                "updates.builders.stop.stop_time_updates.approaching_run_ids",
+                return_value=candidate_ids,
+            ),
+            patch(
+                "updates.builders.stop.stop_time_updates.run_is_approaching_stop",
+                side_effect=lambda _system, run_id, _stop: (
+                    str(run_id) in approaching_ids
+                ),
+            ),
+            patch(
+                "updates.builders.stop.stop_time_updates._current_documents"
+            ) as current_documents,
+            patch(
+                "updates.builders.stop.stop_time_updates.timezone.now",
+                return_value=datetime.fromtimestamp(self.now_timestamp, tz=UTC),
+            ),
+        ):
+            redis.smembers.return_value = active_ids
+            filter_runs.return_value.select_related.return_value = runs
+            current_documents.side_effect = lambda _system, selected_ids: (
+                [documents.get(run_id, []) for run_id in selected_ids],
+                [current_sequences.get(run_id) for run_id in selected_ids],
+            )
+            topic = TopicKey.parse(
+                f"{transit_system}.stop.stop_time_updates.by_stop.{stop_id}."
+                f"by_direction.{direction_id}"
+            )
+            return build_stop_time_updates(topic)
+
+    def test_active_future_arrival_appears_with_gtfs_fields(self):
+        run = self._run()
+        documents = {
+            str(run.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 4,
+                    "arrival": {
+                        "time": self.now_timestamp + 30,
+                        "delay": 7,
+                        "uncertainty": 3,
+                    },
+                    "departure": {"time": self.now_timestamp + 45},
+                    "schedule_relationship": "SCHEDULED",
+                }
+            ]
+        }
+
+        snapshot = self._snapshot([run], documents)
+
+        update = snapshot["stop_time_updates"][0]
+        self.assertEqual(update["arrival"]["delay"], 7)
+        self.assertEqual(update["arrival"]["uncertainty"], 3)
+        self.assertEqual(update["schedule_relationship"], "SCHEDULED")
+
+    def test_origin_departure_with_null_arrival_appears(self):
+        run = self._run()
+        documents = {
+            str(run.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 1,
+                    "arrival": {"time": None},
+                    "departure": {"time": self.now_timestamp + 30},
+                }
+            ]
+        }
+
+        snapshot = self._snapshot([run], documents)
+
+        update = snapshot["stop_time_updates"][0]
+        self.assertIsNone(update["arrival"]["time"])
+        self.assertEqual(update["departure"]["time"], self.now_timestamp + 30)
+
+    def test_historical_timestamp_is_excluded_but_tolerance_boundary_remains(self):
+        run = self._run()
+        documents = {
+            str(run.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 4,
+                    "arrival": {"time": self.now_timestamp - 121},
+                },
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 5,
+                    "arrival": {"time": self.now_timestamp - 120},
+                },
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 6,
+                    "arrival": {"time": self.now_timestamp - 10},
+                },
+            ]
+        }
+
+        snapshot = self._snapshot([run], documents)
+
+        self.assertEqual(
+            [item["stop_sequence"] for item in snapshot["stop_time_updates"]],
+            [5, 6],
+        )
+
+    def test_noncanonical_approaching_run_is_excluded(self):
+        run = self._run()
+
+        snapshot = self._snapshot(
+            [run],
+            {},
+            active_ids=set(),
+            candidate_ids=[str(run.id)],
+        )
+
+        self.assertEqual(snapshot["stop_time_updates"], [])
+
+    def test_run_whose_stop_was_passed_is_excluded(self):
+        run = self._run()
+
+        snapshot = self._snapshot(
+            [run],
+            {},
+            approaching_ids=set(),
+        )
+
+        self.assertEqual(snapshot["stop_time_updates"], [])
+
+    def test_other_transit_system_is_excluded(self):
+        valid = self._run(route_id="valid")
+        other_system = self._run(route_id="foreign", transit_system="other")
+        documents = {
+            str(run.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 2,
+                    "arrival": {"time": self.now_timestamp + 30},
+                }
+            ]
+            for run in (valid, other_system)
+        }
+
+        snapshot = self._snapshot(
+            [valid, other_system],
+            documents,
+        )
+
+        self.assertEqual(
+            [item["route_id"] for item in snapshot["stop_time_updates"]],
+            ["valid"],
+        )
+
+    def test_other_direction_is_excluded(self):
+        valid = self._run(route_id="valid")
+        other_direction = self._run(route_id="opposite", direction_id=0)
+        documents = {
+            str(run.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 2,
+                    "arrival": {"time": self.now_timestamp + 30},
+                }
+            ]
+            for run in (valid, other_direction)
+        }
+
+        snapshot = self._snapshot([valid, other_direction], documents)
+
+        self.assertEqual(
+            [item["route_id"] for item in snapshot["stop_time_updates"]],
+            ["valid"],
+        )
+
+    def test_multiple_routes_and_repeated_stop_visits_are_preserved(self):
+        first = self._run(route_id="route-a")
+        second = self._run(route_id="route-b")
+        documents = {
+            str(first.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 2,
+                    "arrival": {"time": self.now_timestamp + 20},
+                },
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 8,
+                    "arrival": {"time": self.now_timestamp + 80},
+                },
+            ],
+            str(second.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 3,
+                    "arrival": {"time": self.now_timestamp + 30},
+                }
+            ],
+        }
+
+        snapshot = self._snapshot([first, second], documents)
+
+        self.assertEqual(
+            [item["route_id"] for item in snapshot["stop_time_updates"]],
+            ["route-a", "route-b", "route-a"],
+        )
+        self.assertEqual(
+            [item["stop_sequence"] for item in snapshot["stop_time_updates"]],
+            [2, 3, 8],
+        )
+
+    def test_sorts_by_effective_time_keeps_unknown_last_and_hides_skipped(self):
+        arrival = self._run(route_id="arrival")
+        departure = self._run(route_id="departure")
+        unknown = self._run(route_id="unknown")
+        skipped = self._run(route_id="skipped")
+        documents = {
+            str(arrival.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 2,
+                    "arrival": {"time": self.now_timestamp + 20},
+                }
+            ],
+            str(departure.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 1,
+                    "arrival": {"time": None},
+                    "departure": {"time": self.now_timestamp + 10},
+                }
+            ],
+            str(unknown.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 3,
+                    "arrival": {},
+                    "departure": {},
+                }
+            ],
+            str(skipped.id): [
+                {
+                    "stop_id": "X",
+                    "stop_sequence": 4,
+                    "arrival": {"time": self.now_timestamp + 5},
+                    "schedule_relationship": "SKIPPED",
+                }
+            ],
+        }
+
+        snapshot = self._snapshot(
+            [arrival, departure, unknown, skipped],
+            documents,
+        )
+
+        self.assertEqual(
+            [item["route_id"] for item in snapshot["stop_time_updates"]],
+            ["departure", "arrival", "unknown"],
         )
 
 

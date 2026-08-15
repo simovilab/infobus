@@ -41,7 +41,8 @@ from uuid import UUID
 from django.conf import settings
 from feed.models import FeedPublisher
 from google.transit import gtfs_realtime_pb2 as gtfs_rt
-from runs.services.realtime import confirm_run
+from runs.services.lifecycle import TERMINAL_STATES
+from runs.services.realtime import confirm_run_record
 from runs.events.detector import EventDetector
 from runs.services.stop_index import advance_remaining_stops, sync_remaining_stops
 
@@ -126,8 +127,11 @@ def update_vehicle_positions_state(
         v = entity.vehicle
         if not v.HasField("trip"):
             continue
-        run_id = confirm_run(feed_publisher, v.trip)
+        run = confirm_run_record(feed_publisher, v.trip)
+        run_id = run.id
         observed_run_ids.add(run_id)
+        if run.run_lifecycle_state in TERMINAL_STATES:
+            continue
 
         # trip:<run_id>:position (Redis: hash)
         if v.HasField("position"):
@@ -250,8 +254,11 @@ def update_trip_updates_state(
         t = entity.trip_update
         if not t.HasField("trip"):
             continue
-        run_id = confirm_run(feed_publisher, t.trip)
+        run = confirm_run_record(feed_publisher, t.trip)
+        run_id = run.id
         observed_run_ids.add(run_id)
+        if run.run_lifecycle_state in TERMINAL_STATES:
+            continue
 
         # trip:<run_id>:stop_time_updates (Redis: JSON)
         stop_time_updates = []
