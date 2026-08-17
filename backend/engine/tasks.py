@@ -25,7 +25,10 @@ from runs.services.lifecycle import (
     r as lifecycle_redis,
     record_successful_poll,
 )
-from updates.refresh import refresh_active_stop_time_update_topics
+from updates.refresh import (
+    refresh_active_stop_time_update_topics,
+    refresh_active_vehicle_position_topics,
+)
 
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
@@ -70,6 +73,7 @@ def get_vehicle_positions() -> str:
             "Please add at least one active transit system to fetch vehicle positions."
         )
         return "No active transit systems found."
+    successfully_polled_systems: set[str] = set()
     for transit_system in transit_systems:
         feed_publishers = FeedPublisher.objects.filter(
             transit_system=transit_system, is_active=True
@@ -103,6 +107,16 @@ def get_vehicle_positions() -> str:
                 feed_publisher,
                 "vehicle_positions",
                 observed_run_ids,
+            )
+            successfully_polled_systems.add(transit_system.code)
+
+    for transit_system_code in sorted(successfully_polled_systems):
+        try:
+            refresh_active_vehicle_position_topics(transit_system_code)
+        except Exception:
+            logging.exception(
+                "Failed to refresh active VehiclePositions topics for %s",
+                transit_system_code,
             )
 
     return "VehiclePositions have been processed"
