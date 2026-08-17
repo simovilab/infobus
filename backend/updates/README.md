@@ -85,6 +85,15 @@ behavioral parts:
 | Topic resolver | Which concrete topics are affected by this event?    | All remaining stops of the changed run                      |
 | Builder        | What is the complete current snapshot for one topic? | All approaching runs and their occupancy state for one stop |
 
+Some projections also attach a topic validator for semantic constraints
+that cannot be expressed by `TopicPattern`. Pattern matching selects a projection
+from its fixed entity, information, and selector segments; the validator then
+checks concrete selector values before a WebSocket subscription is registered.
+The stop-time projection uses this hook to require a canonical GTFS direction ID
+of `0` or `1`. (`backend/updates/registry.py:28-44`,
+`backend/updates/planner.py:25-31`,
+`backend/updates/projections/stop/stop_time_updates.py:11-29`)
+
 The corresponding registration is conceptually:
 
 ```python
@@ -171,6 +180,24 @@ mbta.trip.occupancy_status.by_run.019fc09f-2af5-75b0-baab-c9ec701db592
 mbta.stop.occupancy_status.by_stop.123
 ```
 
+The registered stop-time projection is:
+
+```text
+<transit_system>.stop.stop_time_updates.by_stop.<stop_id>.by_direction.<direction_id>
+```
+
+For example:
+
+```text
+mbta.stop.stop_time_updates.by_stop.123.by_direction.1
+```
+
+It produces the current GTFS Realtime stop-time predictions for active runs
+approaching one stop in one canonical GTFS direction. It is refreshed directly
+after successful TripUpdates polls and is also invalidated by run lifecycle
+events. (`backend/updates/registry.py:86-108`,
+`backend/engine/tasks.py:145-164`)
+
 The event parser also recognizes stop sequence, stop ID, vehicle status,
 congestion, occupancy percentage, and run lifecycle events. Event types without
 registered projections are validated and acknowledged without publishing a
@@ -210,6 +237,86 @@ sequenceDiagram
 One `OccupancyStatusChanged` event can affect multiple topics. The direct trip
 projection always resolves one topic. The stop projection resolves one topic for
 each remaining stop of the run.
+
+### Trip-update poll refresh
+
+Stop-time prediction changes do not publish one domain event per changed RedisJSON
+document. After a TripUpdates poll has persisted the feed, updated current run
+state, and recorded the successful poll, `engine.tasks` calls
+`refresh_active_stop_time_update_topics()` once for each successfully processed
+transit system. (`backend/engine/tasks.py:121-166`,
+`backend/runs/services/state.py:246-303`)
+
+```mermaid
+sequenceDiagram
+		participant E as engine.tasks
+		participant RS as runs.services.state
+		participant R as Redis state and indexes
+		participant F as updates.refresh
+		participant SUB as Subscription metadata
+		participant B as Stop-time builder
+		participant D as updates.dispatcher
+		participant WS as WebSocket clients
+
+		E->>RS: update_trip_updates_state
+		RS->>R: sync remaining-stop indexes
+		RS->>R: JSON.SET current stop-time updates
+		E->>E: record_successful_poll
+		E->>F: refresh_active_stop_time_update_topics
+		F->>SUB: read active topics
+		loop matching topic with subscribers
+				F->>F: parse and validate topic
+				F->>B: build current snapshot
+				B-->>F: complete stop/direction snapshot
+				F->>D: dispatch snapshot
+				D->>WS: realtime_message
+		end
+```
+
+The refresh considers only active subscriptions for the transit system and only
+topics registered to `stop_stop_time_updates`. It checks subscriber presence
+before collecting the topic and again immediately before building, validates the
+concrete topic, and isolates failures so one broken topic does not prevent later
+topics from being refreshed. (`backend/updates/refresh.py:24-68`)
+
+### Stop-time lifecycle invalidation
+
+Run lifecycle transitions use the normal Redis Stream path. Before terminal
+cleanup removes a run from the active set and stop indexes, the lifecycle service
+captures its indexed stop IDs. The cleanup and lifecycle event publication occur
+in the same Redis transaction, and the event carries those stops in
+`affected_stop_ids_json`. (`backend/runs/services/lifecycle.py:499-549`,
+`backend/runs/services/lifecycle.py:552-579`)
+
+```mermaid
+sequenceDiagram
+		participant L as runs.services.lifecycle
+		participant R as Redis
+		participant C as updates.client
+		participant P as Stop-time topic resolver
+		participant B as Stop-time builder
+		participant D as updates.dispatcher
+		participant WS as WebSocket clients
+
+		L->>R: capture remaining stop IDs
+		L->>R: update lifecycle state and indexes
+		L->>R: XADD lifecycle event with affected stops
+		C->>R: XREADGROUP updates
+		C->>P: process lifecycle event
+		P->>P: load Run direction and resolve stop topics
+		P->>B: rebuild each affected topic
+		B-->>P: current snapshot
+		P->>D: dispatch snapshot
+		D->>WS: realtime_message
+```
+
+The projection reacts to signal loss, signal restoration, completion,
+interruption, and cancellation. Its resolver loads the scoped `Run` direction,
+parses the captured stop list, removes duplicate stop IDs while preserving their
+order, and creates one qualified topic per affected stop. It resolves no topics
+when the run direction is unavailable or noncanonical, or when the captured stop
+list is not a JSON array. (`backend/updates/registry.py:98-107`,
+`backend/updates/projections/stop/stop_time_updates.py:32-68`)
 
 ### WebSocket subscription
 
@@ -278,6 +385,62 @@ snapshot:
 }
 ```
 
+### Qualified stop-time subscription
+
+A stop-time subscription must include both the stop and canonical direction:
+
+```json
+{
+  "action": "subscribe",
+  "topic": "mbta.stop.stop_time_updates.by_stop.123.by_direction.1"
+}
+```
+
+The initial snapshot and later dispatched snapshots use the same outer WebSocket
+envelope and the same builder-produced message shape.
+(`backend/updates/consumers.py:84-102`,
+`backend/updates/consumers.py:113-115`,
+`backend/updates/dispatcher.py:8-17`)
+
+```json
+{
+  "topic": "mbta.stop.stop_time_updates.by_stop.123.by_direction.1",
+  "message": {
+    "topic": "mbta.stop.stop_time_updates.by_stop.123.by_direction.1",
+    "stop_id": "123",
+    "direction_id": 1,
+    "stop_time_updates": [
+      {
+        "run_id": "019fc09f-2af5-75b0-baab-c9ec701db592",
+        "trip_id": "trip-123",
+        "route_id": "route-1",
+        "direction_id": 1,
+        "stop_id": "123",
+        "stop_sequence": 8,
+        "arrival": {
+          "delay": 30,
+          "time": 1785645000,
+          "uncertainty": null
+        },
+        "departure": {
+          "delay": null,
+          "time": 1785645030,
+          "uncertainty": null
+        },
+        "schedule_relationship": "SCHEDULED"
+      }
+    ]
+  }
+}
+```
+
+`trip_id`, `route_id`, `stop_sequence`, and `schedule_relationship` may be
+`null`. Arrival and departure remain objects whose `delay`, `time`, and
+`uncertainty` fields may independently be `null`. An empty
+`stop_time_updates` list is a valid current snapshot.
+(`backend/updates/schemas.py:16-50`,
+`backend/updates/builders/stop/stop_time_updates.py:185-221`)
+
 ### Unsubscribe
 
 ```json
@@ -339,6 +502,22 @@ mbta.stop.occupancy_status.by_stop.123
 | Qualifier selector | `by_direction`     | Optional additional selection dimension.                    |
 | Qualifier value    | `1`                | Optional qualifier value.                                   |
 
+The stop-time projection uses all seven segments:
+
+| Segment | Value example | Stop-time meaning |
+| --- | --- | --- |
+| Transit system | `mbta` | Scopes Redis state and `Run` records to one transit system. (`backend/updates/builders/stop/stop_time_updates.py:136-162`) |
+| Entity | `stop` | Selects the stop-level aggregate view. (`backend/updates/registry.py:92-97`) |
+| Information | `stop_time_updates` | Selects current GTFS Realtime stop predictions. (`backend/updates/registry.py:92-97`) |
+| Primary selector | `by_stop` | Interprets the primary value as a stop ID. (`backend/updates/registry.py:92-97`) |
+| Primary value | `123` | Filters prediction entries to the requested stop. (`backend/updates/builders/stop/stop_time_updates.py:131-132`, `backend/updates/builders/stop/stop_time_updates.py:171-173`) |
+| Qualifier selector | `by_direction` | Interprets the qualifier value as a GTFS direction ID. (`backend/updates/registry.py:92-97`) |
+| Qualifier value | `1` | Accepts only the canonical strings `0` and `1`. (`backend/updates/projections/stop/stop_time_updates.py:11-22`) |
+
+There is no route qualifier. One topic can therefore contain predictions from
+multiple routes when those runs approach the same stop in the selected direction.
+(`backend/updates/builders/stop/stop_time_updates.py:145-198`)
+
 The public topic is not used directly as a Channels group name. `TopicKey`
 hashes the public topic with SHA-256 and prefixes the digest with `updates.`. This
 produces deterministic group names that satisfy Channels' length and character
@@ -385,6 +564,22 @@ The remaining-stop indexes are owned by `runs.services.stop_index`, not by this
 app. They are documented here because stop topic resolution and snapshot
 building depend on them.
 
+### State read by the stop-time builder
+
+| Key | Type | Purpose |
+| --- | --- | --- |
+| `<transit_system>:runs:active` | set | Canonical membership of runs eligible for public snapshots. (`backend/runs/services/lifecycle.py:83-85`, `backend/updates/builders/stop/stop_time_updates.py:136-143`) |
+| `<transit_system>:stop:<stop_id>:approaching_runs` | set | Candidate run IDs indexed for the requested stop. (`backend/runs/services/stop_index.py:24-26`, `backend/runs/services/stop_index.py:105-107`) |
+| `<transit_system>:run:<run_id>:remaining_stops` | sorted set | Confirms that the stop remains at or ahead of current progress. (`backend/runs/services/stop_index.py:19-21`, `backend/runs/services/stop_index.py:110-123`) |
+| `<transit_system>:trip:<run_id>:current_stop_sequence` | string | Current progress used to reject earlier or sequence-less visits. (`backend/updates/builders/stop/stop_time_updates.py:87-102`, `backend/updates/builders/stop/stop_time_updates.py:175-183`) |
+| `<transit_system>:trip:<run_id>:stop_time_updates` | RedisJSON | Current arrival, departure, sequence, stop, and schedule-relationship values. (`backend/runs/services/state.py:263-293`) |
+
+The builder also queries scoped `Run` rows for the UUID, GTFS trip ID, GTFS
+route ID, transit system, and direction. It does not use the historical
+`feed.StopTimeUpdate` rows to construct the public snapshot.
+(`backend/updates/builders/stop/stop_time_updates.py:9-20`,
+`backend/updates/builders/stop/stop_time_updates.py:145-198`)
+
 ## Source layout
 
 ```text
@@ -395,17 +590,21 @@ updates/
 ├── events.py
 ├── exceptions.py
 ├── planner.py
+├── refresh.py
 ├── registry.py
 ├── routing.py
+├── schemas.py
 ├── subscriptions.py
 ├── topics.py
 ├── builders/
 │   ├── stop/
+│   │   ├── stop_time_updates.py
 │   │   └── occupancy_status.py
 │   └── trip/
 │       └── occupancy_status.py
 └── projections/
 		├── stop/
+		│   ├── stop_time_updates.py
 		│   └── occupancy_status.py
 		└── trip/
 				└── occupancy_status.py
@@ -526,6 +725,35 @@ values or transit system. `matches(topic)` compares entity, information type,
 primary selector, and qualifier selector. The registry uses it to locate the
 builder for an initial subscription snapshot.
 
+### `schemas.py`
+
+Defines and validates the public stop-time snapshot contract. All three models
+forbid undeclared fields. (`backend/updates/schemas.py:16-50`)
+
+#### `DirectionID` and `StopTimeScheduleRelationship`
+
+`DirectionID` is the integer literal union `0 | 1`.
+`StopTimeScheduleRelationship` accepts `SCHEDULED`, `SKIPPED`, `NO_DATA`, and
+`UNSCHEDULED`. (`backend/updates/schemas.py:7-13`)
+
+#### `StopTimeEventSnapshot`
+
+Represents one arrival or departure event. `delay`, Unix `time`, and
+`uncertainty` are independently optional integers. (`backend/updates/schemas.py:16-23`)
+
+#### `StopTimeUpdateSnapshot`
+
+Represents one current visit of one run to the selected stop. It contains run,
+trip, route, direction, stop, and sequence identifiers; complete arrival and
+departure event objects; and the optional normalized schedule relationship.
+(`backend/updates/schemas.py:26-39`)
+
+#### `StopTimeUpdatesByStopSnapshot`
+
+Represents the complete current list for one public stop/direction topic. It
+contains the rendered topic, selected stop ID, selected direction ID, and the
+validated list of visit snapshots. (`backend/updates/schemas.py:42-50`)
+
 ### `registry.py`
 
 Declares which projections exist and connects event types, topic resolution, and
@@ -541,6 +769,9 @@ An immutable configuration object with:
 - `triggers`: event classes that invalidate the projection.
 - `resolve_topics`: function that maps an event to concrete topics.
 - `build`: function that builds one topic's current snapshot.
+- `validate_topic`: optional semantic validation applied to a concrete
+  subscription topic before it is registered. (`backend/updates/registry.py:31-44`,
+  `backend/updates/planner.py:25-31`)
 
 #### `PROJECTIONS`
 
@@ -584,6 +815,35 @@ Finds the projection registered for a topic and calls its builder. It returns
 `None` if no projection supports that topic. `UpdatesConsumer` uses this method
 immediately after subscription.
 
+#### `validate_topic(topic)`
+
+Rejects topics that do not match a registered projection. When the matching
+`ProjectionSpec` has a `validate_topic` hook, it also applies that
+projection-specific validation before subscription state or Channels membership
+is changed. (`backend/updates/planner.py:25-31`,
+`backend/updates/consumers.py:84-98`)
+
+### `refresh.py`
+
+Provides the direct poll-driven invalidation path for active stop-time topics.
+It owns a decoded Redis client for the same database used by subscription
+metadata and identifies the target projection by the diagnostic name
+`stop_stop_time_updates`. (`backend/updates/refresh.py:1-21`)
+
+#### `refresh_active_stop_time_update_topics(transit_system)`
+
+Reads the active public topic set and parses each entry. It discards malformed
+topics, topics from other transit systems, topics handled by other projections,
+and topics whose per-topic subscriber set is empty. The remaining topics are
+deduplicated and processed in rendered-topic order.
+(`backend/updates/refresh.py:24-47`)
+
+Before each build, it repeats the registry and subscriber checks, applies the
+projection-specific validator, builds the current snapshot, and dispatches
+non-`None` payloads. Exceptions are logged per topic so later topics continue,
+and the return value is the number of snapshots successfully dispatched.
+(`backend/updates/refresh.py:46-68`)
+
 ### `dispatcher.py`
 
 Contains the final transport step.
@@ -625,6 +885,12 @@ protocol.
   action.
 - `realtime_message(event)` serializes dispatcher messages to the WebSocket.
 
+`subscribe()` validates the concrete topic before joining its Channels group or
+writing Redis subscription metadata. Consequently, a structurally valid but
+unregistered topic, or a stop-time topic with a noncanonical direction, receives
+a protocol error and creates no subscription. (`backend/updates/consumers.py:84-102`,
+`backend/updates/planner.py:25-31`)
+
 ### `subscriptions.py`
 
 Maintains Redis metadata about WebSocket subscriptions.
@@ -637,6 +903,20 @@ least one subscriber.
 #### `_subscribers_key(topic)`
 
 Returns the per-topic Redis key `subscriptions:<topic>`.
+
+#### `active_subscription_topics(redis)`
+
+Reads `active_subscriptions` and returns decoded public topic strings. This is
+the starting set for poll-driven stop-time refreshes.
+(`backend/updates/subscriptions.py:12-17`,
+`backend/updates/refresh.py:24-27`)
+
+#### `has_subscribers(redis, topic)`
+
+Checks the cardinality of `subscriptions:<topic>`. The poll refresh uses it both
+while selecting work and immediately before building a snapshot.
+(`backend/updates/subscriptions.py:20-22`,
+`backend/updates/refresh.py:39-53`)
 
 #### `add_subscription(redis, topic, channel_name)`
 
@@ -703,6 +983,42 @@ every stop that the run has not passed:
 Topic resolution answers **where** an update belongs. It does not build the
 outgoing message.
 
+### `projections/stop/stop_time_updates.py`
+
+#### `VALID_DIRECTION_IDS`
+
+Maps the only accepted public qualifier strings, `"0"` and `"1"`, to the
+corresponding integer GTFS direction IDs. (`backend/updates/projections/stop/stop_time_updates.py:11`)
+
+#### `direction_id_from_topic(topic)`
+
+Returns the canonical integer direction for a topic. Any missing, alternative,
+or noncanonical representation raises `InvalidTopicException`; values such as
+`"01"` are not normalized. (`backend/updates/projections/stop/stop_time_updates.py:14-22`)
+
+#### `validate_stop_time_updates_topic(topic)`
+
+Rejects an empty stop ID and delegates direction validation to
+`direction_id_from_topic()`. Structural selector matching has already happened
+in the registry before this semantic validation runs.
+(`backend/updates/projections/stop/stop_time_updates.py:25-29`,
+`backend/updates/planner.py:25-31`)
+
+#### `resolve_stop_time_updates_topics(event)`
+
+Resolves lifecycle invalidations rather than ordinary prediction changes. It
+queries the event's `Run` within the event's transit system and returns no topics
+unless the persisted direction is `0` or `1`.
+(`backend/updates/projections/stop/stop_time_updates.py:32-45`)
+
+It then parses `affected_stop_ids_json`, requires a JSON list, stringifies
+nonempty entries, and deduplicates them in original order. Each stop becomes:
+
+```text
+<transit_system>.stop.stop_time_updates.by_stop.<stop_id>.by_direction.<direction_id>
+```
+
+Malformed JSON or a non-list value resolves to no topics.
 ### `builders/trip/occupancy_status.py`
 
 #### `build_trip_occupancy_status(topic)`
@@ -772,6 +1088,89 @@ The resulting snapshot has this shape:
 
 An empty `runs` list is a valid snapshot.
 
+### `builders/stop/stop_time_updates.py`
+
+Builds the complete current prediction list for one stop and direction. It uses
+run lifecycle membership and stop indexes as its primary eligibility boundary,
+then applies per-entry progress, schema, schedule-relationship, and freshness
+filters. (`backend/updates/builders/stop/stop_time_updates.py:123-221`)
+
+#### `SCHEDULE_RELATIONSHIPS`
+Maps the four GTFS Realtime numeric StopTimeUpdate schedule relationships to
+their stable names: `SCHEDULED`, `SKIPPED`, `NO_DATA`, and `UNSCHEDULED`.
+(`backend/updates/builders/stop/stop_time_updates.py:31-36`)
+
+#### `_decode_stop_time_updates(value)`
+
+Accepts current RedisJSON arrays, bytes, and the legacy JSON-string
+representation. Invalid JSON and non-list values produce an empty list; values
+inside a valid list are retained only when they are dictionaries.
+(`backend/updates/builders/stop/stop_time_updates.py:39-50`)
+
+#### `_schedule_relationship_name(value)`
+
+Normalizes known integer values, digit strings, and case-insensitive known names.
+Unknown values are deliberately left unchanged so Pydantic rejects corruption
+instead of silently converting it. Booleans are also left invalid rather than
+being treated as integers. (`backend/updates/builders/stop/stop_time_updates.py:53-67`)
+
+#### `_event_snapshot(value)`
+
+Builds an arrival or departure snapshot from the `delay`, `time`, and
+`uncertainty` fields of a dictionary. Missing or non-dictionary events become an
+event object whose three fields are `None`.
+(`backend/updates/builders/stop/stop_time_updates.py:70-76`,
+`backend/updates/schemas.py:16-23`)
+
+#### `_current_documents(transit_system, run_ids)`
+
+Uses one non-transactional Redis pipeline to read all current stop-time
+RedisJSON documents followed by all current stop-sequence strings. Invalid
+sequence values are represented as `None`; an empty run list performs no Redis
+commands. (`backend/updates/builders/stop/stop_time_updates.py:79-102`)
+
+#### `_predicted_time(update)`
+
+Uses `arrival.time` when present and otherwise uses `departure.time`. This same
+effective timestamp drives freshness filtering and ordering.
+(`backend/updates/builders/stop/stop_time_updates.py:105-109`,
+`backend/updates/builders/stop/stop_time_updates.py:209-214`)
+
+#### `_sort_key(update)`
+
+Sorts known effective timestamps before unknown timestamps, then by timestamp,
+run UUID, sequence presence, and sequence value. Repeated visits to the same
+stop are preserved as separate entries.
+(`backend/updates/builders/stop/stop_time_updates.py:112-120`,
+`backend/updates/builders/stop/stop_time_updates.py:171-214`)
+
+#### `build_stop_time_updates(topic)`
+
+Builds one complete snapshot in this order:
+
+1. Reads the stop and validated direction from the topic and computes the oldest
+   allowed predicted time. (`backend/updates/builders/stop/stop_time_updates.py:131-135`)
+2. Intersects the stop's approaching-run index with the canonical active-run set
+   and verifies that each run still approaches the stop.
+   (`backend/updates/builders/stop/stop_time_updates.py:136-144`)
+3. Loads scoped `Run` rows and retains only the selected GTFS direction.
+   (`backend/updates/builders/stop/stop_time_updates.py:145-158`)
+4. Bulk-reads current prediction documents and current sequences.
+   (`backend/updates/builders/stop/stop_time_updates.py:160-169`)
+5. Retains entries for the selected stop whose sequence is parseable and has not
+   fallen behind current progress. (`backend/updates/builders/stop/stop_time_updates.py:171-183`)
+6. Constructs the strict public schema and discards individual entries that fail
+   Pydantic validation. (`backend/updates/builders/stop/stop_time_updates.py:185-206`)
+7. Excludes `SKIPPED` visits and predictions older than the configured tolerance.
+   Timestamp-free visits remain eligible. (`backend/updates/builders/stop/stop_time_updates.py:207-212`)
+8. Sorts the surviving entries and returns a JSON-compatible aggregate snapshot,
+   including a valid empty list when no entry survives.
+   (`backend/updates/builders/stop/stop_time_updates.py:214-221`)
+
+The module-level name `stop_time_updates` remains an alias of the registered
+builder so the legacy `builders.message_builder` import remains importable.
+(`backend/updates/builders/stop/stop_time_updates.py:224-225`)
+
 ### `tests.py`
 
 The current focused tests cover:
@@ -785,6 +1184,14 @@ The current focused tests cover:
 - Resolving direct trip occupancy topics.
 - Resolving all remaining stop occupancy topics.
 - Planner coordination from resolution through dispatch.
+- Parsing and semantically validating qualified stop-time topics.
+  (`backend/updates/tests.py:61-68`, `backend/updates/tests.py:211-224`)
+- Building empty and populated stop-time snapshots, including repeated visits,
+  direction and transit-system isolation, sequence progress, schedule
+  relationships, temporal tolerance, and deterministic ordering.
+  (`backend/updates/tests.py:226-374`, `backend/updates/tests.py:377-677`)
+- Refreshing only active matching topics and isolating one topic failure from
+  later refreshes. (`backend/updates/tests.py:680-751`)
 
 The tests mock projection dependencies and do not replace the live integration
 checks for Redis Streams, RedisJSON, Channels, or the database.
@@ -888,6 +1295,20 @@ events to the `events` stream. Event schemas are defined in
 `runs.events.types`; `updates.events` imports those schemas rather than defining
 a second wire contract.
 
+### Trip-update poll integration
+
+`engine.tasks` imports `refresh_active_stop_time_update_topics()` directly from
+`updates.refresh`. This is an in-process Python interface from the polling
+orchestrator into the delivery app; it does not pass through the `events` Redis
+Stream. (`backend/engine/tasks.py:19-28`,
+`backend/engine/tasks.py:157-164`)
+
+The call occurs only after a publisher's TripUpdates response has been persisted,
+its current run state has been updated, and the successful poll has been
+recorded. Transit systems are deduplicated before refresh, so multiple processed
+publishers in one system produce one refresh call at the end of the task.
+(`backend/engine/tasks.py:121-166`)
+
 ### Remaining-stop index
 
 `runs.services.stop_index` maintains the run-to-stop and stop-to-run indexes used
@@ -952,6 +1373,16 @@ Use the following sequence when adding another information type.
    builds a complete current snapshot for one topic.
 4. **Register the projection.** Add a `ProjectionSpec` to `PROJECTIONS` with the
    topic pattern, event triggers, resolver, and builder.
+
+When a topic has semantic constraints on selector values, set
+`ProjectionSpec.validate_topic` so invalid subscriptions are rejected before
+Channels and Redis subscription state are changed. Poll-driven projections also
+need an explicit producer-side call analogous to the TripUpdates integration;
+registration in `PROJECTIONS` only enables event lookup and subscription-time
+building. (`backend/updates/registry.py:34-44`,
+`backend/updates/planner.py:25-31`,
+`backend/engine/tasks.py:157-164`)
+
 5. **Add tests.** Cover topic resolution, snapshot shape, planner dispatch, and
    first-subscription behavior.
 6. **Validate live delivery.** Subscribe a WebSocket client, publish a controlled
@@ -1020,6 +1451,43 @@ shows raw WebSocket messages.
   after retry.
 - There is no stream trimming policy in this app yet.
 - Dead-letter entries have no automated replay workflow.
+- Stop-time prediction changes do not publish their own typed event. Existing
+  subscribed topics are refreshed after successful TripUpdates polls, while
+  lifecycle events provide the event-stream invalidation path.
+  (`backend/runs/services/state.py:246-303`,
+  `backend/updates/registry.py:98-107`,
+  `backend/engine/tasks.py:157-164`)
+- Stop-time topics require a canonical direction of `0` or `1`. Runs without one
+  of those persisted values are absent from both lifecycle resolution and built
+  snapshots. (`backend/updates/projections/stop/stop_time_updates.py:36-45`,
+  `backend/updates/builders/stop/stop_time_updates.py:152-158`)
+- A current RedisJSON document is not sufficient by itself. A run must also be
+  present in the canonical active set, the stop's approaching-run set, the
+  remaining-stop sorted set, and a scoped `Run` row.
+  (`backend/updates/builders/stop/stop_time_updates.py:136-158`)
+- The snapshot exposes run, trip, route, direction, stop, and sequence
+  identifiers, but not rider-facing stop names, route names, or destination
+  headsigns. Those values exist in the Schedule `Stop`, `Route`, `Trip`, and
+  `StopTime` models, but the builder queries only `Run` and its transit-system
+  relation. (`backend/updates/schemas.py:26-50`,
+  `backend/feed/models.py:194-255`,
+  `backend/feed/models.py:314-338`,
+  `backend/gtfs-django/gtfs/models.py:50-64`,
+  `backend/gtfs-django/gtfs/models.py:118-135`,
+  `backend/gtfs-django/gtfs/models.py:248-267`,
+  `backend/gtfs-django/gtfs/models.py:285-303`,
+  `backend/updates/builders/stop/stop_time_updates.py:145-198`)
+- The remaining-stop indexes and current RedisJSON document are written by
+  separate Redis operations. There is no transaction spanning both writes, so a
+  concurrent snapshot build can observe the intermediate state.
+  (`backend/runs/services/state.py:280-293`,
+  `backend/runs/services/stop_index.py:34-57`)
+- Poll refreshes isolate builder and dispatcher failures per topic. Initial
+  subscription builds and Redis Stream event processing do not provide the same
+  per-topic isolation inside the planner.
+  (`backend/updates/refresh.py:46-62`,
+  `backend/updates/consumers.py:84-102`,
+  `backend/updates/planner.py:8-22`)
 - `ScreenConsumer` and `StatusConsumer` are not routed by this app.
 - Several builder/projection modules are placeholders.
 - Terminal lifecycle events carry affected stop IDs so occupancy snapshots are
