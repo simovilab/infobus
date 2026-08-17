@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from channels.testing import WebsocketCommunicator
 from django.test import SimpleTestCase, override_settings
+from pydantic import ValidationError
 
 from runs.events.types import OccupancyStatusChanged
 from runs.events.types import RunCompleted
@@ -25,6 +26,7 @@ from updates.projections.trip.occupancy_status import (
     resolve_trip_occupancy_topics,
 )
 from updates.registry import projection_for_topic
+from updates.schemas import VehiclePositionSnapshot, VehiclePositionsByRouteSnapshot
 from updates.topics import TopicKey
 
 
@@ -776,3 +778,102 @@ class PlannerTests(SimpleTestCase):
         projection.resolve_topics.assert_called_once_with(event)
         projection.build.assert_called_once_with(topic)
         dispatch.assert_called_once_with(topic, {"runs": []})
+
+
+class VehiclePositionSchemaTests(SimpleTestCase):
+    def test_vehicle_position_snapshot_accepts_full_payload(self):
+        run_id = uuid4()
+
+        snapshot = VehiclePositionSnapshot(
+            run_id=run_id,
+            trip_id="trip-a",
+            route_id="route-a",
+            direction_id=1,
+            latitude=9.934739,
+            longitude=-84.087502,
+            bearing=180.0,
+            speed=12.5,
+            odometer=5432.1,
+            current_stop_sequence=4,
+            stop_id="stop-a",
+            current_status=2,
+            congestion_level=1,
+            occupancy_status=3,
+            occupancy_percentage=65,
+            timestamp=1_800_000_000,
+        )
+
+        self.assertEqual(snapshot.model_dump(mode="json")["run_id"], str(run_id))
+
+    def test_vehicle_position_snapshot_accepts_null_optional_fields(self):
+        snapshot = VehiclePositionSnapshot(
+            run_id=uuid4(),
+            trip_id=None,
+            route_id="route-a",
+            direction_id=None,
+            latitude=9.934739,
+            longitude=-84.087502,
+            bearing=None,
+            speed=None,
+            odometer=None,
+            current_stop_sequence=None,
+            stop_id=None,
+            current_status=None,
+            congestion_level=None,
+            occupancy_status=None,
+            occupancy_percentage=None,
+            timestamp=None,
+        )
+
+        self.assertIsNone(snapshot.trip_id)
+
+    def test_vehicle_position_snapshot_rejects_unknown_field(self):
+        with self.assertRaises(ValidationError):
+            VehiclePositionSnapshot(
+                run_id=uuid4(),
+                trip_id=None,
+                route_id="route-a",
+                direction_id=None,
+                latitude=9.934739,
+                longitude=-84.087502,
+                bearing=None,
+                speed=None,
+                odometer=None,
+                current_stop_sequence=None,
+                stop_id=None,
+                current_status=None,
+                congestion_level=None,
+                occupancy_status=None,
+                occupancy_percentage=None,
+                timestamp=None,
+                unknown_field="unexpected",
+            )
+
+    def test_vehicle_position_snapshot_requires_coordinates(self):
+        with self.assertRaises(ValidationError):
+            VehiclePositionSnapshot(
+                run_id=uuid4(),
+                trip_id=None,
+                route_id="route-a",
+                direction_id=None,
+                longitude=-84.087502,
+                bearing=None,
+                speed=None,
+                odometer=None,
+                current_stop_sequence=None,
+                stop_id=None,
+                current_status=None,
+                congestion_level=None,
+                occupancy_status=None,
+                occupancy_percentage=None,
+                timestamp=None,
+            )
+
+    def test_vehicle_positions_by_route_snapshot_accepts_empty_vehicle_list(self):
+        snapshot = VehiclePositionsByRouteSnapshot(
+            topic="mbta.route.vehicle_positions.by_route.route-a",
+            route_id="route-a",
+            vehicles=[],
+        )
+
+        self.assertEqual(snapshot.model_dump(mode="json")["vehicles"], [])

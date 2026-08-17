@@ -48,3 +48,36 @@ class StopTimeUpdatesByStopSnapshot(BaseModel):
     stop_id: str
     direction_id: DirectionID
     stop_time_updates: list[StopTimeUpdateSnapshot]
+
+
+class VehiclePositionSnapshot(BaseModel):
+    """Represent one active run's current GTFS Realtime vehicle position."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    run_id: UUID
+    trip_id: str | None
+    route_id: str
+    direction_id: int | None
+    latitude: float
+    longitude: float
+    bearing: float | None
+    speed: float | None
+    odometer: float | None
+    current_stop_sequence: int | None
+    stop_id: str | None
+    current_status: int | None
+    congestion_level: int | None
+    occupancy_status: int | None
+    occupancy_percentage: int | None
+    timestamp: int | None
+
+
+class VehiclePositionsByRouteSnapshot(BaseModel):
+    """Represent all current vehicle positions for one route."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    topic: str
+    route_id: str
+    vehicles: list[VehiclePositionSnapshot]

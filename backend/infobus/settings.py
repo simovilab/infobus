@@ -165,6 +165,13 @@ GTFS_RT_STOP_TIME_UPDATE_PAST_TOLERANCE_SECONDS = config(
     "GTFS_RT_STOP_TIME_UPDATE_PAST_TOLERANCE_SECONDS", default=120, cast=int
 )
 
+# Match the lifecycle signal grace while allowing one delayed vehicle-position poll.
+GTFS_RT_VEHICLE_POSITION_STALE_TOLERANCE_SECONDS = config(
+    "GTFS_RT_VEHICLE_POSITION_STALE_TOLERANCE_SECONDS",
+    default=120,
+    cast=int,
+)
+
 # Celery settings
 
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
