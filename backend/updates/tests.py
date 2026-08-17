@@ -16,6 +16,10 @@ from updates.consumers import UpdatesConsumer
 from updates.events import parse_event
 from updates.exceptions import InvalidTopicException
 from updates.planner import process_event
+from updates.projections.route.vehicle_positions import (
+    resolve_vehicle_positions_topics,
+    validate_vehicle_positions_topic,
+)
 from updates.projections.stop.occupancy_status import (
     resolve_stop_occupancy_topics,
 )
@@ -26,7 +30,7 @@ from updates.projections.stop.stop_time_updates import (
 from updates.projections.trip.occupancy_status import (
     resolve_trip_occupancy_topics,
 )
-from updates.registry import projection_for_topic
+from updates.registry import projection_for_topic, projections_for_event
 from updates.schemas import VehiclePositionSnapshot, VehiclePositionsByRouteSnapshot
 from updates.topics import TopicKey
 
@@ -1260,3 +1264,367 @@ class RouteVehiclePositionsBuilderTests(SimpleTestCase):
             )
 
         snapshot_model.assert_not_called()
+
+
+class RouteVehiclePositionsProjectionTests(SimpleTestCase):
+    def test_route_topic_round_trip(self):
+        raw = "mbta.route.vehicle_positions.by_route.route-a"
+
+        topic = TopicKey.parse(raw)
+
+        self.assertEqual(topic.render(), raw)
+        self.assertIsNone(topic.qualifier_selector)
+        self.assertIsNone(topic.qualifier_value)
+
+    def test_validator_rejects_empty_route_id(self):
+        topic = TopicKey(
+            transit_system="mbta",
+            entity="route",
+            info="vehicle_positions",
+            primary_selector="by_route",
+            primary_value="",
+        )
+
+        with self.assertRaises(InvalidTopicException):
+            validate_vehicle_positions_topic(topic)
+
+    def test_validator_accepts_populated_route_id(self):
+        topic = TopicKey.parse("mbta.route.vehicle_positions.by_route.route-a")
+
+        self.assertIsNone(validate_vehicle_positions_topic(topic))
+
+    def test_registry_resolves_route_vehicle_positions_topic(self):
+        projection = projection_for_topic(
+            TopicKey.parse("mbta.route.vehicle_positions.by_route.route-a")
+        )
+
+        self.assertIsNotNone(projection)
+        self.assertEqual(projection.name, "route_vehicle_positions")
+        self.assertIs(projection.build, build_route_vehicle_positions)
+
+    def test_registry_lookup_is_unambiguous(self):
+        trip_occupancy = projection_for_topic(
+            TopicKey.parse("mbta.trip.occupancy_status.by_run.run-a")
+        )
+        stop_occupancy = projection_for_topic(
+            TopicKey.parse("mbta.stop.occupancy_status.by_stop.stop-a")
+        )
+        stop_time_updates = projection_for_topic(
+            TopicKey.parse(
+                "mbta.stop.stop_time_updates.by_stop.stop-a.by_direction.1"
+            )
+        )
+
+        self.assertIsNotNone(trip_occupancy)
+        self.assertEqual(trip_occupancy.name, "trip_occupancy_status")
+        self.assertIsNotNone(stop_occupancy)
+        self.assertEqual(stop_occupancy.name, "stop_occupancy_status")
+        self.assertIsNotNone(stop_time_updates)
+        self.assertEqual(stop_time_updates.name, "stop_stop_time_updates")
+
+    @patch("updates.projections.route.vehicle_positions.Run.objects.filter")
+    def test_lifecycle_resolver_returns_route_topic(self, filter_runs):
+        filter_runs.return_value.values_list.return_value.first.return_value = (
+            "route-a"
+        )
+        event = RunCompleted(
+            transit_system="mbta",
+            run_id=uuid4(),
+            reason="Reached terminal.",
+            occurred_at="2026-08-02T12:00:00Z",
+        )
+
+        topics = resolve_vehicle_positions_topics(event)
+
+        self.assertEqual(
+            [topic.render() for topic in topics],
+            ["mbta.route.vehicle_positions.by_route.route-a"],
+        )
+        filter_runs.assert_called_once_with(
+            id=event.run_id,
+            feed_publisher__transit_system__code="mbta",
+        )
+
+    @patch("updates.projections.route.vehicle_positions.Run.objects.filter")
+    def test_lifecycle_resolver_returns_empty_for_missing_run(self, filter_runs):
+        filter_runs.return_value.values_list.return_value.first.return_value = None
+        event = RunCompleted(
+            transit_system="mbta",
+            run_id=uuid4(),
+            reason="Reached terminal.",
+            occurred_at="2026-08-02T12:00:00Z",
+        )
+
+        self.assertEqual(resolve_vehicle_positions_topics(event), [])
+
+    @patch("updates.projections.route.vehicle_positions.Run.objects.filter")
+    def test_lifecycle_resolver_returns_empty_for_run_without_route_id(
+        self,
+        filter_runs,
+    ):
+        first = filter_runs.return_value.values_list.return_value.first
+        first.side_effect = [None, ""]
+        event = RunCompleted(
+            transit_system="mbta",
+            run_id=uuid4(),
+            reason="Reached terminal.",
+            occurred_at="2026-08-02T12:00:00Z",
+        )
+
+        self.assertEqual(resolve_vehicle_positions_topics(event), [])
+        self.assertEqual(resolve_vehicle_positions_topics(event), [])
+
+    def test_lifecycle_event_resolves_both_stop_time_and_vehicle_position(self):
+        event = RunCompleted(
+            transit_system="mbta",
+            run_id=uuid4(),
+            reason="Reached terminal.",
+            occurred_at="2026-08-02T12:00:00Z",
+        )
+
+        projection_names = {
+            projection.name for projection in projections_for_event(event)
+        }
+
+        self.assertIn("stop_stop_time_updates", projection_names)
+        self.assertIn("route_vehicle_positions", projection_names)
+
+
+class ActiveTopicRefreshTests(SimpleTestCase):
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=True)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_vehicle_refresh_dispatches_only_route_vehicle_position_topics(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_vehicle_position_topics
+
+        stop_time = "mbta.stop.stop_time_updates.by_stop.A.by_direction.1"
+        occupancy = "mbta.stop.occupancy_status.by_stop.A"
+        vehicle_positions = "mbta.route.vehicle_positions.by_route.route-a"
+        other_system = "other.route.vehicle_positions.by_route.route-b"
+        active_topics.return_value = {
+            stop_time,
+            occupancy,
+            vehicle_positions,
+            other_system,
+        }
+        stop_time_projection = SimpleNamespace(name="stop_stop_time_updates")
+        occupancy_projection = SimpleNamespace(name="stop_occupancy_status")
+        vehicle_projection = SimpleNamespace(
+            name="route_vehicle_positions",
+            validate_topic=Mock(),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        projection_for_topic_mock.side_effect = lambda topic: {
+            "stop_time_updates": stop_time_projection,
+            "occupancy_status": occupancy_projection,
+            "vehicle_positions": vehicle_projection,
+        }[topic.info]
+
+        count = refresh_active_vehicle_position_topics("mbta")
+
+        self.assertEqual(count, 1)
+        vehicle_projection.build.assert_called_once_with(
+            TopicKey.parse(vehicle_positions)
+        )
+        dispatch.assert_called_once_with(
+            TopicKey.parse(vehicle_positions),
+            {"vehicles": []},
+        )
+
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=True)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_stop_time_refresh_ignores_route_vehicle_position_topics(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_stop_time_update_topics
+
+        stop_time = "mbta.stop.stop_time_updates.by_stop.A.by_direction.1"
+        vehicle_positions = "mbta.route.vehicle_positions.by_route.route-a"
+        active_topics.return_value = {stop_time, vehicle_positions}
+        stop_time_projection = SimpleNamespace(
+            name="stop_stop_time_updates",
+            validate_topic=Mock(),
+            build=Mock(return_value={"stop_time_updates": []}),
+        )
+        vehicle_projection = SimpleNamespace(
+            name="route_vehicle_positions",
+            validate_topic=Mock(),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        projection_for_topic_mock.side_effect = lambda topic: (
+            stop_time_projection
+            if topic.info == "stop_time_updates"
+            else vehicle_projection
+        )
+
+        count = refresh_active_stop_time_update_topics("mbta")
+
+        self.assertEqual(count, 1)
+        vehicle_projection.build.assert_not_called()
+        dispatch.assert_called_once_with(
+            TopicKey.parse(stop_time),
+            {"stop_time_updates": []},
+        )
+
+    @patch("updates.refresh.active_subscription_topics", return_value=set())
+    def test_stop_time_refresh_log_message_is_unchanged(self, _active_topics):
+        from updates.refresh import refresh_active_stop_time_update_topics
+
+        with self.assertLogs("updates.refresh", level="INFO") as logs:
+            count = refresh_active_stop_time_update_topics("mbta")
+
+        self.assertEqual(count, 0)
+        self.assertEqual(
+            [record.getMessage() for record in logs.records],
+            [
+                "Refreshed 0 active stop-time-update topics for transit system mbta"
+            ],
+        )
+
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=False)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_vehicle_refresh_skips_topic_without_subscribers(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_vehicle_position_topics
+
+        vehicle_positions = "mbta.route.vehicle_positions.by_route.route-a"
+        active_topics.return_value = {vehicle_positions}
+        projection = SimpleNamespace(
+            name="route_vehicle_positions",
+            validate_topic=Mock(),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        projection_for_topic_mock.return_value = projection
+
+        count = refresh_active_vehicle_position_topics("mbta")
+
+        self.assertEqual(count, 0)
+        projection.build.assert_not_called()
+        dispatch.assert_not_called()
+
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=True)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_vehicle_refresh_isolates_a_failing_builder(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_vehicle_position_topics
+
+        broken = "mbta.route.vehicle_positions.by_route.route-a"
+        healthy = "mbta.route.vehicle_positions.by_route.route-b"
+        active_topics.return_value = {broken, healthy}
+        projection = SimpleNamespace(
+            name="route_vehicle_positions",
+            validate_topic=Mock(),
+            build=Mock(side_effect=[RuntimeError("broken builder"), {"ok": True}]),
+        )
+        projection_for_topic_mock.return_value = projection
+
+        count = refresh_active_vehicle_position_topics("mbta")
+
+        self.assertEqual(count, 1)
+        dispatch.assert_called_once_with(
+            TopicKey.parse(healthy),
+            {"ok": True},
+        )
+
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=True)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_vehicle_refresh_applies_projection_validator(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_vehicle_position_topics
+
+        rejected = "mbta.route.vehicle_positions.by_route.route-a"
+        healthy = "mbta.route.vehicle_positions.by_route.route-b"
+        active_topics.return_value = {rejected, healthy}
+
+        def validate_topic(topic):
+            if topic.primary_value == "route-a":
+                raise InvalidTopicException(topic.render(), "Rejected route.")
+
+        projection = SimpleNamespace(
+            name="route_vehicle_positions",
+            validate_topic=Mock(side_effect=validate_topic),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        projection_for_topic_mock.return_value = projection
+
+        count = refresh_active_vehicle_position_topics("mbta")
+
+        self.assertEqual(count, 1)
+        projection.build.assert_called_once_with(TopicKey.parse(healthy))
+        dispatch.assert_called_once_with(
+            TopicKey.parse(healthy),
+            {"vehicles": []},
+        )
+
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=True)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_refresh_ignores_malformed_topic_in_active_set(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_vehicle_position_topics
+
+        malformed = "not-a-valid-topic"
+        healthy = "mbta.route.vehicle_positions.by_route.route-a"
+        active_topics.return_value = {malformed, healthy}
+        projection = SimpleNamespace(
+            name="route_vehicle_positions",
+            validate_topic=Mock(),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        projection_for_topic_mock.return_value = projection
+
+        with self.assertLogs("updates.refresh", level="WARNING") as logs:
+            count = refresh_active_vehicle_position_topics("mbta")
+
+        self.assertEqual(count, 1)
+        self.assertEqual(
+            logs.output,
+            [
+                "WARNING:updates.refresh:Ignoring invalid topic in active "
+                "subscriptions: not-a-valid-topic"
+            ],
+        )
+        dispatch.assert_called_once_with(
+            TopicKey.parse(healthy),
+            {"vehicles": []},
+        )

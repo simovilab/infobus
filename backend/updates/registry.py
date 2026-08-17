@@ -12,10 +12,15 @@ from runs.events.types import (
     RunSignalRestored,
 )
 
+from .builders.route.vehicle_positions import build_route_vehicle_positions
 from .builders.stop.occupancy_status import build_stop_occupancy_status
 from .builders.stop.stop_time_updates import build_stop_time_updates
 from .builders.trip.occupancy_status import build_trip_occupancy_status
 from .events import UpdateEvent
+from .projections.route.vehicle_positions import (
+    resolve_vehicle_positions_topics,
+    validate_vehicle_positions_topic,
+)
 from .projections.stop.occupancy_status import resolve_stop_occupancy_topics
 from .projections.stop.stop_time_updates import (
     resolve_stop_time_updates_topics,
@@ -105,6 +110,28 @@ PROJECTIONS = (
         resolve_topics=resolve_stop_time_updates_topics,
         build=build_stop_time_updates,
         validate_topic=validate_stop_time_updates_topic,
+    ),
+    ProjectionSpec(
+        name="route_vehicle_positions",
+        description=(
+            "The current vehicle positions for active runs on a route, "
+            "by route ID."
+        ),
+        topic_pattern=TopicPattern(
+            entity="route",
+            info="vehicle_positions",
+            primary_selector="by_route",
+        ),
+        triggers=(
+            RunSignalLost,
+            RunSignalRestored,
+            RunCompleted,
+            RunInterrupted,
+            RunCancelled,
+        ),
+        resolve_topics=resolve_vehicle_positions_topics,
+        build=build_route_vehicle_positions,
+        validate_topic=validate_vehicle_positions_topic,
     ),
 )
 
