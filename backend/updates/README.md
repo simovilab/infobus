@@ -1019,6 +1019,8 @@ nonempty entries, and deduplicates them in original order. Each stop becomes:
 ```
 
 Malformed JSON or a non-list value resolves to no topics.
+(`backend/updates/projections/stop/stop_time_updates.py:47-68`)
+
 ### `builders/trip/occupancy_status.py`
 
 #### `build_trip_occupancy_status(topic)`
@@ -1096,6 +1098,7 @@ then applies per-entry progress, schema, schedule-relationship, and freshness
 filters. (`backend/updates/builders/stop/stop_time_updates.py:123-221`)
 
 #### `SCHEDULE_RELATIONSHIPS`
+
 Maps the four GTFS Realtime numeric StopTimeUpdate schedule relationships to
 their stable names: `SCHEDULED`, `SKIPPED`, `NO_DATA`, and `UNSCHEDULED`.
 (`backend/updates/builders/stop/stop_time_updates.py:31-36`)
