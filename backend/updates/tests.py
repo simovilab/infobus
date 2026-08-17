@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import Mock, patch
-from uuid import uuid4
+from unittest.mock import Mock, call, patch
+from uuid import UUID, uuid4
 
 from channels.testing import WebsocketCommunicator
 from django.test import SimpleTestCase, override_settings
@@ -10,6 +10,7 @@ from pydantic import ValidationError
 
 from runs.events.types import OccupancyStatusChanged
 from runs.events.types import RunCompleted
+from updates.builders.route.vehicle_positions import build_route_vehicle_positions
 from updates.builders.stop.stop_time_updates import build_stop_time_updates
 from updates.consumers import UpdatesConsumer
 from updates.events import parse_event
@@ -877,3 +878,385 @@ class VehiclePositionSchemaTests(SimpleTestCase):
         )
 
         self.assertEqual(snapshot.model_dump(mode="json")["vehicles"], [])
+
+
+@override_settings(GTFS_RT_VEHICLE_POSITION_STALE_TOLERANCE_SECONDS=120)
+class RouteVehiclePositionsBuilderTests(SimpleTestCase):
+    now_timestamp: int = 1_800_000_000
+
+    def _scalar_keys(self, run_id: str) -> list[str]:
+        return [
+            f"mbta:trip:{run_id}:{field}"
+            for field in (
+                "current_stop_sequence",
+                "stop_id",
+                "current_status",
+                "congestion_level",
+                "occupancy_status",
+                "occupancy_percentage",
+                "timestamp",
+            )
+        ]
+
+    def _run(
+        self,
+        *,
+        run_id: UUID | None = None,
+        route_id: str = "route-a",
+        transit_system: str = "mbta",
+        trip_id: str | None = "trip-a",
+        direction_id: int | None = 1,
+        lifecycle_state: str = "In Progress",
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=run_id or uuid4(),
+            trip_id=trip_id,
+            route_id=route_id,
+            direction_id=direction_id,
+            run_lifecycle_state=lifecycle_state,
+            feed_publisher=SimpleNamespace(
+                transit_system=SimpleNamespace(code=transit_system)
+            ),
+        )
+
+    def _snapshot(
+        self,
+        runs: list[SimpleNamespace],
+        positions: dict[str, dict[str, str]],
+        *,
+        scalars: dict[str, dict[str, str]] | None = None,
+        active_ids: set[str] | None = None,
+        transit_system: str = "mbta",
+        route_id: str = "route-a",
+        pipeline_values: list[object] | None = None,
+    ) -> tuple[dict[str, Any], Mock, Mock, Mock]:
+        run_ids = [str(run.id) for run in runs]
+        canonical_ids = set(run_ids) if active_ids is None else active_ids
+        scalars = scalars or {}
+
+        with (
+            patch("updates.builders.route.vehicle_positions.r") as redis,
+            patch(
+                "updates.builders.route.vehicle_positions.Run.objects.filter"
+            ) as filter_runs,
+            patch(
+                "updates.builders.route.vehicle_positions.timezone.now",
+                return_value=datetime.fromtimestamp(self.now_timestamp, tz=UTC),
+            ),
+        ):
+            filter_runs.return_value.only.return_value.order_by.return_value = runs
+            pipeline = redis.pipeline.return_value.__enter__.return_value
+            if pipeline_values is None:
+                pipeline_values = [
+                    [run_id in canonical_ids for run_id in run_ids],
+                    *[positions.get(run_id, {}) for run_id in run_ids],
+                    *[
+                        [
+                            scalars.get(run_id, {}).get(field)
+                            for field in (
+                                "current_stop_sequence",
+                                "stop_id",
+                                "current_status",
+                                "congestion_level",
+                                "occupancy_status",
+                                "occupancy_percentage",
+                                "timestamp",
+                            )
+                        ]
+                        for run_id in run_ids
+                    ],
+                ]
+            pipeline.execute.return_value = pipeline_values
+            topic = TopicKey.parse(
+                f"{transit_system}.route.vehicle_positions.by_route.{route_id}"
+            )
+            snapshot = build_route_vehicle_positions(topic)
+        return snapshot, redis, filter_runs, pipeline
+
+    def test_returns_empty_snapshot_when_route_has_no_active_runs(self):
+        snapshot, redis, _filter_runs, _pipeline = self._snapshot([], {})
+
+        self.assertEqual(snapshot["vehicles"], [])
+        self.assertEqual(
+            snapshot["topic"], "mbta.route.vehicle_positions.by_route.route-a"
+        )
+        self.assertEqual(snapshot["route_id"], "route-a")
+        redis.pipeline.assert_not_called()
+
+    def test_excludes_run_absent_from_canonical_active_set(self):
+        run = self._run()
+
+        snapshot, _redis, _filter_runs, _pipeline = self._snapshot(
+            [run],
+            {
+                str(run.id): {
+                    "latitude": "9.93",
+                    "longitude": "-84.08",
+                }
+            },
+            active_ids=set(),
+        )
+
+        self.assertEqual(snapshot["vehicles"], [])
+
+    def test_excludes_position_without_latitude(self):
+        run = self._run()
+
+        snapshot, _redis, _filter_runs, _pipeline = self._snapshot(
+            [run],
+            {str(run.id): {"longitude": "-84.08"}},
+        )
+
+        self.assertEqual(snapshot["vehicles"], [])
+
+    def test_excludes_position_without_longitude(self):
+        run = self._run()
+
+        snapshot, _redis, _filter_runs, _pipeline = self._snapshot(
+            [run],
+            {str(run.id): {"latitude": "9.93"}},
+        )
+
+        self.assertEqual(snapshot["vehicles"], [])
+
+    def test_excludes_stale_timestamp_but_keeps_boundary(self):
+        stale = self._run()
+        boundary = self._run()
+        positions = {
+            str(run.id): {"latitude": "9.93", "longitude": "-84.08"}
+            for run in (stale, boundary)
+        }
+        scalars = {
+            str(stale.id): {"timestamp": str(self.now_timestamp - 121)},
+            str(boundary.id): {"timestamp": str(self.now_timestamp - 120)},
+        }
+
+        snapshot, _redis, _filter_runs, _pipeline = self._snapshot(
+            [stale, boundary],
+            positions,
+            scalars=scalars,
+        )
+
+        self.assertEqual(
+            [vehicle["run_id"] for vehicle in snapshot["vehicles"]],
+            [str(boundary.id)],
+        )
+
+    def test_keeps_position_without_timestamp(self):
+        run = self._run()
+
+        snapshot, _redis, _filter_runs, _pipeline = self._snapshot(
+            [run],
+            {
+                str(run.id): {
+                    "latitude": "9.93",
+                    "longitude": "-84.08",
+                }
+            },
+        )
+
+        self.assertEqual(len(snapshot["vehicles"]), 1)
+        self.assertIsNone(snapshot["vehicles"][0]["timestamp"])
+
+    def test_scopes_runs_to_transit_system_code(self):
+        valid = self._run()
+        foreign = self._run(transit_system="other")
+        positions = {
+            str(run.id): {"latitude": "9.93", "longitude": "-84.08"}
+            for run in (valid, foreign)
+        }
+
+        snapshot, _redis, filter_runs, _pipeline = self._snapshot(
+            [valid],
+            positions,
+            active_ids={str(valid.id), str(foreign.id)},
+        )
+
+        self.assertEqual(
+            [vehicle["run_id"] for vehicle in snapshot["vehicles"]],
+            [str(valid.id)],
+        )
+        filter_runs.assert_called_once_with(
+            route_id="route-a",
+            feed_publisher__transit_system__code="mbta",
+            run_lifecycle_state__in={"In Progress", "No Signal"},
+        )
+
+    def test_excludes_runs_in_terminal_lifecycle_states(self):
+        terminal = self._run(lifecycle_state="Completed")
+
+        snapshot, redis, filter_runs, _pipeline = self._snapshot(
+            [],
+            {
+                str(terminal.id): {
+                    "latitude": "9.93",
+                    "longitude": "-84.08",
+                }
+            },
+            active_ids={str(terminal.id)},
+        )
+
+        self.assertEqual(snapshot["vehicles"], [])
+        filter_runs.assert_called_once_with(
+            route_id="route-a",
+            feed_publisher__transit_system__code="mbta",
+            run_lifecycle_state__in={"In Progress", "No Signal"},
+        )
+        redis.pipeline.assert_not_called()
+
+    def test_sorts_vehicles_by_run_id(self):
+        higher = self._run(run_id=UUID("00000000-0000-0000-0000-000000000002"))
+        lower = self._run(run_id=UUID("00000000-0000-0000-0000-000000000001"))
+        positions = {
+            str(run.id): {"latitude": "9.93", "longitude": "-84.08"}
+            for run in (higher, lower)
+        }
+
+        snapshot, _redis, _filter_runs, _pipeline = self._snapshot(
+            [higher, lower],
+            positions,
+        )
+
+        self.assertEqual(
+            [vehicle["run_id"] for vehicle in snapshot["vehicles"]],
+            [str(lower.id), str(higher.id)],
+        )
+
+    def test_serializes_all_optional_state_fields(self):
+        full = self._run(run_id=UUID("00000000-0000-0000-0000-000000000001"))
+        empty = self._run(
+            run_id=UUID("00000000-0000-0000-0000-000000000002"),
+            trip_id=None,
+            direction_id=None,
+        )
+        positions = {
+            str(full.id): {
+                "latitude": "9.934739",
+                "longitude": "-84.087502",
+                "bearing": "180.5",
+                "speed": "12.25",
+                "odometer": "5000.75",
+            },
+            str(empty.id): {
+                "latitude": "9.94",
+                "longitude": "-84.09",
+            },
+        }
+        scalars = {
+            str(full.id): {
+                "current_stop_sequence": "4",
+                "stop_id": "stop-a",
+                "current_status": "2",
+                "congestion_level": "1",
+                "occupancy_status": "3",
+                "occupancy_percentage": "65",
+                "timestamp": str(self.now_timestamp),
+            }
+        }
+
+        snapshot, _redis, _filter_runs, _pipeline = self._snapshot(
+            [full, empty],
+            positions,
+            scalars=scalars,
+        )
+
+        full_vehicle, empty_vehicle = snapshot["vehicles"]
+        self.assertEqual(full_vehicle["latitude"], 9.934739)
+        self.assertEqual(full_vehicle["longitude"], -84.087502)
+        self.assertEqual(full_vehicle["bearing"], 180.5)
+        self.assertEqual(full_vehicle["speed"], 12.25)
+        self.assertEqual(full_vehicle["odometer"], 5000.75)
+        self.assertEqual(full_vehicle["current_stop_sequence"], 4)
+        self.assertEqual(full_vehicle["stop_id"], "stop-a")
+        self.assertEqual(full_vehicle["current_status"], 2)
+        self.assertEqual(full_vehicle["congestion_level"], 1)
+        self.assertEqual(full_vehicle["occupancy_status"], 3)
+        self.assertEqual(full_vehicle["occupancy_percentage"], 65)
+        self.assertEqual(full_vehicle["timestamp"], self.now_timestamp)
+        for field in (
+            "trip_id",
+            "direction_id",
+            "bearing",
+            "speed",
+            "odometer",
+            "current_stop_sequence",
+            "stop_id",
+            "current_status",
+            "congestion_level",
+            "occupancy_status",
+            "occupancy_percentage",
+            "timestamp",
+        ):
+            self.assertIsNone(empty_vehicle[field])
+
+    def test_reads_all_vehicle_state_in_a_single_pipeline(self):
+        first = self._run(run_id=UUID("00000000-0000-0000-0000-000000000001"))
+        second = self._run(run_id=UUID("00000000-0000-0000-0000-000000000002"))
+        runs = [first, second]
+        positions = {
+            str(run.id): {"latitude": "9.93", "longitude": "-84.08"} for run in runs
+        }
+
+        _snapshot, redis, _filter_runs, pipeline = self._snapshot(runs, positions)
+
+        first_id, second_id = (str(run.id) for run in runs)
+        self.assertEqual(
+            pipeline.method_calls,
+            [
+                call.smismember("mbta:runs:active", [first_id, second_id]),
+                call.hgetall(f"mbta:trip:{first_id}:position"),
+                call.hgetall(f"mbta:trip:{second_id}:position"),
+                call.mget(self._scalar_keys(first_id)),
+                call.mget(self._scalar_keys(second_id)),
+                call.execute(),
+            ],
+        )
+        redis.pipeline.assert_called_once_with(transaction=False)
+        pipeline.execute.assert_called_once_with()
+        self.assertEqual(redis.method_calls, [call.pipeline(transaction=False)])
+
+    def test_malformed_numeric_value_logs_warning_and_yields_none(self):
+        run = self._run()
+
+        with self.assertLogs(
+            "updates.builders.route.vehicle_positions", level="WARNING"
+        ) as logs:
+            snapshot, _redis, _filter_runs, _pipeline = self._snapshot(
+                [run],
+                {
+                    str(run.id): {
+                        "latitude": "9.93",
+                        "longitude": "-84.08",
+                    }
+                },
+                scalars={str(run.id): {"timestamp": "not-a-number"}},
+            )
+
+        self.assertEqual(len(snapshot["vehicles"]), 1)
+        self.assertIsNone(snapshot["vehicles"][0]["timestamp"])
+        self.assertIn(f"mbta:trip:{run.id}:timestamp", logs.output[0])
+        self.assertIn(str(run.id), logs.output[0])
+
+    def test_pipeline_length_mismatch_raises(self):
+        first = self._run(run_id=UUID("00000000-0000-0000-0000-000000000001"))
+        second = self._run(run_id=UUID("00000000-0000-0000-0000-000000000002"))
+        incomplete_pipeline_values: list[object] = [
+            [1, 1],
+            {"latitude": "9.93", "longitude": "-84.08"},
+            [None] * 7,
+            [None] * 7,
+        ]
+
+        with (
+            patch(
+                "updates.builders.route.vehicle_positions.VehiclePositionsByRouteSnapshot"
+            ) as snapshot_model,
+            self.assertRaises(ValueError),
+        ):
+            self._snapshot(
+                [first, second],
+                {},
+                pipeline_values=incomplete_pipeline_values,
+            )
+
+        snapshot_model.assert_not_called()
