@@ -947,15 +947,12 @@ ws/updates/ -> UpdatesConsumer
 
 #### `resolve_trip_occupancy_topics(event)`
 
-Maps an `OccupancyStatusChanged` event to exactly one direct topic:
+Maps an `OccupancyStatusChanged` or `RunLifecycleEvent` event to exactly one direct topic:
 
 ```text
 <transit_system>.trip.occupancy_status.by_run.<run_id>
 ```
 
-> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
-> Estado: `parcial`. El resolver también acepta `RunLifecycleEvent`, no solo
-> `OccupancyStatusChanged`
 > (`backend/updates/projections/trip/occupancy_status.py:6-8`).
 
 No database or Redis query is required because the event already identifies the
@@ -972,7 +969,6 @@ every stop that the run has not passed:
 <transit_system>.stop.occupancy_status.by_stop.<stop_id>
 ```
 
-> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
 > Estado: `parcial`. `remaining_stop_ids()` solo se llama para eventos de
 > ocupación; los eventos de ciclo de vida leen `affected_stop_ids_json`
 > directamente (`backend/updates/projections/stop/occupancy_status.py:9-15`).
@@ -1032,7 +1028,6 @@ Builds the current occupancy snapshot for one run:
 3. Returns the public topic, run ID, GTFS trip ID, route ID, and integer
    occupancy status.
 
-> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
 > Estado: `parcial`. El payload real también incluye `lifecycle_state`, campo no
 > reflejado en la enumeración anterior
 > (`backend/updates/builders/trip/occupancy_status.py:28-36`).
@@ -1059,7 +1054,6 @@ arrays.
 5. Adds trip, route, and arrival information.
 6. Sorts runs by known arrival time and then run ID.
 
-> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
 > Estado: `parcial`. Antes de comprobar si cada run todavía se aproxima a la
 > parada, el builder también descarta los runs fuera del conjunto activo; ese
 > filtro no aparece en la enumeración anterior
@@ -1083,7 +1077,6 @@ The resulting snapshot has this shape:
 }
 ```
 
-> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
 > Estado: `parcial`. Cada entrada del payload real también incluye
 > `lifecycle_state`, campo no reflejado en el ejemplo anterior
 > (`backend/updates/builders/stop/occupancy_status.py:62-70`).
@@ -1199,7 +1192,6 @@ The current focused tests cover:
 The tests mock projection dependencies and do not replace the live integration
 checks for Redis Streams, RedisJSON, Channels, or the database.
 
-> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
 > Estado: `parcial`. El archivo contiene once tests. Además de los casos
 > enumerados, cubre el rechazo de un tópico que no es string
 > (`backend/updates/tests.py:46-51`), el parsing de un evento de ciclo de vida
@@ -1245,7 +1237,6 @@ Creates the database tables for the models in `models.py`.
 
 An empty package marker for Django's migration discovery.
 
-> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
 > Estado: `no encontrado`. En el árbol actual no existe
 > `backend/updates/migrations/` y `git ls-files -- backend/updates/migrations`
 > devuelve vacío: no hay migraciones de `updates` versionadas. La regla que
@@ -1347,7 +1338,6 @@ The app requires Redis Streams and RedisJSON. Development uses Redis 8, which
 provides the JSON commands used by the stop occupancy builder and run state
 service.
 
-> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
 > Estado de producción: `roto` en los tres puntos siguientes. Primero,
 > `streams-consumer` está declarado en desarrollo (`compose.dev.yml:70-87`),
 > pero no tiene un servicio equivalente en el mapa de servicios de producción
@@ -1507,13 +1497,156 @@ shows raw WebSocket messages.
 > (`backend/engine/templates/status.html:65-70`) y ASGI solo monta el routing de
 > `updates` (`backend/infobus/asgi.py:15-22`).
 
-> **[Aclaración documental]** La ruta real de esa plantilla es
-> `backend/engine/templates/status.html`; `engine/status.html` es una abreviación
-> imprecisa.
 
-> **[Verificado — Fase 2, HEAD 0fd8ad136d194daf088b65d36d1a806876309da3]**
 > Estado: `no encontrado`; decisión abierta. El contrato de tópico, evento y
 > mensaje no declara una versión: `Event` no incluye un campo de versión
 > (`backend/runs/events/types.py:35-44`) y `TopicKey` no contiene un segmento de
 > versión (`backend/updates/topics.py:8-16`). Esta nota no define ni resuelve el
 > esquema de versionado.
+
+## Route vehicle positions by route
+
+> Status: `implemented` (project state: `implementado`). The
+> `route_vehicle_positions` projection is registered with a concrete resolver,
+> builder, validator, poll refresh, and lifecycle triggers.
+> (`backend/updates/registry.py:114-135`)
+
+### Topic and segment contract
+
+The projection uses this five-segment topic:
+
+```text
+<transit_system>.route.vehicle_positions.by_route.<route_id>
+```
+
+For example:
+
+```text
+mbta.route.vehicle_positions.by_route.1
+```
+
+| Segment | Value example | Route vehicle-position meaning |
+| --- | --- | --- |
+| Transit system | `mbta` | Scopes both PostgreSQL runs and Redis state to one transit system. (`backend/updates/builders/route/vehicle_positions.py:75-83`, `backend/updates/builders/route/vehicle_positions.py:91-98`) |
+| Entity | `route` | Selects the route-level aggregate view. (`backend/updates/registry.py:120-124`) |
+| Information | `vehicle_positions` | Selects current GTFS Realtime vehicle positions. (`backend/updates/registry.py:115-124`) |
+| Primary selector | `by_route` | Interprets the primary value as a GTFS route ID. (`backend/updates/registry.py:120-124`) |
+| Primary value | `1` | Filters `Run` rows to the requested `route_id`. (`backend/updates/builders/route/vehicle_positions.py:72-80`) |
+
+There is no qualifier. The projection-specific validator requires only a
+nonempty primary value; structural matching of `route`, `vehicle_positions`,
+and `by_route` comes from the registry.
+(`backend/updates/projections/route/vehicle_positions.py:8-11`,
+`backend/updates/registry.py:120-124`)
+
+### Run resolution and snapshot construction
+
+The builder first queries PostgreSQL for `Run` rows whose `route_id` matches the
+topic, whose publisher belongs to the selected transit system, and whose
+lifecycle state is active. The active lifecycle states are `In Progress` and
+`No Signal`. (`backend/updates/builders/route/vehicle_positions.py:72-83`,
+`backend/runs/services/lifecycle.py:29-32`)
+
+Those database candidates are then intersected with the canonical
+`<transit_system>:runs:active` Redis set by one `SMISMEMBER` call. Both
+boundaries are necessary: `confirm_run_record()` can create a `Run` whose model
+default is already `In Progress` while the realtime state update is running,
+but `get_vehicle_positions()` calls `record_successful_poll()` only after that
+state update returns. The successful-poll recorder is what adds observed runs
+to the canonical active set. The intersection therefore prevents a newly
+created, database-active run from appearing in a public snapshot before a poll
+has successfully registered it. (`backend/runs/services/realtime.py:54-89`,
+`backend/runs/models.py:44-50`, `backend/runs/services/state.py:119-132`,
+`backend/engine/tasks.py:101-110`,
+`backend/runs/services/lifecycle.py:152-181`)
+
+For the remaining candidates, one non-transactional Redis pipeline reads every
+position hash and the ordered scalar state keys. The builder applies these
+exclusions in order:
+
+1. A run without membership in the canonical active set is excluded. This also
+   excludes every candidate when that set is absent.
+   (`backend/updates/builders/route/vehicle_positions.py:91-121`)
+2. A run without a parseable `latitude` or `longitude` in its position hash is
+   excluded. (`backend/updates/builders/route/vehicle_positions.py:33-41`,
+   `backend/updates/builders/route/vehicle_positions.py:123-135`)
+3. A run with a timestamp earlier than the freshness cutoff is excluded. A
+   missing timestamp does **not** exclude the run.
+   (`backend/updates/builders/route/vehicle_positions.py:107-109`,
+   `backend/updates/builders/route/vehicle_positions.py:137-153`)
+
+The cutoff is the current time minus
+`GTFS_RT_VEHICLE_POSITION_STALE_TOLERANCE_SECONDS`. The setting defaults to 120
+seconds. (`backend/infobus/settings.py:168-173`)
+
+Surviving vehicles are sorted by their textual `run_id` in ascending order.
+The builder always returns a complete snapshot: if the route has no candidate
+runs or every candidate is excluded, `vehicles` is an empty list. Because that
+snapshot is a dictionary rather than `None`, it is still sent on initial
+subscription and by poll or lifecycle invalidation.
+(`backend/updates/builders/route/vehicle_positions.py:67-69`,
+`backend/updates/builders/route/vehicle_positions.py:84-89`,
+`backend/updates/builders/route/vehicle_positions.py:208-213`,
+`backend/updates/consumers.py:100-102`, `backend/updates/refresh.py:47-61`,
+`backend/updates/planner.py:8-14`)
+
+### Invalidation paths
+
+Vehicle-position snapshots have two invalidation paths:
+
+1. **VehiclePositions poll refresh.** Each successfully processed publisher
+   poll saves the feed, updates current state, records the successful poll, and
+   marks its transit system for refresh. After the polling pass, each marked
+   system is refreshed once. The refresh selects active subscribed topics
+   registered to `route_vehicle_positions`, validates and rebuilds each topic,
+   and dispatches the snapshot while isolating per-topic failures.
+   (`backend/engine/tasks.py:76-120`, `backend/updates/refresh.py:21-70`,
+   `backend/updates/refresh.py:82-88`)
+2. **Run lifecycle invalidation.** The registered triggers are signal loss,
+   signal restoration, completion, interruption, and cancellation. The resolver
+   loads the run's `route_id` within the event's transit system and resolves one
+   route topic when that value is present; the normal event planner then rebuilds
+   and dispatches it. (`backend/updates/registry.py:125-134`,
+   `backend/updates/projections/route/vehicle_positions.py:14-37`,
+   `backend/updates/planner.py:8-14`)
+
+### Payload boundary
+
+The public vehicle schema exposes run, trip, route, and direction identifiers;
+coordinates; optional motion values; current stop state; congestion and
+occupancy state; and the vehicle timestamp. It does **not** enrich the payload
+with rider-facing route names or headsigns. Route-name and headsign enrichment
+is `not found` (project state: `no encontrado`): the builder selects only four
+fields from `Run` and performs no Schedule `Route` or `Trip` lookup.
+(`backend/updates/schemas.py:53-83`,
+`backend/updates/builders/route/vehicle_positions.py:75-83`)
+
+### Limitations
+
+- **Cross-publisher route aggregation — `implemented` (`implementado`).** A
+  Schedule `route_id` is unique within one feed, not within an entire transit
+  system. The builder deliberately filters by `route_id` and transit system,
+  without a publisher predicate, so runs for homonymous routes from different
+  publishers in the same system are aggregated into one topic.
+  (`backend/feed/models.py:244-252`,
+  `backend/updates/builders/route/vehicle_positions.py:75-83`)
+
+- **Incremental position hashes — `partial` (`parcial`).** State ingestion
+  removes absent fields from the mapping passed to `HSET`, but it never deletes
+  their previous hash fields. If a later VehiclePosition omits a field, an older
+  value can therefore persist. The builder receives only the resulting hash and
+  cannot distinguish “not supplied now” from “supplied previously.”
+  (`backend/runs/services/state.py:136-160`,
+  `backend/updates/builders/route/vehicle_positions.py:94-105`,
+  `backend/updates/builders/route/vehicle_positions.py:123-135`)
+- **VehiclePositions feed coverage — `partial` (`parcial`).** The topic can show
+  only runs for which the VehiclePositions feed has supplied usable coordinates.
+  TripUpdates can confirm a run and register it as active, but that path writes
+  stop-time state rather than a position hash, so a TripUpdates-only run fails
+  the coordinate requirement and does not appear even while active.
+  (`backend/runs/services/state.py:119-160`,
+  `backend/runs/services/state.py:246-293`, `backend/engine/tasks.py:159-168`,
+  `backend/runs/services/lifecycle.py:152-181`,
+  `backend/updates/builders/route/vehicle_positions.py:120-135`)
+
+
