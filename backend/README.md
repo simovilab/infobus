@@ -8,7 +8,6 @@ This is a Django project with the following apps:
 - `runs`: Implements a mirror finite-state machine of the active runs (trips) and handles domain events.
 - `updates`: Builds and delivers real-time messages to subscribers.
 - `website`: Miscellaneous sites (like the homepage).
-- `screens`: Test screens (to be removed, migrate test screen to `website`).
 
 ```mermaid
 flowchart TD
