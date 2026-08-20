@@ -9,6 +9,19 @@ def _subscribers_key(topic: str) -> str:
     return f"subscriptions:{topic}"
 
 
+def active_subscription_topics(redis: Redis) -> set[str]:
+    """Return the public topics currently marked active."""
+    return {
+        value.decode("utf-8") if isinstance(value, bytes) else str(value)
+        for value in redis.smembers(ACTIVE_SUBSCRIPTIONS_KEY)
+    }
+
+
+def has_subscribers(redis: Redis, topic: str) -> bool:
+    """Return whether a topic still has at least one registered channel."""
+    return bool(redis.scard(_subscribers_key(topic)))
+
+
 def add_subscription(redis: Redis, topic: str, channel_name: str) -> None:
     """Atomically register a channel and mark its topic active."""
     with redis.pipeline(transaction=True) as pipe:

@@ -12,11 +12,11 @@ r = Redis(
 )
 
 
-def confirm_run(
+def confirm_run_record(
     feed_publisher: FeedPublisher,
     trip: gtfs_rt.TripDescriptor,
-) -> UUID:
-    """Find or create a run for a GTFS trip descriptor and synchronize its database and Redis metadata."""
+) -> Run:
+    """Return the run confirmed from a GTFS descriptor and sync its metadata."""
     schedule_relationship = None
     if trip.HasField("schedule_relationship"):
         enum_type = trip.DESCRIPTOR.fields_by_name["schedule_relationship"].enum_type
@@ -86,4 +86,12 @@ def confirm_run(
                 f"trip:{run.id}:trip",
                 mapping=redis_trip_descriptor,
             )
-    return run.id
+    return run
+
+
+def confirm_run(
+    feed_publisher: FeedPublisher,
+    trip: gtfs_rt.TripDescriptor,
+) -> UUID:
+    """Return the UUID confirmed from a GTFS trip descriptor."""
+    return confirm_run_record(feed_publisher, trip).id

@@ -36,12 +36,13 @@ By trip updates:
 from collections.abc import Callable
 from redis import Redis
 from redis.exceptions import WatchError
-from typing import TypeAlias, TypeVar
+from typing import Any, TypeAlias, TypeVar
 from uuid import UUID
 from django.conf import settings
 from feed.models import FeedPublisher
 from google.transit import gtfs_realtime_pb2 as gtfs_rt
-from runs.services.realtime import confirm_run
+from runs.services.lifecycle import TERMINAL_STATES
+from runs.services.realtime import confirm_run_record
 from runs.events.detector import EventDetector
 from runs.services.stop_index import advance_remaining_stops, sync_remaining_stops
 
@@ -55,6 +56,30 @@ StateDetector: TypeAlias = Callable[
 r = Redis(
     host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_CELERY_DB
 )
+
+
+def _optional_enum_name(message: Any, field_name: str) -> str | None:
+    """Return the stable protobuf enum name when an optional enum is present."""
+    if not message.HasField(field_name):
+        return None
+    field = message.DESCRIPTOR.fields_by_name[field_name]
+    return field.enum_type.values_by_number[int(getattr(message, field_name))].name
+
+
+def _stop_time_event_state(
+    stop_time_update: gtfs_rt.TripUpdate.StopTimeUpdate,
+    field_name: str,
+) -> dict[str, int | None]:
+    """Serialize an optional StopTimeEvent without leaking protobuf defaults."""
+    if not stop_time_update.HasField(field_name):
+        return {"delay": None, "time": None, "uncertainty": None}
+
+    event = getattr(stop_time_update, field_name)
+    return {
+        "delay": event.delay if event.HasField("delay") else None,
+        "time": event.time if event.HasField("time") else None,
+        "uncertainty": (event.uncertainty if event.HasField("uncertainty") else None),
+    }
 
 
 def _update_state_and_publish_event(
@@ -102,8 +127,11 @@ def update_vehicle_positions_state(
         v = entity.vehicle
         if not v.HasField("trip"):
             continue
-        run_id = confirm_run(feed_publisher, v.trip)
+        run = confirm_run_record(feed_publisher, v.trip)
+        run_id = run.id
         observed_run_ids.add(run_id)
+        if run.run_lifecycle_state in TERMINAL_STATES:
+            continue
 
         # trip:<run_id>:position (Redis: hash)
         if v.HasField("position"):
@@ -226,38 +254,27 @@ def update_trip_updates_state(
         t = entity.trip_update
         if not t.HasField("trip"):
             continue
-        run_id = confirm_run(feed_publisher, t.trip)
+        run = confirm_run_record(feed_publisher, t.trip)
+        run_id = run.id
         observed_run_ids.add(run_id)
+        if run.run_lifecycle_state in TERMINAL_STATES:
+            continue
 
         # trip:<run_id>:stop_time_updates (Redis: JSON)
         stop_time_updates = []
         for stu in t.stop_time_update:
             stop_time_updates.append(
                 {
-                    "stop_sequence": stu.stop_sequence,
-                    "stop_id": stu.stop_id,
-                    "arrival": {
-                        "delay": stu.arrival.delay
-                        if stu.arrival.HasField("delay")
-                        else None,
-                        "time": stu.arrival.time
-                        if stu.arrival.HasField("time")
-                        else None,
-                        "uncertainty": stu.arrival.uncertainty
-                        if stu.arrival.HasField("uncertainty")
-                        else None,
-                    },
-                    "departure": {
-                        "delay": stu.departure.delay
-                        if stu.departure.HasField("delay")
-                        else None,
-                        "time": stu.departure.time
-                        if stu.departure.HasField("time")
-                        else None,
-                        "uncertainty": stu.departure.uncertainty
-                        if stu.departure.HasField("uncertainty")
-                        else None,
-                    },
+                    "stop_sequence": (
+                        stu.stop_sequence if stu.HasField("stop_sequence") else None
+                    ),
+                    "stop_id": stu.stop_id if stu.HasField("stop_id") else None,
+                    "arrival": _stop_time_event_state(stu, "arrival"),
+                    "departure": _stop_time_event_state(stu, "departure"),
+                    "schedule_relationship": _optional_enum_name(
+                        stu,
+                        "schedule_relationship",
+                    ),
                 }
             )
         sync_remaining_stops(

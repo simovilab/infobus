@@ -706,7 +706,8 @@ current defaults are:
 | `RUN_TERMINAL_SILENCE_GRACE_SECONDS` | 120 | Silence after stopping at terminal before completion. |
 | `RUN_EXPECTED_END_GRACE_SECONDS` | 900 | Grace after expected end before terminal classification. |
 | `RUN_UNKNOWN_TIMEOUT_SECONDS` | 1800 | Silence before interrupting a run with no expected end. |
-| `RUN_TERMINAL_STATE_TTL_SECONDS` | 86400 | TTL applied to namespaced terminal state keys found during cleanup. |
+| `RUN_TERMINAL_STATE_TTL_SECONDS` | 86400 | TTL applied to known namespaced terminal state keys during cleanup. |
+| `RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS` | 120 | Renewable task-lock TTL preventing overlapping evaluations. |
 
 Effective deployed values are not verifiable from repository code when the
 environment overrides these defaults.

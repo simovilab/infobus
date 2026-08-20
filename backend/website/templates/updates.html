@@ -3,7 +3,7 @@
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>MBTA occupancy stream | Infobús</title>
+		<title>WebSocket updates console | Infobús</title>
 		<style>
 			:root {
 				color-scheme: light;
@@ -17,9 +17,7 @@
 				--connected: #087f5b;
 			}
 
-			* {
-				box-sizing: border-box;
-			}
+			* { box-sizing: border-box; }
 
 			body {
 				margin: 0;
@@ -54,14 +52,13 @@
 				font-size: clamp(2rem, 5vw, 4rem);
 				font-weight: 500;
 				line-height: 0.95;
-				letter-spacing: 0;
 			}
 
 			.system-mark {
+				margin-bottom: 8px;
 				color: var(--accent);
 				font-size: 0.8rem;
 				font-weight: 700;
-				letter-spacing: 0;
 				text-transform: uppercase;
 			}
 
@@ -82,22 +79,19 @@
 				content: "";
 			}
 
-			.status[data-state="connected"]::before {
-				background: var(--connected);
-			}
-
-			.status[data-state="connecting"]::before {
-				background: #e59f00;
-			}
+			.status[data-state="connected"]::before { background: var(--connected); }
+			.status[data-state="connecting"]::before { background: #e59f00; }
 
 			.controls {
 				display: grid;
-				grid-template-columns: minmax(0, 1fr) auto;
-				gap: 12px;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				gap: 16px;
 				padding: 28px 0 20px;
 			}
 
-			label {
+			#parameter-fields { display: contents; }
+
+			.field label {
 				display: block;
 				margin-bottom: 7px;
 				color: var(--muted);
@@ -106,15 +100,14 @@
 				text-transform: uppercase;
 			}
 
-			select,
-			button {
+			select, input, button {
 				min-height: 48px;
 				border: 1px solid var(--line);
 				border-radius: 4px;
 				font: inherit;
 			}
 
-			select {
+			select, input {
 				width: 100%;
 				padding: 0 14px;
 				background: var(--surface);
@@ -122,7 +115,6 @@
 			}
 
 			button {
-				align-self: end;
 				padding: 0 22px;
 				border-color: var(--accent);
 				background: var(--accent);
@@ -131,13 +123,13 @@
 				font-weight: 700;
 			}
 
-			button:hover:not(:disabled) {
-				background: var(--accent-dark);
-			}
+			button:hover:not(:disabled) { background: var(--accent-dark); }
+			button:disabled { cursor: not-allowed; opacity: 0.45; }
 
-			button:disabled {
-				cursor: not-allowed;
-				opacity: 0.45;
+			.connect-row {
+				display: flex;
+				justify-content: flex-end;
+				margin: 0 0 20px;
 			}
 
 			.topic {
@@ -196,27 +188,10 @@
 			}
 
 			@media (max-width: 640px) {
-				main {
-					width: min(100% - 20px, 1080px);
-					padding: 28px 0;
-				}
-
-				header {
-					align-items: start;
-					flex-direction: column;
-				}
-
-				.controls {
-					grid-template-columns: 1fr;
-				}
-
-				button {
-					width: 100%;
-				}
-
-				.clear-button {
-					width: auto;
-				}
+				main { width: min(100% - 20px, 1080px); padding: 28px 0; }
+				header { align-items: start; flex-direction: column; }
+				.controls { grid-template-columns: 1fr; }
+				.connect-row button { width: 100%; }
 			}
 		</style>
 	</head>
@@ -224,8 +199,8 @@
 		<main>
 			<header>
 				<div>
-					<div class="system-mark">{{ transit_system }} real-time</div>
-					<h1>Stop occupancy</h1>
+					<div class="system-mark">Infobús development tool</div>
+					<h1>Updates console</h1>
 				</div>
 				<div id="connection-status" class="status" data-state="disconnected">
 					Disconnected
@@ -233,36 +208,39 @@
 			</header>
 
 			<section class="controls" aria-label="Subscription controls">
-				<div>
-					<label for="stop-select">Stop</label>
-					<select id="stop-select">
-						<option value="">Select a stop</option>
-						{% for stop in stops %}
-							<option value="{{ stop.stop_id }}">
-								{{ stop.stop_name|default:stop.stop_id }} — {{ stop.stop_id }}
-							</option>
-						{% endfor %}
-					</select>
+				<div class="field">
+					<label for="system-select">Transit system</label>
+					<select id="system-select"></select>
 				</div>
-				<button id="connect-button" type="button" disabled>Connect</button>
+				<div class="field">
+					<label for="projection-select">Projection</label>
+					<select id="projection-select"></select>
+				</div>
+				<div id="parameter-fields"></div>
 			</section>
 
 			<p id="topic" class="topic">No topic selected</p>
+			<div class="connect-row">
+				<button id="connect-button" type="button" disabled>Connect &amp; subscribe</button>
+			</div>
 
 			<section class="stream" aria-label="Raw WebSocket messages">
 				<div class="stream-header">
 					<span>Raw WebSocket messages</span>
-					<button id="clear-button" class="clear-button" type="button">
-						Clear
-					</button>
+					<button id="clear-button" class="clear-button" type="button">Clear</button>
 				</div>
 				<pre id="messages" aria-live="polite"></pre>
 			</section>
 		</main>
 
+		{{ projection_metadata|json_script:"projection-data" }}
+		{{ transit_systems|json_script:"transit-system-data" }}
 		<script>
-			const transitSystem = "{{ transit_system|escapejs }}";
-			const stopSelect = document.querySelector("#stop-select");
+			const projections = JSON.parse(document.querySelector("#projection-data").textContent);
+			const transitSystems = JSON.parse(document.querySelector("#transit-system-data").textContent);
+			const systemSelect = document.querySelector("#system-select");
+			const projectionSelect = document.querySelector("#projection-select");
+			const parameterFields = document.querySelector("#parameter-fields");
 			const connectButton = document.querySelector("#connect-button");
 			const clearButton = document.querySelector("#clear-button");
 			const statusElement = document.querySelector("#connection-status");
@@ -270,9 +248,93 @@
 			const messagesElement = document.querySelector("#messages");
 			let socket = null;
 
+			function addOption(select, value, label) {
+				const option = document.createElement("option");
+				option.value = value;
+				option.textContent = label;
+				select.append(option);
+			}
+
+			function selectedProjection() {
+				return projections.find((projection) => projection.name === projectionSelect.value) || null;
+			}
+
+			function selectedSystem() {
+				return transitSystems.find((system) => system.code === systemSelect.value) || null;
+			}
+
+			function renderParameterFields() {
+				parameterFields.replaceChildren();
+				const projection = selectedProjection();
+				if (!projection) return;
+
+				for (const parameter of projection.parameters) {
+					const field = document.createElement("div");
+					field.className = "field";
+					const label = document.createElement("label");
+					label.htmlFor = `parameter-${parameter.name}`;
+					label.textContent = parameter.label;
+					let input;
+
+					if (parameter.input === "select") {
+						input = document.createElement("select");
+						addOption(input, "", `Select ${parameter.label.toLowerCase()}`);
+						if (parameter.data_source === "current_stops") {
+							for (const stop of selectedSystem()?.stops || []) {
+								addOption(input, stop.stop_id, `${stop.stop_name} — ${stop.stop_id}`);
+							}
+						} else {
+							for (const choice of parameter.choices || []) {
+								addOption(input, choice.value, choice.label);
+							}
+						}
+					} else {
+						input = document.createElement("input");
+						input.type = "text";
+						input.placeholder = parameter.name;
+					}
+
+					input.id = `parameter-${parameter.name}`;
+					input.dataset.parameter = parameter.name;
+					input.addEventListener("input", updateTopic);
+					input.addEventListener("change", updateTopic);
+					field.append(label, input);
+					parameterFields.append(field);
+				}
+			}
+
 			function selectedTopic() {
-				if (!stopSelect.value) return null;
-				return `${transitSystem}.stop.occupancy_status.by_stop.${stopSelect.value}`;
+				const projection = selectedProjection();
+				if (!projection || !systemSelect.value) return null;
+				const values = new Map(
+					[...parameterFields.querySelectorAll("[data-parameter]")].map((input) => [input.dataset.parameter, input.value])
+				);
+				if (projection.parameters.some((parameter) => !values.get(parameter.name))) return null;
+
+				const primaryName = projection.parameters.find(
+					(parameter) => parameter.selector === projection.primary_selector
+				).name;
+				const segments = [
+					systemSelect.value,
+					projection.entity,
+					projection.info,
+					projection.primary_selector,
+					values.get(primaryName),
+				];
+				if (projection.qualifier_selector) {
+					const qualifierName = projection.parameters.find(
+						(parameter) => parameter.selector === projection.qualifier_selector
+					).name;
+					segments.push(projection.qualifier_selector, values.get(qualifierName));
+				}
+				return segments.join(".");
+			}
+
+			function updateTopic() {
+				const topic = selectedTopic();
+				topicElement.textContent = topic || "No topic selected";
+				connectButton.disabled = !topic;
+				connectButton.textContent = socket ? "Switch topic" : "Connect & subscribe";
 			}
 
 			function setStatus(state, label) {
@@ -281,69 +343,68 @@
 			}
 
 			function appendMessage(message) {
-				const lines = messagesElement.textContent
-					? messagesElement.textContent.split("\n\n")
-					: [];
+				const lines = messagesElement.textContent ? messagesElement.textContent.split("\n\n") : [];
 				lines.push(message);
 				messagesElement.textContent = lines.slice(-200).join("\n\n");
 				messagesElement.scrollTop = messagesElement.scrollHeight;
 			}
 
 			function disconnect() {
-				if (socket) {
-					socket.onclose = null;
-					socket.close();
-					socket = null;
-				}
+				if (!socket) return;
+				const previousSocket = socket;
+				socket = null;
+				previousSocket.close();
 			}
 
 			function connect() {
 				const topic = selectedTopic();
 				if (!topic) return;
-
 				disconnect();
-				messagesElement.textContent = "";
 				setStatus("connecting", "Connecting");
 				connectButton.disabled = true;
-
 				const scheme = window.location.protocol === "https:" ? "wss" : "ws";
-				socket = new WebSocket(`${scheme}://${window.location.host}/ws/updates/`);
+				const nextSocket = new WebSocket(`${scheme}://${window.location.host}/ws/updates/`);
+				socket = nextSocket;
 
-				socket.addEventListener("open", () => {
-					socket.send(JSON.stringify({ action: "subscribe", topic }));
+				nextSocket.addEventListener("open", () => {
+					if (socket !== nextSocket) return;
+					nextSocket.send(JSON.stringify({ action: "subscribe", topic }));
 					setStatus("connected", "Connected");
 					connectButton.disabled = false;
 					connectButton.textContent = "Reconnect";
 				});
-
-				socket.addEventListener("message", (event) => {
-					appendMessage(event.data);
+				nextSocket.addEventListener("message", (event) => {
+					if (socket === nextSocket) appendMessage(event.data);
 				});
-
-				socket.addEventListener("error", () => {
+				nextSocket.addEventListener("error", () => {
+					if (socket !== nextSocket) return;
 					setStatus("disconnected", "Connection error");
 					connectButton.disabled = false;
 				});
-
-				socket.addEventListener("close", () => {
+				nextSocket.addEventListener("close", () => {
+					if (socket !== nextSocket) return;
 					socket = null;
 					setStatus("disconnected", "Disconnected");
-					connectButton.disabled = !stopSelect.value;
-					connectButton.textContent = "Connect";
+					connectButton.disabled = !selectedTopic();
+					connectButton.textContent = "Connect & subscribe";
 				});
 			}
 
-			stopSelect.addEventListener("change", () => {
-				const topic = selectedTopic();
-				topicElement.textContent = topic || "No topic selected";
-				connectButton.disabled = !topic;
-				connectButton.textContent = socket ? "Switch stop" : "Connect";
-			});
+			addOption(systemSelect, "", "Select a transit system");
+			for (const system of transitSystems) addOption(systemSelect, system.code, `${system.name} — ${system.code}`);
+			addOption(projectionSelect, "", "Select a projection");
+			for (const projection of projections) addOption(projectionSelect, projection.name, projection.name);
 
-			connectButton.addEventListener("click", connect);
-			clearButton.addEventListener("click", () => {
-				messagesElement.textContent = "";
+			systemSelect.addEventListener("change", () => {
+				renderParameterFields();
+				updateTopic();
 			});
+			projectionSelect.addEventListener("change", () => {
+				renderParameterFields();
+				updateTopic();
+			});
+			connectButton.addEventListener("click", connect);
+			clearButton.addEventListener("click", () => { messagesElement.textContent = ""; });
 			window.addEventListener("beforeunload", disconnect);
 		</script>
 	</body>

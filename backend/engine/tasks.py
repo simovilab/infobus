@@ -3,6 +3,7 @@ import logging
 from typing import TypedDict
 
 import requests
+from django.conf import settings
 from google.transit import gtfs_realtime_pb2 as gtfs_rt
 from feed.models import TransitSystem, FeedPublisher
 from feed.services.schedule import save_schedule_to_database
@@ -19,7 +20,15 @@ from runs.services.state import (
     update_vehicle_positions_state,
     update_trip_updates_state,
 )
-from runs.services.lifecycle import evaluate_active_runs, record_successful_poll
+from runs.services.lifecycle import (
+    evaluate_active_runs,
+    r as lifecycle_redis,
+    record_successful_poll,
+)
+from updates.refresh import (
+    refresh_active_stop_time_update_topics,
+    refresh_active_vehicle_position_topics,
+)
 
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
@@ -64,6 +73,7 @@ def get_vehicle_positions() -> str:
             "Please add at least one active transit system to fetch vehicle positions."
         )
         return "No active transit systems found."
+    successfully_polled_systems: set[str] = set()
     for transit_system in transit_systems:
         feed_publishers = FeedPublisher.objects.filter(
             transit_system=transit_system, is_active=True
@@ -98,6 +108,16 @@ def get_vehicle_positions() -> str:
                 "vehicle_positions",
                 observed_run_ids,
             )
+            successfully_polled_systems.add(transit_system.code)
+
+    for transit_system_code in sorted(successfully_polled_systems):
+        try:
+            refresh_active_vehicle_position_topics(transit_system_code)
+        except Exception:
+            logging.exception(
+                "Failed to refresh active VehiclePositions topics for %s",
+                transit_system_code,
+            )
 
     return "VehiclePositions have been processed"
 
@@ -112,6 +132,7 @@ def get_trip_updates() -> str:
             "Please add at least one active transit system to fetch trip updates."
         )
         return "No active transit systems found."
+    successfully_polled_systems: set[str] = set()
     for transit_system in transit_systems:
         feed_publishers = FeedPublisher.objects.filter(
             transit_system=transit_system, is_active=True
@@ -144,6 +165,16 @@ def get_trip_updates() -> str:
                 feed_publisher,
                 "trip_updates",
                 observed_run_ids,
+            )
+            successfully_polled_systems.add(transit_system.code)
+
+    for transit_system_code in sorted(successfully_polled_systems):
+        try:
+            refresh_active_stop_time_update_topics(transit_system_code)
+        except Exception:
+            logging.exception(
+                "Failed to refresh active StopTimeUpdates topics for %s",
+                transit_system_code,
             )
 
     return "TripUpdates have been processed"
@@ -195,7 +226,18 @@ def update_gtfs_realtime() -> str:
 @shared_task
 def evaluate_run_lifecycles() -> dict[str, int]:
     """Classify active runs using feed health, silence, and terminal evidence."""
-    return evaluate_active_runs()
+    lock = lifecycle_redis.lock(
+        "runs:lifecycle:evaluation_lock",
+        timeout=settings.RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS,
+        blocking_timeout=0,
+    )
+    if not lock.acquire(blocking=False):
+        logging.info("Skipping overlapping run lifecycle evaluation.")
+        return {}
+    try:
+        return evaluate_active_runs(heartbeat=lock.reacquire)
+    finally:
+        lock.release()
 
 
 @shared_task

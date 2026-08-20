@@ -155,6 +155,22 @@ RUN_UNKNOWN_TIMEOUT_SECONDS = config(
 RUN_TERMINAL_STATE_TTL_SECONDS = config(
     "RUN_TERMINAL_STATE_TTL_SECONDS", default=86400, cast=int
 )
+RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS = config(
+    "RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS", default=120, cast=int
+)
+
+# Match the lifecycle signal grace: one delayed poll or a vehicle dwelling at a
+# stop should not make an otherwise current public prediction disappear.
+GTFS_RT_STOP_TIME_UPDATE_PAST_TOLERANCE_SECONDS = config(
+    "GTFS_RT_STOP_TIME_UPDATE_PAST_TOLERANCE_SECONDS", default=120, cast=int
+)
+
+# Match the lifecycle signal grace while allowing one delayed vehicle-position poll.
+GTFS_RT_VEHICLE_POSITION_STALE_TOLERANCE_SECONDS = config(
+    "GTFS_RT_VEHICLE_POSITION_STALE_TOLERANCE_SECONDS",
+    default=120,
+    cast=int,
+)
 
 # Celery settings
 
