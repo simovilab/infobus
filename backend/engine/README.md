@@ -597,10 +597,9 @@ corresponding API resource.
 
 ### HTTP URLs and views
 
-`engine/urls.py` is empty, and the root URLconf at
-`backend/infobus/urls.py:28` includes `website.urls`, `api.urls`, and
-`screens.urls`, but not `engine.urls`. The `screens` app is discontinued but
-remains present in the current code; its removal is pending in a separate PR.
+`engine/urls.py` is empty, and the root URLconf includes `website.urls` and
+`api.urls`, but not `engine.urls` (`backend/infobus/urls.py:31`,
+`backend/infobus/urls.py:32`).
 `engine/views.py` defines no view. There is therefore no engine-owned HTTP
 endpoint.
 
@@ -1053,6 +1052,7 @@ app and deployment configuration; `engine` does not define those policies.
 7. **`screens` catalog value:** the long-term status of the
    `("screens", "Sistema de pantallas")` value in `InfoService.TYPE_CHOICES` is
    **uncertain**. Decide whether it should remain, be renamed, or be retired
-   when the discontinued `screens` app is removed; the shared name does not by
-   itself establish that the catalog value and Django app have identical
-   lifecycles (`backend/engine/models.py:21`).
+   independently. The catalog value remains, while the Django `screens` app has
+   been removed from the repository; the shared name does not by itself establish
+   that the catalog value and Django app have identical lifecycles
+   (`backend/engine/models.py:21`).

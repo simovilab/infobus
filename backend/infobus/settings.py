@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     "engine.apps.EngineConfig",
     "runs.apps.RunsConfig",
     "api.apps.ApiConfig",
-    "screens.apps.ScreensConfig",
     "updates.apps.UpdatesConfig",
     "rest_framework",
     "rest_framework.authtoken",
@@ -296,11 +295,6 @@ LOGGING = {
             "propagate": False,
         },
         "runs": {
-            "handlers": ["console"],
-            "level": LOG_LEVEL,
-            "propagate": False,
-        },
-        "screens": {
             "handlers": ["console"],
             "level": LOG_LEVEL,
             "propagate": False,
