@@ -10,7 +10,10 @@ from pydantic import ValidationError
 
 from runs.events.types import OccupancyStatusChanged
 from runs.events.types import RunCompleted
-from updates.builders.route.vehicle_positions import build_route_vehicle_positions
+from updates.builders.route.vehicle_positions import (
+    build_route_vehicle_positions,
+    build_route_vehicle_positions_by_direction,
+)
 from updates.builders.stop.stop_time_updates import build_stop_time_updates
 from updates.consumers import UpdatesConsumer
 from updates.events import parse_event
@@ -891,7 +894,7 @@ class VehiclePositionSchemaTests(SimpleTestCase):
         self,
     ):
         snapshot = VehiclePositionsByRouteAndDirectionSnapshot(
-            topic="mbta.route.vehicle_positions.by_route_and_direction.route-a.0",
+            topic="mbta.route.vehicle_positions.by_route.route-a.by_direction.0",
             route_id="route-a",
             direction_id=0,
             vehicles=[],
@@ -905,7 +908,7 @@ class VehiclePositionSchemaTests(SimpleTestCase):
     ):
         with self.assertRaises(ValidationError):
             VehiclePositionsByRouteAndDirectionSnapshot(
-                topic="mbta.route.vehicle_positions.by_route_and_direction.route-a.2",
+                topic="mbta.route.vehicle_positions.by_route.route-a.by_direction.2",
                 route_id="route-a",
                 direction_id=2,
                 vehicles=[],
@@ -914,7 +917,7 @@ class VehiclePositionSchemaTests(SimpleTestCase):
     def test_vehicle_positions_by_route_and_direction_snapshot_rejects_unknown_field(self):
         with self.assertRaises(ValidationError):
             VehiclePositionsByRouteAndDirectionSnapshot(
-                topic="mbta.route.vehicle_positions.by_route_and_direction.route-a.0",
+                topic="mbta.route.vehicle_positions.by_route.route-a.by_direction.0",
                 route_id="route-a",
                 direction_id=0,
                 vehicles=[],
@@ -1302,6 +1305,121 @@ class RouteVehiclePositionsBuilderTests(SimpleTestCase):
             )
 
         snapshot_model.assert_not_called()
+
+
+@override_settings(GTFS_RT_VEHICLE_POSITION_STALE_TOLERANCE_SECONDS=120)
+class RouteVehiclePositionsByDirectionBuilderTests(SimpleTestCase):
+    now_timestamp: int = 1_800_000_000
+
+    def _run(
+        self,
+        *,
+        run_id: UUID | None = None,
+        route_id: str = "route-a",
+        transit_system: str = "mbta",
+        trip_id: str | None = "trip-a",
+        direction_id: int | None = 1,
+        lifecycle_state: str = "In Progress",
+    ) -> SimpleNamespace:
+        return SimpleNamespace(
+            id=run_id or uuid4(),
+            trip_id=trip_id,
+            route_id=route_id,
+            direction_id=direction_id,
+            run_lifecycle_state=lifecycle_state,
+            feed_publisher=SimpleNamespace(
+                transit_system=SimpleNamespace(code=transit_system)
+            ),
+        )
+
+    def _snapshot(
+        self,
+        runs: list[SimpleNamespace],
+        positions: dict[str, dict[str, str]],
+        *,
+        direction_id: str = "0",
+    ) -> tuple[dict[str, Any], Mock, Mock, Mock, TopicKey]:
+        run_ids = [str(run.id) for run in runs]
+
+        with (
+            patch("updates.builders.route.vehicle_positions.r") as redis,
+            patch(
+                "updates.builders.route.vehicle_positions.Run.objects.filter"
+            ) as filter_runs,
+            patch(
+                "updates.builders.route.vehicle_positions.timezone.now",
+                return_value=datetime.fromtimestamp(self.now_timestamp, tz=UTC),
+            ),
+        ):
+            filter_runs.return_value.only.return_value.order_by.return_value = runs
+            pipeline = redis.pipeline.return_value.__enter__.return_value
+            pipeline.execute.return_value = [
+                [True for _run_id in run_ids],
+                *[positions.get(run_id, {}) for run_id in run_ids],
+                *[[None] * 7 for _run_id in run_ids],
+            ]
+            topic = TopicKey.parse(
+                "mbta.route.vehicle_positions.by_route."
+                f"route-a.by_direction.{direction_id}"
+            )
+            snapshot = build_route_vehicle_positions_by_direction(topic)
+        return snapshot, redis, filter_runs, pipeline, topic
+
+    def test_returns_empty_snapshot_when_route_and_direction_have_no_active_runs(self):
+        snapshot, redis, _filter_runs, _pipeline, _topic = self._snapshot([], {})
+
+        self.assertEqual(snapshot["vehicles"], [])
+        self.assertEqual(
+            snapshot["topic"],
+            "mbta.route.vehicle_positions.by_route.route-a.by_direction.0",
+        )
+        self.assertEqual(snapshot["route_id"], "route-a")
+        self.assertEqual(snapshot["direction_id"], 0)
+        redis.pipeline.assert_not_called()
+
+    def test_passes_direction_to_the_run_query(self):
+        _snapshot, _redis, filter_runs, _pipeline, _topic = self._snapshot([], {})
+
+        filter_runs.assert_called_once_with(
+            route_id="route-a",
+            feed_publisher__transit_system__code="mbta",
+            run_lifecycle_state__in={"In Progress", "No Signal"},
+            direction_id=0,
+        )
+
+    def test_excludes_runs_in_the_other_direction(self):
+        matching = self._run(direction_id=0)
+        other = self._run(direction_id=1)
+        positions = {
+            str(run.id): {"latitude": "9.93", "longitude": "-84.08"}
+            for run in (matching, other)
+        }
+
+        snapshot, _redis, _filter_runs, _pipeline, _topic = self._snapshot(
+            [matching],
+            positions,
+        )
+
+        self.assertEqual(
+            [vehicle["run_id"] for vehicle in snapshot["vehicles"]],
+            [str(matching.id)],
+        )
+
+    def test_snapshot_envelope_carries_topic_and_direction(self):
+        snapshot, _redis, _filter_runs, _pipeline, topic = self._snapshot([], {})
+
+        self.assertEqual(
+            set(snapshot),
+            {"topic", "route_id", "direction_id", "vehicles"},
+        )
+        self.assertEqual(snapshot["topic"], topic.render())
+        self.assertEqual(snapshot["route_id"], "route-a")
+        self.assertEqual(snapshot["direction_id"], 0)
+        self.assertEqual(snapshot["vehicles"], [])
+
+    def test_rejects_noncanonical_direction_in_topic(self):
+        with self.assertRaises(InvalidTopicException):
+            self._snapshot([], {}, direction_id="2")
 
 
 class RouteVehiclePositionsProjectionTests(SimpleTestCase):

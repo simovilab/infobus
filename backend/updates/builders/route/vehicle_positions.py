@@ -7,7 +7,13 @@ from redis import Redis
 from runs.models import Run
 from runs.services.lifecycle import ACTIVE_STATES, active_runs_key
 
-from updates.schemas import VehiclePositionSnapshot, VehiclePositionsByRouteSnapshot
+from updates.directions import direction_id_from_topic
+from updates.schemas import (
+    DirectionID,
+    VehiclePositionSnapshot,
+    VehiclePositionsByRouteAndDirectionSnapshot,
+    VehiclePositionsByRouteSnapshot,
+)
 from updates.topics import TopicKey
 
 
@@ -69,24 +75,28 @@ def _run_id_sort_key(vehicle: VehiclePositionSnapshot) -> str:
     return str(vehicle.run_id)
 
 
-def build_route_vehicle_positions(topic: TopicKey) -> dict[str, object]:
-    """Build the current vehicle-position snapshot for one route."""
-    route_id: str = topic.primary_value
-    runs: list[Run] = list(
-        Run.objects.filter(
-            route_id=route_id,
-            feed_publisher__transit_system__code=topic.transit_system,
-            run_lifecycle_state__in=ACTIVE_STATES,
-        )
+def _active_runs(topic: TopicKey, direction_id: DirectionID | None) -> list[Run]:
+    """Return the active runs backing one route or route-and-direction snapshot."""
+    filters: dict[str, object] = {
+        "route_id": topic.primary_value,
+        "feed_publisher__transit_system__code": topic.transit_system,
+        "run_lifecycle_state__in": ACTIVE_STATES,
+    }
+    if direction_id is not None:
+        filters["direction_id"] = direction_id
+    return list(
+        Run.objects.filter(**filters)
         .only("id", "trip_id", "route_id", "direction_id")
         .order_by("id")
     )
+
+
+def _build_vehicle_snapshots(
+    topic: TopicKey, runs: list[Run]
+) -> list[VehiclePositionSnapshot]:
+    """Read Redis state once and assemble the ordered vehicle snapshots."""
     if not runs:
-        return VehiclePositionsByRouteSnapshot(
-            topic=topic.render(),
-            route_id=route_id,
-            vehicles=[],
-        ).model_dump(mode="json")
+        return []
 
     run_ids: list[str] = [str(run.id) for run in runs]
     with r.pipeline(transaction=False) as pipe:
@@ -206,8 +216,30 @@ def build_route_vehicle_positions(topic: TopicKey) -> dict[str, object]:
         )
 
     vehicles.sort(key=_run_id_sort_key)
+    return vehicles
+
+
+def build_route_vehicle_positions(topic: TopicKey) -> dict[str, object]:
+    """Build the current vehicle-position snapshot for one route."""
+    runs: list[Run] = _active_runs(topic, None)
+    vehicles: list[VehiclePositionSnapshot] = _build_vehicle_snapshots(topic, runs)
     return VehiclePositionsByRouteSnapshot(
         topic=topic.render(),
-        route_id=route_id,
+        route_id=topic.primary_value,
+        vehicles=vehicles,
+    ).model_dump(mode="json")
+
+
+def build_route_vehicle_positions_by_direction(
+    topic: TopicKey,
+) -> dict[str, object]:
+    """Build the current vehicle-position snapshot for one route and direction."""
+    direction_id: DirectionID = direction_id_from_topic(topic)
+    runs: list[Run] = _active_runs(topic, direction_id)
+    vehicles: list[VehiclePositionSnapshot] = _build_vehicle_snapshots(topic, runs)
+    return VehiclePositionsByRouteAndDirectionSnapshot(
+        topic=topic.render(),
+        route_id=topic.primary_value,
+        direction_id=direction_id,
         vehicles=vehicles,
     ).model_dump(mode="json")
