@@ -1900,3 +1900,152 @@ class ActiveTopicRefreshTests(SimpleTestCase):
             TopicKey.parse(healthy),
             {"vehicles": []},
         )
+
+
+class QualifiedVehiclePositionRefreshTests(SimpleTestCase):
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=True)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_vehicle_refresh_dispatches_the_qualified_topic(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_vehicle_position_topics
+
+        qualified = (
+            "mbta.route.vehicle_positions.by_route.route-a.by_direction.1"
+        )
+        active_topics.return_value = {qualified}
+        projection = SimpleNamespace(
+            name="route_vehicle_positions_by_direction",
+            validate_topic=Mock(),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        projection_for_topic_mock.return_value = projection
+
+        count = refresh_active_vehicle_position_topics("mbta")
+
+        self.assertEqual(count, 1)
+        projection.build.assert_called_once_with(TopicKey.parse(qualified))
+        dispatch.assert_called_once_with(
+            TopicKey.parse(qualified),
+            {"vehicles": []},
+        )
+
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=True)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_vehicle_refresh_dispatches_both_variants_together(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_vehicle_position_topics
+
+        unqualified = "mbta.route.vehicle_positions.by_route.route-a"
+        qualified = (
+            "mbta.route.vehicle_positions.by_route.route-a.by_direction.1"
+        )
+        active_topics.return_value = {unqualified, qualified}
+        unqualified_projection = SimpleNamespace(
+            name="route_vehicle_positions",
+            validate_topic=Mock(),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        qualified_projection = SimpleNamespace(
+            name="route_vehicle_positions_by_direction",
+            validate_topic=Mock(),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        projection_for_topic_mock.side_effect = lambda topic: (
+            qualified_projection
+            if topic.render() == qualified
+            else unqualified_projection
+        )
+
+        count = refresh_active_vehicle_position_topics("mbta")
+
+        self.assertEqual(count, 2)
+        unqualified_projection.build.assert_called_once_with(
+            TopicKey.parse(unqualified)
+        )
+        qualified_projection.build.assert_called_once_with(TopicKey.parse(qualified))
+        self.assertEqual(dispatch.call_count, 2)
+        dispatch.assert_has_calls(
+            [
+                call(TopicKey.parse(unqualified), {"vehicles": []}),
+                call(TopicKey.parse(qualified), {"vehicles": []}),
+            ],
+            any_order=True,
+        )
+
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=True)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_stop_time_refresh_ignores_the_qualified_vehicle_topic(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_stop_time_update_topics
+
+        qualified = (
+            "mbta.route.vehicle_positions.by_route.route-a.by_direction.1"
+        )
+        active_topics.return_value = {qualified}
+        projection = SimpleNamespace(
+            name="route_vehicle_positions_by_direction",
+            validate_topic=Mock(),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        projection_for_topic_mock.return_value = projection
+
+        count = refresh_active_stop_time_update_topics("mbta")
+
+        self.assertEqual(count, 0)
+        projection.validate_topic.assert_not_called()
+        projection.build.assert_not_called()
+        dispatch.assert_not_called()
+
+    @patch("updates.refresh.dispatch")
+    @patch("updates.refresh.projection_for_topic")
+    @patch("updates.refresh.has_subscribers", return_value=True)
+    @patch("updates.refresh.active_subscription_topics")
+    def test_qualified_topic_validator_runs_before_build(
+        self,
+        active_topics,
+        _has_subscribers,
+        projection_for_topic_mock,
+        dispatch,
+    ):
+        from updates.refresh import refresh_active_vehicle_position_topics
+
+        qualified = (
+            "mbta.route.vehicle_positions.by_route.route-a.by_direction.1"
+        )
+        active_topics.return_value = {qualified}
+        projection = SimpleNamespace(
+            name="route_vehicle_positions_by_direction",
+            validate_topic=Mock(
+                side_effect=InvalidTopicException(qualified, "Rejected direction.")
+            ),
+            build=Mock(return_value={"vehicles": []}),
+        )
+        projection_for_topic_mock.return_value = projection
+
+        count = refresh_active_vehicle_position_topics("mbta")
+
+        self.assertEqual(count, 0)
+        projection.validate_topic.assert_called_once_with(TopicKey.parse(qualified))
+        projection.build.assert_not_called()
+        dispatch.assert_not_called()

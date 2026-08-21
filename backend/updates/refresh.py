@@ -20,7 +20,7 @@ r = Redis(
 
 def _refresh_active_topics(
     transit_system: str,
-    projection_name: str,
+    projection_names: frozenset[str],
     log_label: str,
 ) -> int:
     """Rebuild and dispatch active topics for a projection after a successful poll."""
@@ -38,7 +38,7 @@ def _refresh_active_topics(
             continue
 
         projection = projection_for_topic(topic)
-        if projection is None or projection.name != projection_name:
+        if projection is None or projection.name not in projection_names:
             continue
         if not has_subscribers(r, raw_topic):
             continue
@@ -48,7 +48,7 @@ def _refresh_active_topics(
     for topic in sorted(topics, key=TopicKey.render):
         try:
             projection = projection_for_topic(topic)
-            if projection is None or projection.name != projection_name:
+            if projection is None or projection.name not in projection_names:
                 continue
             if not has_subscribers(r, topic.render()):
                 continue
@@ -74,7 +74,7 @@ def refresh_active_stop_time_update_topics(transit_system: str) -> int:
     """Rebuild and dispatch active stop-time topics after a successful poll."""
     return _refresh_active_topics(
         transit_system,
-        "stop_stop_time_updates",
+        frozenset({"stop_stop_time_updates"}),
         "stop-time-update",
     )
 
@@ -83,6 +83,8 @@ def refresh_active_vehicle_position_topics(transit_system: str) -> int:
     """Rebuild and dispatch active route vehicle-position topics after a poll."""
     return _refresh_active_topics(
         transit_system,
-        "route_vehicle_positions",
+        frozenset(
+            {"route_vehicle_positions", "route_vehicle_positions_by_direction"}
+        ),
         "route-vehicle-position",
     )
