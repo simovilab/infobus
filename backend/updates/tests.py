@@ -31,7 +31,11 @@ from updates.projections.trip.occupancy_status import (
     resolve_trip_occupancy_topics,
 )
 from updates.registry import projection_for_topic, projections_for_event
-from updates.schemas import VehiclePositionSnapshot, VehiclePositionsByRouteSnapshot
+from updates.schemas import (
+    VehiclePositionSnapshot,
+    VehiclePositionsByRouteAndDirectionSnapshot,
+    VehiclePositionsByRouteSnapshot,
+)
 from updates.topics import TopicKey
 
 
@@ -882,6 +886,40 @@ class VehiclePositionSchemaTests(SimpleTestCase):
         )
 
         self.assertEqual(snapshot.model_dump(mode="json")["vehicles"], [])
+
+    def test_vehicle_positions_by_route_and_direction_snapshot_accepts_empty_vehicle_list(
+        self,
+    ):
+        snapshot = VehiclePositionsByRouteAndDirectionSnapshot(
+            topic="mbta.route.vehicle_positions.by_route_and_direction.route-a.0",
+            route_id="route-a",
+            direction_id=0,
+            vehicles=[],
+        )
+
+        self.assertEqual(snapshot.direction_id, 0)
+        self.assertEqual(snapshot.vehicles, [])
+
+    def test_vehicle_positions_by_route_and_direction_snapshot_rejects_noncanonical_direction(
+        self,
+    ):
+        with self.assertRaises(ValidationError):
+            VehiclePositionsByRouteAndDirectionSnapshot(
+                topic="mbta.route.vehicle_positions.by_route_and_direction.route-a.2",
+                route_id="route-a",
+                direction_id=2,
+                vehicles=[],
+            )
+
+    def test_vehicle_positions_by_route_and_direction_snapshot_rejects_unknown_field(self):
+        with self.assertRaises(ValidationError):
+            VehiclePositionsByRouteAndDirectionSnapshot(
+                topic="mbta.route.vehicle_positions.by_route_and_direction.route-a.0",
+                route_id="route-a",
+                direction_id=0,
+                vehicles=[],
+                unknown_field="unexpected",
+            )
 
 
 @override_settings(GTFS_RT_VEHICLE_POSITION_STALE_TOLERANCE_SECONDS=120)

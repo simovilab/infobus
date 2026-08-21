@@ -81,3 +81,14 @@ class VehiclePositionsByRouteSnapshot(BaseModel):
     topic: str
     route_id: str
     vehicles: list[VehiclePositionSnapshot]
+
+
+class VehiclePositionsByRouteAndDirectionSnapshot(BaseModel):
+    """Represent all current vehicle positions for one route and direction."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    topic: str
+    route_id: str
+    direction_id: DirectionID
+    vehicles: list[VehiclePositionSnapshot]
