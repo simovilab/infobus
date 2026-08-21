@@ -3,23 +3,9 @@ import json
 from runs.events.types import RunLifecycleEvent
 from runs.models import Run
 
+from updates.directions import direction_id_from_topic
 from updates.exceptions import InvalidTopicException
-from updates.schemas import DirectionID
 from updates.topics import TopicKey
-
-
-VALID_DIRECTION_IDS: dict[str, DirectionID] = {"0": 0, "1": 1}
-
-
-def direction_id_from_topic(topic: TopicKey) -> DirectionID:
-    """Return a canonical GTFS direction ID or reject the concrete topic."""
-    value = topic.qualifier_value
-    if value not in VALID_DIRECTION_IDS:
-        raise InvalidTopicException(
-            topic.render(),
-            "direction_id must be the canonical GTFS value 0 or 1.",
-        )
-    return VALID_DIRECTION_IDS[value]
 
 
 def validate_stop_time_updates_topic(topic: TopicKey) -> None:
