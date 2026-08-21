@@ -12,13 +12,18 @@ from runs.events.types import (
     RunSignalRestored,
 )
 
-from .builders.route.vehicle_positions import build_route_vehicle_positions
+from .builders.route.vehicle_positions import (
+    build_route_vehicle_positions,
+    build_route_vehicle_positions_by_direction,
+)
 from .builders.stop.occupancy_status import build_stop_occupancy_status
 from .builders.stop.stop_time_updates import build_stop_time_updates
 from .builders.trip.occupancy_status import build_trip_occupancy_status
 from .events import UpdateEvent
 from .projections.route.vehicle_positions import (
+    resolve_vehicle_positions_by_direction_topics,
     resolve_vehicle_positions_topics,
+    validate_vehicle_positions_by_direction_topic,
     validate_vehicle_positions_topic,
 )
 from .projections.stop.occupancy_status import resolve_stop_occupancy_topics
@@ -132,6 +137,29 @@ PROJECTIONS = (
         resolve_topics=resolve_vehicle_positions_topics,
         build=build_route_vehicle_positions,
         validate_topic=validate_vehicle_positions_topic,
+    ),
+    ProjectionSpec(
+        name="route_vehicle_positions_by_direction",
+        description=(
+            "The current vehicle positions for active runs on a route, "
+            "by route ID and direction ID."
+        ),
+        topic_pattern=TopicPattern(
+            entity="route",
+            info="vehicle_positions",
+            primary_selector="by_route",
+            qualifier_selector="by_direction",
+        ),
+        triggers=(
+            RunSignalLost,
+            RunSignalRestored,
+            RunCompleted,
+            RunInterrupted,
+            RunCancelled,
+        ),
+        resolve_topics=resolve_vehicle_positions_by_direction_topics,
+        build=build_route_vehicle_positions_by_direction,
+        validate_topic=validate_vehicle_positions_by_direction_topic,
     ),
 )
 

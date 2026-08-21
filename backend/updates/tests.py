@@ -20,7 +20,9 @@ from updates.events import parse_event
 from updates.exceptions import InvalidTopicException
 from updates.planner import process_event
 from updates.projections.route.vehicle_positions import (
+    resolve_vehicle_positions_by_direction_topics,
     resolve_vehicle_positions_topics,
+    validate_vehicle_positions_by_direction_topic,
     validate_vehicle_positions_topic,
 )
 from updates.projections.stop.occupancy_status import (
@@ -1544,6 +1546,120 @@ class RouteVehiclePositionsProjectionTests(SimpleTestCase):
 
         self.assertIn("stop_stop_time_updates", projection_names)
         self.assertIn("route_vehicle_positions", projection_names)
+
+
+class RouteVehiclePositionsByDirectionProjectionTests(SimpleTestCase):
+    def test_qualified_topic_round_trip(self):
+        raw = (
+            "mbta.route.vehicle_positions.by_route."
+            "route-a.by_direction.0"
+        )
+
+        topic = TopicKey.parse(raw)
+
+        self.assertEqual(topic.render(), raw)
+        self.assertEqual(topic.qualifier_selector, "by_direction")
+        self.assertEqual(topic.qualifier_value, "0")
+
+    def test_registry_resolves_qualified_topic_to_its_own_projection(self):
+        projection = projection_for_topic(
+            TopicKey.parse(
+                "mbta.route.vehicle_positions.by_route."
+                "route-a.by_direction.0"
+            )
+        )
+
+        self.assertIsNotNone(projection)
+        self.assertEqual(
+            projection.name,
+            "route_vehicle_positions_by_direction",
+        )
+
+    def test_registry_still_resolves_unqualified_topic_to_the_original_projection(
+        self,
+    ):
+        projection = projection_for_topic(
+            TopicKey.parse("mbta.route.vehicle_positions.by_route.route-a")
+        )
+
+        self.assertIsNotNone(projection)
+        self.assertEqual(projection.name, "route_vehicle_positions")
+
+    def test_validator_rejects_empty_route_id(self):
+        topic = TopicKey(
+            transit_system="mbta",
+            entity="route",
+            info="vehicle_positions",
+            primary_selector="by_route",
+            primary_value="",
+            qualifier_selector="by_direction",
+            qualifier_value="0",
+        )
+
+        with self.assertRaises(InvalidTopicException):
+            validate_vehicle_positions_by_direction_topic(topic)
+
+    def test_validator_rejects_noncanonical_direction(self):
+        topic = TopicKey(
+            transit_system="mbta",
+            entity="route",
+            info="vehicle_positions",
+            primary_selector="by_route",
+            primary_value="route-a",
+            qualifier_selector="by_direction",
+            qualifier_value="01",
+        )
+
+        with self.assertRaises(InvalidTopicException):
+            validate_vehicle_positions_by_direction_topic(topic)
+
+    @patch("updates.projections.route.vehicle_positions.Run.objects.filter")
+    def test_lifecycle_resolver_returns_qualified_topic(self, filter_runs):
+        filter_runs.return_value.values_list.return_value.first.return_value = (
+            "route-a",
+            0,
+        )
+        event = RunCompleted(
+            transit_system="mbta",
+            run_id=uuid4(),
+            reason="Reached terminal.",
+            occurred_at="2026-08-02T12:00:00Z",
+        )
+
+        topics = resolve_vehicle_positions_by_direction_topics(event)
+
+        self.assertEqual(
+            [topic.render() for topic in topics],
+            [
+                "mbta.route.vehicle_positions.by_route."
+                "route-a.by_direction.0"
+            ],
+        )
+        filter_runs.assert_called_once_with(
+            id=event.run_id,
+            feed_publisher__transit_system__code="mbta",
+        )
+
+    @patch("updates.projections.route.vehicle_positions.Run.objects.filter")
+    def test_lifecycle_resolver_returns_empty_for_run_without_direction(
+        self,
+        filter_runs,
+    ):
+        filter_runs.return_value.values_list.return_value.first.return_value = (
+            "route-a",
+            None,
+        )
+        event = RunCompleted(
+            transit_system="mbta",
+            run_id=uuid4(),
+            reason="Reached terminal.",
+            occurred_at="2026-08-02T12:00:00Z",
+        )
+
+        self.assertEqual(
+            resolve_vehicle_positions_by_direction_topics(event),
+            [],
+        )
 
 
 class ActiveTopicRefreshTests(SimpleTestCase):
