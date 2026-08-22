@@ -10,7 +10,7 @@ from runs.models import Run
 from runs.services.lifecycle import active_runs_key
 from runs.services.stop_index import approaching_run_ids, run_is_approaching_stop
 
-from updates.projections.stop.stop_time_updates import direction_id_from_topic
+from updates.directions import direction_id_from_topic
 from updates.schemas import (
     DirectionID,
     StopTimeEventSnapshot,

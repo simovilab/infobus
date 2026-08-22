@@ -1539,6 +1539,13 @@ and `by_route` comes from the registry.
 (`backend/updates/projections/route/vehicle_positions.py:8-11`,
 `backend/updates/registry.py:120-124`)
 
+> Verification note: this five-segment topic still has no qualifier, and the statement
+> above remains accurate for it. A separate qualified projection now serves the
+> seven-segment variant documented below; the two patterns are disjoint because
+> `TopicPattern.matches()` compares `qualifier_selector` by exact equality, including
+> `None`. (`backend/updates/topics.py:81-88`,
+> `backend/updates/registry.py:141-163`)
+
 ### Run resolution and snapshot construction
 
 The builder first queries PostgreSQL for `Run` rows whose `route_id` matches the
@@ -1648,5 +1655,146 @@ fields from `Run` and performs no Schedule `Route` or `Trip` lookup.
   `backend/runs/services/state.py:246-293`, `backend/engine/tasks.py:159-168`,
   `backend/runs/services/lifecycle.py:152-181`,
   `backend/updates/builders/route/vehicle_positions.py:120-135`)
+
+## Route vehicle positions by route and direction
+
+> Status: `implemented`. The
+> `route_vehicle_positions_by_direction` projection is registered with a concrete
+> resolver, builder, validator, poll refresh, and lifecycle triggers.
+> (`backend/updates/registry.py:141-163`)
+
+### Topic and segment contract
+
+The projection uses this seven-segment topic:
+
+```text
+<transit_system>.route.vehicle_positions.by_route.<route_id>.by_direction.<direction_id>
+```
+
+For example:
+
+```text
+mbta.route.vehicle_positions.by_route.1.by_direction.0
+```
+
+| Segment | Value example | Route-and-direction vehicle-position meaning |
+| --- | --- | --- |
+| Transit system | `mbta` | Uses `TransitSystem.code` and scopes both PostgreSQL runs and Redis state to one transit system. (`backend/feed/models.py:34-43`, `backend/updates/builders/route/vehicle_positions.py:80-90`, `backend/updates/builders/route/vehicle_positions.py:101-108`) |
+| Entity | `route` | Selects the route-level aggregate view. (`backend/updates/registry.py:147-152`) |
+| Information | `vehicle_positions` | Selects current GTFS Realtime vehicle positions. (`backend/updates/registry.py:147-152`) |
+| Primary selector | `by_route` | Interprets the primary value as a GTFS route ID. (`backend/updates/registry.py:147-152`) |
+| Primary value | `1` | Filters `Run` rows to the requested `route_id`. (`backend/updates/builders/route/vehicle_positions.py:80-90`) |
+| Qualifier selector | `by_direction` | Interprets the qualifier value as a canonical GTFS direction ID. (`backend/updates/registry.py:147-152`, `backend/updates/directions.py:6-17`) |
+| Qualifier value | `0` | Adds the selected canonical direction to the `Run` query and the payload wrapper. (`backend/updates/builders/route/vehicle_positions.py:233-245`) |
+
+### Direction qualifier
+
+Only the exact canonical topic values `0` and `1` are accepted. The textual value
+`01` is rejected rather than normalized because the shared mapping contains only
+the keys `"0"` and `"1"`, and lookup rejects every other qualifier value.
+(`backend/updates/directions.py:6-17`)
+
+The projection validator rejects an empty `route_id` before it validates the
+direction. WebSocket subscription handling invokes that validator before joining
+the Channels group and before registering the subscription in Redis.
+(`backend/updates/projections/route/vehicle_positions.py:41-45`,
+`backend/updates/consumers.py:84-90`)
+
+The canonical mapping and `direction_id_from_topic()` helper live in
+`updates/directions.py`. Both the route vehicle-position projection and the stop
+stop-time projection import the same helper instead of defining local direction
+rules. (`backend/updates/directions.py:1-17`,
+`backend/updates/projections/route/vehicle_positions.py:1-6`,
+`backend/updates/projections/stop/stop_time_updates.py:1-8`)
+
+### Run resolution and snapshot construction
+
+The builder obtains the canonical direction from the topic. It then queries
+PostgreSQL for active `Run` rows matching the topic's route and transit system and
+adds `direction_id=<canonical direction>` to the query filters. The active states
+are `In Progress` and `No Signal`.
+(`backend/updates/builders/route/vehicle_positions.py:78-91`,
+`backend/updates/builders/route/vehicle_positions.py:233-239`,
+`backend/runs/services/lifecycle.py:29-32`)
+
+Those PostgreSQL candidates are intersected with the canonical
+`<transit_system>:runs:active` Redis set through `SMISMEMBER`. Exactly one
+non-transactional Redis pipeline reads that membership result, every position
+hash, and the ordered scalar state keys for the snapshot.
+(`backend/updates/builders/route/vehicle_positions.py:94-116`)
+
+The builder excludes a candidate that is absent from the canonical active set or
+lacks a parseable latitude or longitude. It also excludes a candidate whose
+timestamp is older than the configured freshness cutoff; a missing timestamp does
+not exclude the candidate. (`backend/updates/builders/route/vehicle_positions.py:117-163`)
+
+Surviving vehicle snapshots are sorted by textual `run_id`. The qualified wrapper
+then includes the rendered seven-segment topic, route, canonical direction, and
+complete vehicle list. (`backend/updates/builders/route/vehicle_positions.py:165-219`,
+`backend/updates/builders/route/vehicle_positions.py:233-245`)
+
+### Invalidation paths
+
+Vehicle-position snapshots have two invalidation paths:
+
+1. **VehiclePositions poll refresh.** After successful publisher polls record
+   current vehicle state, each affected transit system is refreshed once. The
+   vehicle refresh now selects the two projection names `route_vehicle_positions`
+   and `route_vehicle_positions_by_direction`, then validates, builds, and
+   dispatches each active subscribed topic independently.
+   (`backend/engine/tasks.py:101-120`, `backend/updates/refresh.py:21-70`,
+   `backend/updates/refresh.py:82-90`)
+2. **Run lifecycle invalidation.** The five triggers are signal loss, signal
+   restoration, completion, interruption, and cancellation. The qualified
+   resolver loads the run's route and direction within the event's transit system,
+   discards a row without a nonempty route or canonical direction, and otherwise
+   resolves the corresponding seven-segment topic for the normal event planner.
+   (`backend/updates/registry.py:153-162`,
+   `backend/updates/projections/route/vehicle_positions.py:48-79`,
+   `backend/updates/planner.py:8-14`)
+
+### Payload contract
+
+The builder-produced payload wrapper has exactly four keys: `topic`, `route_id`,
+`direction_id`, and `vehicles`. The wrapper direction uses the `DirectionID` alias,
+and extra wrapper fields are forbidden.
+(`backend/updates/schemas.py:7`, `backend/updates/schemas.py:86-94`,
+`backend/updates/builders/route/vehicle_positions.py:240-245`)
+
+Each vehicle contains `run_id`, `trip_id`, `route_id`, `direction_id`, `latitude`,
+`longitude`, `bearing`, `speed`, `odometer`, `current_stop_sequence`, `stop_id`,
+`current_status`, `congestion_level`, `occupancy_status`, `occupancy_percentage`,
+and `timestamp`. (`backend/updates/schemas.py:53-73`)
+
+### Relationship to the unqualified topic
+
+The five-segment and seven-segment topics coexist as separate registered
+projections. Exact qualifier-selector matching keeps their patterns disjoint, and
+a client chooses either topic by the string supplied in its subscription request.
+(`backend/updates/registry.py:119-163`, `backend/updates/topics.py:81-88`,
+`backend/updates/consumers.py:69-90`)
+
+The unqualified builder applies no direction filter, while the qualified builder
+uses the canonical topic direction in its PostgreSQL query. Consequently, an
+otherwise eligible run whose `direction_id` is `NULL` can appear only in the
+unqualified topic. (`backend/updates/builders/route/vehicle_positions.py:78-91`,
+`backend/updates/builders/route/vehicle_positions.py:222-245`)
+
+### Limitations
+
+- **Runs without direction — `not included`.** A run whose
+  `direction_id` is `NULL` is excluded by the qualified builder's PostgreSQL
+  `direction_id=<canonical direction>` predicate. Snapshot assembly has no
+  redundant direction guard after that query.
+  (`backend/updates/builders/route/vehicle_positions.py:78-91`,
+  `backend/updates/builders/route/vehicle_positions.py:121-219`,
+  `backend/updates/builders/route/vehicle_positions.py:233-245`)
+- **Dual subscriptions — `duplicated construction`.**
+  Subscribing to both topic variants causes two independent snapshot builds in
+  each poll refresh cycle while both topics remain active. The refresh collects
+  each concrete topic separately and invokes its registered builder inside the
+  per-topic loop. (`backend/updates/refresh.py:27-60`,
+  `backend/updates/refresh.py:82-90`,
+  `backend/updates/builders/route/vehicle_positions.py:222-245`)
 
 
