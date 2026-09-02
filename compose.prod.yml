@@ -113,7 +113,7 @@ services:
 
   # ── RabbitMQ (AMQP message broker) ────────────────────────────────────────
   broker:
-    image: rabbitmq:4-management
+    image: rabbitmq:4.3.5-management
     volumes:
       - broker_data:/var/lib/rabbitmq
     environment:
@@ -127,19 +127,9 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 60s
     networks:
       - internal
-      - traefik_proxy
-    labels:
-      - "traefik.enable=true"
-      # Management UI only; AMQP stays internal.
-      - "traefik.http.routers.broker.rule=Host(`${BROKER_DOMAIN}`)"
-      - "traefik.http.routers.broker.entrypoints=websecure"
-      - "traefik.http.routers.broker.tls=true"
-      - "traefik.http.routers.broker.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
-      - "traefik.http.routers.broker.middlewares=security-headers@file,rate-limit@file"
-      - "traefik.http.services.broker.loadbalancer.server.port=15672"
-      - "traefik.docker.network=traefik_proxy"
 
   # ── PostgreSQL + PostGIS ──────────────────────────────────────────────────
   database:
@@ -161,12 +151,13 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 60s
     networks:
       - internal
 
   # ── Redis ─────────────────────────────────────────────────────────────────
   memory:
-    image: redis:7-alpine
+    image: redis:7.4.11-alpine
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
@@ -180,6 +171,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 60s
     networks:
       - internal
 
@@ -238,7 +230,7 @@ services:
 
   # ── Documentation (static site) ────────────────────────────────────────
   docs:
-    image: nginx:alpine
+    image: nginx:1.31.4-alpine
     volumes:
       - ./docs/site:/usr/share/nginx/html:ro
     restart: unless-stopped
