@@ -14,7 +14,10 @@ from updates.builders.route.vehicle_positions import (
     build_route_vehicle_positions,
     build_route_vehicle_positions_by_direction,
 )
-from updates.builders.stop.stop_time_updates import build_stop_time_updates
+from updates.builders.stop.stop_time_updates import (
+    _decode_stop_time_updates,
+    build_stop_time_updates,
+)
 from updates.consumers import UpdatesConsumer
 from updates.events import parse_event
 from updates.exceptions import InvalidTopicException
@@ -386,6 +389,39 @@ class StopTimeUpdatesProjectionTests(SimpleTestCase):
         self.assertEqual(
             snapshot["stop_time_updates"][0]["schedule_relationship"],
             "SCHEDULED",
+        )
+
+
+class StopTimeUpdatesDecodingTests(SimpleTestCase):
+    def test_invalid_json_string_yields_empty_list_and_logs_warning(self):
+        with self.assertLogs(
+            "updates.builders.stop.stop_time_updates", level="WARNING"
+        ) as logs:
+            updates = _decode_stop_time_updates("{", "run-a")
+
+        self.assertEqual(updates, [])
+        self.assertEqual(
+            logs.output,
+            [
+                "WARNING:updates.builders.stop.stop_time_updates:Unable to decode "
+                "stop time updates for run run-a: invalid JSON from str of length 1"
+            ],
+        )
+
+    def test_json_object_yields_empty_list_and_logs_warning(self):
+        with self.assertLogs(
+            "updates.builders.stop.stop_time_updates", level="WARNING"
+        ) as logs:
+            updates = _decode_stop_time_updates('{"stop_id": "X"}', "run-a")
+
+        self.assertEqual(updates, [])
+        self.assertEqual(
+            logs.output,
+            [
+                "WARNING:updates.builders.stop.stop_time_updates:Unable to decode "
+                "stop time updates for run run-a: expected list, received dict of "
+                "length 1"
+            ],
         )
 
 

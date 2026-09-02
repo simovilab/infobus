@@ -19,7 +19,10 @@ import io
 import pandas as pd
 from datetime import datetime
 import pytz
+from django.conf import settings
+from django.utils import timezone
 from gtfs.utils import gtfs_date, normalize_gtfs_value
+from infobus.utils import redact_url
 
 if TYPE_CHECKING:
     from engine.tasks import ScheduleUpdateResult
@@ -43,7 +46,7 @@ def save_schedule_to_database(
     schedule_url = feed_publisher.schedule_url
 
     logging.info(
-        f"\n------------\nGTFS Schedule updating session\n{feed_publisher.name}\n{datetime.now()}\nData source: {schedule_url}\n------------"
+        f"\n------------\nGTFS Schedule updating session\n{feed_publisher.name}\n{timezone.now()}\nData source: {redact_url(schedule_url)}\n------------"
     )
 
     # Check if the remote feed has been updated
@@ -61,14 +64,16 @@ def save_schedule_to_database(
         )
 
     # Get the feed's ETag to compare with the last one
-    feed_check = requests.head(schedule_url)
+    feed_check = requests.head(schedule_url, timeout=settings.HTTP_REQUEST_TIMEOUT_SECONDS)
     feed_tag = feed_check.headers["ETag"]
 
     if not feed_tag == current_feed_tag:
         logging.info(f"Importing new detected GTFS Schedule feed: {feed_tag}")
 
         # Request feed
-        schedule_response = requests.get(schedule_url)
+        schedule_response = requests.get(
+            schedule_url, timeout=settings.HTTP_REQUEST_TIMEOUT_SECONDS
+        )
         schedule_zip = zipfile.ZipFile(io.BytesIO(schedule_response.content))
 
         last_modified = feed_check.headers["Last-Modified"]

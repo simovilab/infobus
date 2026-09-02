@@ -5,6 +5,7 @@ from typing import TypedDict
 import requests
 from django.conf import settings
 from google.transit import gtfs_realtime_pb2 as gtfs_rt
+from infobus.utils import redact_url
 from feed.models import TransitSystem, FeedPublisher
 from feed.services.schedule import save_schedule_to_database
 from feed.services.realtime import (
@@ -89,12 +90,13 @@ def get_vehicle_positions() -> str:
             vehicle_positions = gtfs_rt.FeedMessage()
             try:
                 vehicle_positions_response = requests.get(
-                    feed_publisher.vehicle_positions_url
+                    feed_publisher.vehicle_positions_url,
+                    timeout=settings.HTTP_REQUEST_TIMEOUT_SECONDS,
                 )
                 vehicle_positions.ParseFromString(vehicle_positions_response.content)
             except requests.RequestException as e:
                 logging.error(
-                    f"Error fetching vehicle positions from {feed_publisher.vehicle_positions_url}: {e}"
+                    f"Error fetching vehicle positions from {redact_url(feed_publisher.vehicle_positions_url)}: {e}"
                 )
                 continue
 
@@ -147,12 +149,13 @@ def get_trip_updates() -> str:
             trip_updates = gtfs_rt.FeedMessage()
             try:
                 trip_updates_response = requests.get(
-                    feed_publisher.trip_updates_url, timeout=10
+                    feed_publisher.trip_updates_url,
+                    timeout=settings.HTTP_REQUEST_TIMEOUT_SECONDS,
                 )
                 trip_updates.ParseFromString(trip_updates_response.content)
             except requests.RequestException as e:
                 logging.error(
-                    f"Error fetching trip updates from {feed_publisher.trip_updates_url}: {str(e)}"
+                    f"Error fetching trip updates from {redact_url(feed_publisher.trip_updates_url)}: {str(e)}"
                 )
                 continue
 
@@ -203,11 +206,14 @@ def get_alerts() -> str:
         for feed_publisher in feed_publishers:
             alerts = gtfs_rt.FeedMessage()
             try:
-                alerts_response = requests.get(feed_publisher.alerts_url, timeout=10)
+                alerts_response = requests.get(
+                    feed_publisher.alerts_url,
+                    timeout=settings.HTTP_REQUEST_TIMEOUT_SECONDS,
+                )
                 alerts.ParseFromString(alerts_response.content)
             except requests.RequestException as e:
                 logging.error(
-                    f"Error fetching alerts from {feed_publisher.alerts_url}: {str(e)}"
+                    f"Error fetching alerts from {redact_url(feed_publisher.alerts_url)}: {str(e)}"
                 )
                 continue
 

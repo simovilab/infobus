@@ -395,7 +395,6 @@ class FareAttributeViewSet(viewsets.ModelViewSet):
     queryset = FareAttribute.objects.all()
     serializer_class = FareAttributeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
@@ -406,7 +405,7 @@ class FareRuleViewSet(viewsets.ModelViewSet):
     queryset = FareRule.objects.all()
     serializer_class = FareRuleSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = ["route_id"]
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 

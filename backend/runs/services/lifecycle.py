@@ -545,7 +545,12 @@ def _apply_redis_transition(
                 previous_state=previous_state,
                 affected_stop_ids=stop_ids,
             )
-            pipe.xadd("events", event.redis_fields())
+            pipe.xadd(
+                "events",
+                event.redis_fields(),
+                maxlen=settings.REDIS_EVENTS_STREAM_MAXLEN,
+                approximate=True,
+            )
         pipe.execute()
 
 

@@ -135,6 +135,15 @@ REDIS_HOST = config("REDIS_HOST")
 REDIS_PORT = config("REDIS_PORT")
 REDIS_CELERY_DB = config("REDIS_CELERY_DB", default=0, cast=int)
 
+# Retain roughly 4.4 days of active event traffic.
+REDIS_EVENTS_STREAM_MAXLEN = config(
+    "REDIS_EVENTS_STREAM_MAXLEN", default=1_000_000, cast=int
+)
+# Cap dead-letter entries as a safety ceiling.
+REDIS_DEAD_LETTER_STREAM_MAXLEN = config(
+    "REDIS_DEAD_LETTER_STREAM_MAXLEN", default=10_000, cast=int
+)
+
 # Run lifecycle detection
 RUN_NO_SIGNAL_AFTER_SECONDS = config(
     "RUN_NO_SIGNAL_AFTER_SECONDS", default=120, cast=int
@@ -156,6 +165,11 @@ RUN_TERMINAL_STATE_TTL_SECONDS = config(
 )
 RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS = config(
     "RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS", default=120, cast=int
+)
+
+# HTTP request settings
+HTTP_REQUEST_TIMEOUT_SECONDS = config(
+    "HTTP_REQUEST_TIMEOUT_SECONDS", default=10, cast=int
 )
 
 # Match the lifecycle signal grace: one delayed poll or a vehicle dwelling at a

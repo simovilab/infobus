@@ -49,6 +49,8 @@ def _process_entries(
                     "error": str(error),
                     "payload": json.dumps(fields),
                 },
+                maxlen=settings.REDIS_DEAD_LETTER_STREAM_MAXLEN,
+                approximate=True,
             )
             redis.xack(STREAM_NAME, GROUP_NAME, event_id)
             continue

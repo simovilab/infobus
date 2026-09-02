@@ -109,7 +109,12 @@ def _update_state_and_publish_event(
                 pipe.multi()
                 pipe.set(key, current_state)
                 if event is not None:
-                    pipe.xadd("events", event)
+                    pipe.xadd(
+                        "events",
+                        event,
+                        maxlen=settings.REDIS_EVENTS_STREAM_MAXLEN,
+                        approximate=True,
+                    )
                 pipe.execute()
                 return
             except WatchError:
