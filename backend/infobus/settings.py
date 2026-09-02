@@ -248,12 +248,12 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
 )
 SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=False, cast=bool)
 SECURE_CONTENT_TYPE_NOSNIFF = config(
-    "SECURE_CONTENT_TYPE_NOSNIFF", default=False, cast=bool
+    "SECURE_CONTENT_TYPE_NOSNIFF", default=True, cast=bool
 )
 SECURE_BROWSER_XSS_FILTER = config(
     "SECURE_BROWSER_XSS_FILTER", default=False, cast=bool
 )
-SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default=None)
+SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default="same-origin")
 SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
 CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
