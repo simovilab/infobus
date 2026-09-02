@@ -14,6 +14,7 @@ from pathlib import Path
 from decouple import config, Csv
 import platform
 import os
+from urllib.parse import quote
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -134,6 +135,8 @@ AUTH_PASSWORD_VALIDATORS = [
 REDIS_HOST = config("REDIS_HOST")
 REDIS_PORT = config("REDIS_PORT")
 REDIS_CELERY_DB = config("REDIS_CELERY_DB", default=0, cast=int)
+REDIS_CACHE_DB = config("REDIS_CACHE_DB", default=1, cast=int)
+REDIS_PASSWORD = config("REDIS_PASSWORD", default="", cast=str)
 
 # Retain roughly 4.4 days of active event traffic.
 REDIS_EVENTS_STREAM_MAXLEN = config(
@@ -198,6 +201,20 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
     ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": config("DRF_THROTTLE_ANON_RATE", default="60/min", cast=str),
+        "geometry": config("DRF_THROTTLE_GEOMETRY_RATE", default="10/min", cast=str),
+        "realtime": config("DRF_THROTTLE_REALTIME_RATE", default="30/min", cast=str),
+    },
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": config("DRF_PAGE_SIZE", default=100, cast=int),
 }
 
 SPECTACULAR_SETTINGS = {
@@ -212,6 +229,17 @@ CHANNEL_LAYERS = {
         "CONFIG": {
             "hosts": [(REDIS_HOST, REDIS_PORT)],
         },
+    },
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": (
+            f"redis://:{quote(REDIS_PASSWORD, safe='')}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_CACHE_DB}"
+            if REDIS_PASSWORD
+            else f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CACHE_DB}"
+        ),
     },
 }
 
