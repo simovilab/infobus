@@ -111,6 +111,29 @@ services:
     networks:
       - internal
 
+  # ── Redis Streams consumer ────────────────────────────────────────────────
+  streams-consumer:
+    build:
+      context: ./backend
+      target: streams-consumer
+    environment:
+      - DJANGO_SETUP=False
+      - UV_PROJECT_ENVIRONMENT=/home/app/.venv
+    env_file:
+      - .env
+      - .env.prod
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - backend_venv:/home/app/.venv
+    depends_on:
+      database:
+        condition: service_healthy
+      memory:
+        condition: service_healthy
+    networks:
+      - internal
   # ── RabbitMQ (AMQP message broker) ────────────────────────────────────────
   broker:
     image: rabbitmq:4.3.5-management
@@ -157,7 +180,7 @@ services:
 
   # ── Redis ─────────────────────────────────────────────────────────────────
   memory:
-    image: redis:7.4.11-alpine
+    image: redis:8.10.1-alpine
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
