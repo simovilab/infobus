@@ -153,3 +153,23 @@ class GetVehiclePositionsTaskTests(SimpleTestCase):
 
         self.assertEqual(result, "No active transit systems found.")
         self.refresh_topics.assert_not_called()
+
+
+class CeleryBrokerRedisCredentialTests(SimpleTestCase):
+    def test_celery_broker_url_carries_redis_credentials_when_configured(self):
+        """Verifies the Celery Redis URL conditionally carries encoded credentials."""
+        from django.conf import settings
+
+        broker_url = settings.CELERY_BROKER_URL
+
+        self.assertTrue(broker_url.startswith("redis://"))
+        if settings.REDIS_PASSWORD:
+            self.assertIn("@", broker_url)
+            if any(
+                character in settings.REDIS_PASSWORD
+                for character in ":/?#[]@!$&'()*+,;=%"
+            ):
+                password_is_plaintext = settings.REDIS_PASSWORD in broker_url
+                self.assertFalse(password_is_plaintext)
+        else:
+            self.assertNotIn("@", broker_url)
