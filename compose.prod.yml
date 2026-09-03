@@ -134,6 +134,7 @@ services:
         condition: service_healthy
     networks:
       - internal
+      
   # ── RabbitMQ (AMQP message broker) ────────────────────────────────────────
   broker:
     image: rabbitmq:4.3.5-management
