@@ -15,7 +15,10 @@ from .topics import TopicKey
 
 
 r: Redis = Redis(
-    host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_CELERY_DB
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    db=settings.REDIS_CELERY_DB,
+    password=settings.REDIS_PASSWORD or None,
 )
 logger = logging.getLogger(__name__)
 
