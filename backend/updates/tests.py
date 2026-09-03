@@ -2085,3 +2085,80 @@ class QualifiedVehiclePositionRefreshTests(SimpleTestCase):
         projection.validate_topic.assert_called_once_with(TopicKey.parse(qualified))
         projection.build.assert_not_called()
         dispatch.assert_not_called()
+
+
+class UpdatesRedisConfigurationTests(SimpleTestCase):
+    def test_global_redis_clients_use_configured_credentials_and_decoding_modes(self):
+        """Verifies credentials and decoding modes for global updates Redis clients."""
+        from django.conf import settings
+
+        from updates import consumers, refresh
+        from updates.builders.route import vehicle_positions
+        from updates.builders.stop import occupancy_status, stop_time_updates
+        from updates.builders.trip import occupancy_status as trip_occupancy_status
+
+        clients = {
+            "updates.consumers": (consumers.r, False),
+            "updates.refresh": (refresh.r, True),
+            "updates.builders.route.vehicle_positions": (
+                vehicle_positions.r,
+                True,
+            ),
+            "updates.builders.trip.occupancy_status": (
+                trip_occupancy_status.r,
+                True,
+            ),
+            "updates.builders.stop.occupancy_status": (occupancy_status.r, True),
+            "updates.builders.stop.stop_time_updates": (stop_time_updates.r, True),
+        }
+
+        for module_name, (client, decodes_responses) in clients.items():
+            with self.subTest(module=module_name):
+                connection_kwargs = client.connection_pool.connection_kwargs
+                password_is_configured = connection_kwargs["password"] == (
+                    settings.REDIS_PASSWORD or None
+                )
+
+                self.assertTrue(password_is_configured)
+                if decodes_responses:
+                    self.assertIs(connection_kwargs.get("decode_responses"), True)
+                else:
+                    self.assertFalse(
+                        connection_kwargs.get("decode_responses", False)
+                    )
+
+    @patch("updates.client.Redis")
+    def test_consume_events_client_uses_configured_password(self, redis_class):
+        """Verifies consume_events stops at controlled group creation after building Redis."""
+        from django.conf import settings
+
+        from updates.client import consume_events
+
+        redis_class.return_value.xgroup_create.side_effect = RuntimeError("test stop")
+
+        with self.assertRaisesRegex(RuntimeError, "test stop"):
+            consume_events()
+
+        connection_kwargs = redis_class.call_args.kwargs
+        password_is_configured = connection_kwargs["password"] == (
+            settings.REDIS_PASSWORD or None
+        )
+        self.assertTrue(password_is_configured)
+
+    def test_channel_layer_hosts_include_configured_redis_password(self):
+        """Verifies the channel layer host keeps Redis credentials and endpoint fields."""
+        from django.conf import settings
+
+        hosts = settings.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"]
+
+        self.assertIsInstance(hosts, list)
+        self.assertEqual(len(hosts), 1)
+        self.assertIsInstance(hosts[0], dict)
+        self.assertIn("host", hosts[0])
+        self.assertIn("port", hosts[0])
+        self.assertIn("password", hosts[0])
+
+        password_is_configured = hosts[0]["password"] == (
+            settings.REDIS_PASSWORD or None
+        )
+        self.assertTrue(password_is_configured)
