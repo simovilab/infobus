@@ -84,6 +84,7 @@ def consume_events() -> None:
         host=settings.REDIS_HOST,
         port=settings.REDIS_PORT,
         db=settings.REDIS_CELERY_DB,
+        password=settings.REDIS_PASSWORD or None,
         decode_responses=True,
     )
     consumer_name = f"{socket.gethostname()}-{os.getpid()}"
