@@ -138,7 +138,7 @@ REDIS_CELERY_DB = config("REDIS_CELERY_DB", default=0, cast=int)
 REDIS_CACHE_DB = config("REDIS_CACHE_DB", default=1, cast=int)
 REDIS_PASSWORD = config("REDIS_PASSWORD", default="", cast=str)
 
-# Retain roughly 4.4 days of active event traffic.
+# Retain roughly 14 hours of active event traffic at ~20 events per second.
 REDIS_EVENTS_STREAM_MAXLEN = config(
     "REDIS_EVENTS_STREAM_MAXLEN", default=1_000_000, cast=int
 )
