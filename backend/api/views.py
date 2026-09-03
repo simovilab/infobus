@@ -57,7 +57,7 @@ class FilterMixin:
 
 
 class FeedPublisherViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to GTFS feed publishers with filtering by code or name."""
+    """Provide read-only access to GTFS feed publishers with filtering by code or name."""
 
     queryset = FeedPublisher.objects.all()
     serializer_class = FeedPublisherSerializer
@@ -263,7 +263,7 @@ class RouteStopView(APIView):
 
 
 class AgencyViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to transit agencies with filtering by agency identifier or name."""
+    """Provide read-only access to transit agencies with filtering by agency identifier or name."""
 
     queryset = Agency.objects.all()
     serializer_class = AgencySerializer
@@ -273,7 +273,7 @@ class AgencyViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class StopViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to stops with filtering by identifier, code, name, coordinates, or URL."""
+    """Provide read-only access to stops with filtering by identifier, code, name, coordinates, or URL."""
 
     queryset = Stop.objects.all()
     serializer_class = StopSerializer
@@ -290,7 +290,7 @@ class StopViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class GeoStopViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide GeoJSON CRUD representations of stops filterable by identifier, location type, zone, parent station, or accessibility."""
+    """Provide read-only GeoJSON representations of stops filterable by identifier, location type, zone, parent station, or accessibility."""
 
     throttle_scope = "geometry"
     queryset = Stop.objects.all()
@@ -307,7 +307,7 @@ class GeoStopViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class RouteViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to routes with filtering by route type or identifier."""
+    """Provide read-only access to routes with filtering by route type or identifier."""
 
     queryset = Route.objects.all()
     serializer_class = RouteSerializer
@@ -325,7 +325,7 @@ class RouteViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class CalendarViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to service calendars filterable by service identifier."""
+    """Provide read-only access to service calendars filterable by service identifier."""
 
     queryset = Calendar.objects.all()
     serializer_class = CalendarSerializer
@@ -335,7 +335,7 @@ class CalendarViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class CalendarDateViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to service-date exceptions filterable by service identifier."""
+    """Provide read-only access to service-date exceptions filterable by service identifier."""
 
     queryset = CalendarDate.objects.all()
     serializer_class = CalendarDateSerializer
@@ -345,7 +345,7 @@ class CalendarDateViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class ShapeViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to scheduled shape points filterable by shape identifier."""
+    """Provide read-only access to scheduled shape points filterable by shape identifier."""
 
     throttle_scope = "geometry"
     queryset = Shape.objects.all()
@@ -356,7 +356,7 @@ class ShapeViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class GeoShapeViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide GeoJSON CRUD representations of route shapes filterable by shape identifier."""
+    """Provide read-only GeoJSON representations of route shapes filterable by shape identifier."""
 
     throttle_scope = "geometry"
     queryset = GeoShape.objects.all()
@@ -367,7 +367,7 @@ class GeoShapeViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class TripViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to trips with filtering by shape, direction, trip, route, or service identifiers."""
+    """Provide read-only access to trips with filtering by shape, direction, trip, route, or service identifiers."""
 
     queryset = Trip.objects.all()
     serializer_class = TripSerializer
@@ -383,7 +383,7 @@ class TripViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class StopTimeViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to scheduled stop times filterable by trip or stop identifier."""
+    """Provide read-only access to scheduled stop times filterable by trip or stop identifier."""
 
     throttle_scope = "geometry"
     queryset = StopTime.objects.all()
@@ -394,7 +394,7 @@ class StopTimeViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class FeedInfoViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to feed metadata filterable by publisher name."""
+    """Provide read-only access to feed metadata filterable by publisher name."""
 
     queryset = FeedInfo.objects.all()
     serializer_class = FeedInfoSerializer
@@ -404,7 +404,7 @@ class FeedInfoViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class FareAttributeViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to fare attributes."""
+    """Provide read-only access to fare attributes."""
 
     queryset = FareAttribute.objects.all()
     serializer_class = FareAttributeSerializer
@@ -414,7 +414,7 @@ class FareAttributeViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class FareRuleViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to fare rules, filterable by route identifier."""
+    """Provide read-only access to fare rules, filterable by route identifier."""
 
     queryset = FareRule.objects.all()
     serializer_class = FareRuleSerializer
@@ -425,7 +425,7 @@ class FareRuleViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class ServiceAlertViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to service alerts with filtering by alert, route, trip, start time, or service date."""
+    """Provide read-only access to service alerts with filtering by alert, route, trip, start time, or service date."""
 
     queryset = Alert.objects.all()
     serializer_class = ServiceAlertSerializer
@@ -441,7 +441,7 @@ class ServiceAlertViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class FeedMessageViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to feed messages."""
+    """Provide read-only access to feed messages."""
 
     queryset = FeedMessage.objects.all()
     serializer_class = FeedMessageSerializer
@@ -452,7 +452,7 @@ class FeedMessageViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class TripUpdateViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to trip updates filterable by trip descriptor fields or vehicle identifier."""
+    """Provide read-only access to trip updates filterable by trip descriptor fields or vehicle identifier."""
 
     queryset = TripUpdate.objects.all()
     serializer_class = TripUpdateSerializer
@@ -467,7 +467,7 @@ class TripUpdateViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class StopTimeUpdateViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to stop-time updates."""
+    """Provide read-only access to stop-time updates."""
 
     queryset = StopTimeUpdate.objects.all()
     serializer_class = StopTimeUpdateSerializer
@@ -479,7 +479,7 @@ class StopTimeUpdateViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class VehiclePositionViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to vehicle positions with filtering by vehicle and trip descriptor fields."""
+    """Provide read-only access to vehicle positions with filtering by vehicle and trip descriptor fields."""
 
     queryset = VehiclePosition.objects.all()
     serializer_class = VehiclePositionSerializer
@@ -495,7 +495,7 @@ class VehiclePositionViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class InfoServiceViewSet(viewsets.ReadOnlyModelViewSet):
-    """Provide CRUD access to connected information services ordered by creation time and filterable by type or name."""
+    """Provide read-only access to connected information services ordered by creation time and filterable by type or name."""
 
     queryset = InfoService.objects.all().order_by("created_at")
     serializer_class = InfoServiceSerializer
