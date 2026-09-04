@@ -12,8 +12,10 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 from decouple import config, Csv
+from django.core.exceptions import ImproperlyConfigured
 import platform
 import os
+from urllib.parse import quote
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -134,6 +136,20 @@ AUTH_PASSWORD_VALIDATORS = [
 REDIS_HOST = config("REDIS_HOST")
 REDIS_PORT = config("REDIS_PORT")
 REDIS_CELERY_DB = config("REDIS_CELERY_DB", default=0, cast=int)
+REDIS_CACHE_DB = config("REDIS_CACHE_DB", default=1, cast=int)
+REDIS_PASSWORD = config("REDIS_PASSWORD", default="", cast=str)
+
+if not DEBUG and not REDIS_PASSWORD:
+    raise ImproperlyConfigured("REDIS_PASSWORD is required when DEBUG is False.")
+
+# Retain roughly 14 hours of active event traffic at ~20 events per second.
+REDIS_EVENTS_STREAM_MAXLEN = config(
+    "REDIS_EVENTS_STREAM_MAXLEN", default=1_000_000, cast=int
+)
+# Cap dead-letter entries as a safety ceiling.
+REDIS_DEAD_LETTER_STREAM_MAXLEN = config(
+    "REDIS_DEAD_LETTER_STREAM_MAXLEN", default=10_000, cast=int
+)
 
 # Run lifecycle detection
 RUN_NO_SIGNAL_AFTER_SECONDS = config(
@@ -158,6 +174,11 @@ RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS = config(
     "RUN_LIFECYCLE_EVALUATION_LOCK_SECONDS", default=120, cast=int
 )
 
+# HTTP request settings
+HTTP_REQUEST_TIMEOUT_SECONDS = config(
+    "HTTP_REQUEST_TIMEOUT_SECONDS", default=10, cast=int
+)
+
 # Match the lifecycle signal grace: one delayed poll or a vehicle dwelling at a
 # stop should not make an otherwise current public prediction disappear.
 GTFS_RT_STOP_TIME_UPDATE_PAST_TOLERANCE_SECONDS = config(
@@ -173,7 +194,11 @@ GTFS_RT_VEHICLE_POSITION_STALE_TOLERANCE_SECONDS = config(
 
 # Celery settings
 
-CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
+CELERY_BROKER_URL = (
+    f"redis://:{quote(REDIS_PASSWORD, safe='')}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
+    if REDIS_PASSWORD
+    else f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CELERY_DB}"
+)
 CELERY_RESULT_BACKEND = "django-db"
 CELERY_CACHE_BACKEND = "django-cache"
 CELERY_RESULTS_EXTENDED = True
@@ -184,6 +209,22 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.TokenAuthentication",
     ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_THROTTLE_CLASSES": [
+        "api.throttling.ResilientAnonRateThrottle",
+        "api.throttling.ResilientScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": config("DRF_THROTTLE_ANON_RATE", default="60/min", cast=str),
+        "geometry": config("DRF_THROTTLE_GEOMETRY_RATE", default="10/min", cast=str),
+        "realtime": config("DRF_THROTTLE_REALTIME_RATE", default="30/min", cast=str),
+    },
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": config("DRF_PAGE_SIZE", default=100, cast=int),
+    "NUM_PROXIES": config("DRF_NUM_PROXIES", default=1, cast=int),
 }
 
 SPECTACULAR_SETTINGS = {
@@ -196,8 +237,25 @@ CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [(REDIS_HOST, REDIS_PORT)],
+            "hosts": [
+                {
+                    "host": REDIS_HOST,
+                    "port": REDIS_PORT,
+                    "password": REDIS_PASSWORD or None,
+                }
+            ],
         },
+    },
+}
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": (
+            f"redis://:{quote(REDIS_PASSWORD, safe='')}@{REDIS_HOST}:{REDIS_PORT}/{REDIS_CACHE_DB}"
+            if REDIS_PASSWORD
+            else f"redis://{REDIS_HOST}:{REDIS_PORT}/{REDIS_CACHE_DB}"
+        ),
     },
 }
 
@@ -234,12 +292,12 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = config(
 )
 SECURE_HSTS_PRELOAD = config("SECURE_HSTS_PRELOAD", default=False, cast=bool)
 SECURE_CONTENT_TYPE_NOSNIFF = config(
-    "SECURE_CONTENT_TYPE_NOSNIFF", default=False, cast=bool
+    "SECURE_CONTENT_TYPE_NOSNIFF", default=True, cast=bool
 )
 SECURE_BROWSER_XSS_FILTER = config(
     "SECURE_BROWSER_XSS_FILTER", default=False, cast=bool
 )
-SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default=None)
+SECURE_REFERRER_POLICY = config("SECURE_REFERRER_POLICY", default="same-origin")
 SESSION_COOKIE_SECURE = config("SESSION_COOKIE_SECURE", default=False, cast=bool)
 CSRF_COOKIE_SECURE = config("CSRF_COOKIE_SECURE", default=False, cast=bool)
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

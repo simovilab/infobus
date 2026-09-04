@@ -49,6 +49,8 @@ def _process_entries(
                     "error": str(error),
                     "payload": json.dumps(fields),
                 },
+                maxlen=settings.REDIS_DEAD_LETTER_STREAM_MAXLEN,
+                approximate=True,
             )
             redis.xack(STREAM_NAME, GROUP_NAME, event_id)
             continue
@@ -82,6 +84,7 @@ def consume_events() -> None:
         host=settings.REDIS_HOST,
         port=settings.REDIS_PORT,
         db=settings.REDIS_CELERY_DB,
+        password=settings.REDIS_PASSWORD or None,
         decode_responses=True,
     )
     consumer_name = f"{socket.gethostname()}-{os.getpid()}"
