@@ -86,6 +86,13 @@ def get_vehicle_positions() -> str:
             )
             continue
         for feed_publisher in feed_publishers:
+            if not feed_publisher.vehicle_positions_url:
+                logging.info(
+                    "Skipping vehicle positions for %s: no vehicle positions URL configured.",
+                    feed_publisher.code,
+                )
+                continue
+
             # Fetch VehiclePosition feed from the publisher's URL
             vehicle_positions = gtfs_rt.FeedMessage()
             try:
@@ -93,10 +100,23 @@ def get_vehicle_positions() -> str:
                     feed_publisher.vehicle_positions_url,
                     timeout=settings.HTTP_REQUEST_TIMEOUT_SECONDS,
                 )
+                vehicle_positions_response.raise_for_status()
+                if not vehicle_positions_response.content:
+                    logging.warning(
+                        "No vehicle positions data returned from %s.",
+                        redact_url(feed_publisher.vehicle_positions_url),
+                    )
+                    continue
                 vehicle_positions.ParseFromString(vehicle_positions_response.content)
+                if not vehicle_positions.entity:
+                    logging.warning(
+                        "Vehicle positions feed from %s contains no entities.",
+                        redact_url(feed_publisher.vehicle_positions_url),
+                    )
+                    continue
             except requests.RequestException as e:
                 logging.error(
-                    f"Error fetching vehicle positions from {redact_url(feed_publisher.vehicle_positions_url)}: {type(e).__name__}"
+                    f"Error fetching vehicle positions from {redact_url(feed_publisher.vehicle_positions_url)}: {type(e).__name__}: {e}"
                 )
                 continue
 
@@ -155,7 +175,7 @@ def get_trip_updates() -> str:
                 trip_updates.ParseFromString(trip_updates_response.content)
             except requests.RequestException as e:
                 logging.error(
-                    f"Error fetching trip updates from {redact_url(feed_publisher.trip_updates_url)}: {type(e).__name__}"
+                    f"Error fetching trip updates from {redact_url(feed_publisher.trip_updates_url)}: {type(e).__name__}: {e}"
                 )
                 continue
 
@@ -204,16 +224,30 @@ def get_alerts() -> str:
             )
             continue
         for feed_publisher in feed_publishers:
+            if not feed_publisher.alerts_url:
+                logging.info(
+                    "Skipping alerts for %s: no alerts URL configured.",
+                    feed_publisher.code,
+                )
+                continue
+
             alerts = gtfs_rt.FeedMessage()
             try:
                 alerts_response = requests.get(
                     feed_publisher.alerts_url,
                     timeout=settings.HTTP_REQUEST_TIMEOUT_SECONDS,
                 )
+                alerts_response.raise_for_status()
+                if not alerts_response.content:
+                    logging.warning(
+                        "No alerts data returned from %s.",
+                        redact_url(feed_publisher.alerts_url),
+                    )
+                    continue
                 alerts.ParseFromString(alerts_response.content)
             except requests.RequestException as e:
                 logging.error(
-                    f"Error fetching alerts from {redact_url(feed_publisher.alerts_url)}: {type(e).__name__}"
+                    f"Error fetching alerts from {redact_url(feed_publisher.alerts_url)}: {type(e).__name__}: {e}"
                 )
                 continue
 

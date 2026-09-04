@@ -58,7 +58,8 @@ class GetVehiclePositionsTaskTests(SimpleTestCase):
         self.refresh_topics = self._start_patch(
             "engine.tasks.refresh_active_vehicle_position_topics"
         )
-        self.requests_get.return_value.content = b""
+        self.requests_get.return_value.content = b"payload"
+        self.feed_message.return_value.entity = [object()]
         self.update_vehicle_positions_state.return_value = set()
 
     def _start_patch(self, target):
@@ -80,8 +81,7 @@ class GetVehiclePositionsTaskTests(SimpleTestCase):
         for code, publisher_urls in systems_and_publishers:
             transit_systems.append(SimpleNamespace(code=code))
             publishers = [
-                SimpleNamespace(vehicle_positions_url=url)
-                for url in publisher_urls
+                SimpleNamespace(vehicle_positions_url=url) for url in publisher_urls
             ]
             publisher_querysets.append(self._queryset(publishers))
 
@@ -122,7 +122,7 @@ class GetVehiclePositionsTaskTests(SimpleTestCase):
             ("system-a", ("https://failed.example", "https://success.example"))
         )
         successful_response = MagicMock()
-        successful_response.content = b""
+        successful_response.content = b"payload"
         self.requests_get.side_effect = [
             requests.RequestException("request failed"),
             successful_response,

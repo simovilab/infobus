@@ -28,6 +28,26 @@ if TYPE_CHECKING:
     from engine.tasks import ScheduleUpdateResult
 
 
+STOP_HEADING_CODES = {
+    "north": "N",
+    "northeast": "NE",
+    "east": "E",
+    "southeast": "SE",
+    "south": "S",
+    "southwest": "SW",
+    "west": "W",
+    "northwest": "NW",
+}
+
+
+def normalize_schedule_value(field_name: str, value: object) -> object:
+    """Normalize feed values that use a different representation than our models."""
+    value = normalize_gtfs_value(value)
+    if field_name == "stop_heading" and isinstance(value, str):
+        return STOP_HEADING_CODES.get(value.lower(), value.upper())
+    return value
+
+
 logging.basicConfig(
     format="%(levelname)s: %(message)s",
     encoding="utf-8",
@@ -64,7 +84,9 @@ def save_schedule_to_database(
         )
 
     # Get the feed's ETag to compare with the last one
-    feed_check = requests.head(schedule_url, timeout=settings.HTTP_REQUEST_TIMEOUT_SECONDS)
+    feed_check = requests.head(
+        schedule_url, timeout=settings.HTTP_REQUEST_TIMEOUT_SECONDS
+    )
     feed_tag = feed_check.headers["ETag"]
 
     if not feed_tag == current_feed_tag:
@@ -150,7 +172,7 @@ def save_schedule_to_database(
                 instances = [
                     model(
                         **{
-                            key: normalize_gtfs_value(value)
+                            key: normalize_schedule_value(key, value)
                             for key, value in row.items()
                         }
                     )
