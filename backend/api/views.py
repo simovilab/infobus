@@ -60,7 +60,7 @@ class FilterMixin:
 class FeedPublisherViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to GTFS feed publishers with filtering by code or name."""
 
-    queryset = FeedPublisher.objects.all()
+    queryset = FeedPublisher.objects.all().order_by("pk")
     serializer_class = FeedPublisherSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["code", "name"]
@@ -266,7 +266,7 @@ class RouteStopView(APIView):
 class AgencyViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to transit agencies with filtering by agency identifier or name."""
 
-    queryset = Agency.objects.all()
+    queryset = Agency.objects.all().order_by("pk")
     serializer_class = AgencySerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["agency_id", "agency_name"]
@@ -276,7 +276,7 @@ class AgencyViewSet(viewsets.ReadOnlyModelViewSet):
 class StopViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to stops with filtering by identifier, code, name, coordinates, or URL."""
 
-    queryset = Stop.objects.all()
+    queryset = Stop.objects.all().order_by("pk")
     serializer_class = StopSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
@@ -295,7 +295,7 @@ class GeoStopViewSet(viewsets.ReadOnlyModelViewSet):
 
     throttle_scope = "geometry"
     pagination_class = GeoJsonPagination
-    queryset = Stop.objects.all()
+    queryset = Stop.objects.all().order_by("pk")
     serializer_class = GeoStopSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
@@ -311,7 +311,7 @@ class GeoStopViewSet(viewsets.ReadOnlyModelViewSet):
 class RouteViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to routes with filtering by route type or identifier."""
 
-    queryset = Route.objects.all()
+    queryset = Route.objects.all().order_by("pk")
     serializer_class = RouteSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["route_type", "route_id"]
@@ -329,7 +329,7 @@ class RouteViewSet(viewsets.ReadOnlyModelViewSet):
 class CalendarViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to service calendars filterable by service identifier."""
 
-    queryset = Calendar.objects.all()
+    queryset = Calendar.objects.all().order_by("pk")
     serializer_class = CalendarSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["service_id"]
@@ -339,7 +339,7 @@ class CalendarViewSet(viewsets.ReadOnlyModelViewSet):
 class CalendarDateViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to service-date exceptions filterable by service identifier."""
 
-    queryset = CalendarDate.objects.all()
+    queryset = CalendarDate.objects.all().order_by("pk")
     serializer_class = CalendarDateSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["service_id"]
@@ -350,7 +350,7 @@ class ShapeViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to scheduled shape points filterable by shape identifier."""
 
     throttle_scope = "geometry"
-    queryset = Shape.objects.all()
+    queryset = Shape.objects.all().order_by("pk")
     serializer_class = ShapeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["shape_id"]
@@ -362,7 +362,7 @@ class GeoShapeViewSet(viewsets.ReadOnlyModelViewSet):
 
     throttle_scope = "geometry"
     pagination_class = GeoJsonPagination
-    queryset = GeoShape.objects.all()
+    queryset = GeoShape.objects.all().order_by("pk")
     serializer_class = GeoShapeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["shape_id"]
@@ -372,7 +372,7 @@ class GeoShapeViewSet(viewsets.ReadOnlyModelViewSet):
 class TripViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to trips with filtering by shape, direction, trip, route, or service identifiers."""
 
-    queryset = Trip.objects.all()
+    queryset = Trip.objects.all().order_by("pk")
     serializer_class = TripSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
@@ -389,7 +389,7 @@ class StopTimeViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to scheduled stop times filterable by trip or stop identifier."""
 
     throttle_scope = "geometry"
-    queryset = StopTime.objects.all()
+    queryset = StopTime.objects.all().order_by("pk")
     serializer_class = StopTimeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["trip_id", "stop_id"]
@@ -399,7 +399,7 @@ class StopTimeViewSet(viewsets.ReadOnlyModelViewSet):
 class FeedInfoViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to feed metadata filterable by publisher name."""
 
-    queryset = FeedInfo.objects.all()
+    queryset = FeedInfo.objects.all().order_by("pk")
     serializer_class = FeedInfoSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["feed_publisher_name"]
@@ -409,7 +409,7 @@ class FeedInfoViewSet(viewsets.ReadOnlyModelViewSet):
 class FareAttributeViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to fare attributes."""
 
-    queryset = FareAttribute.objects.all()
+    queryset = FareAttribute.objects.all().order_by("pk")
     serializer_class = FareAttributeSerializer
     filter_backends = [DjangoFilterBackend]
     # permission_classes = [permissions.IsAuthenticated]
@@ -419,7 +419,7 @@ class FareAttributeViewSet(viewsets.ReadOnlyModelViewSet):
 class FareRuleViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only access to fare rules, filterable by route identifier."""
 
-    queryset = FareRule.objects.all()
+    queryset = FareRule.objects.all().order_by("pk")
     serializer_class = FareRuleSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["route_id"]
