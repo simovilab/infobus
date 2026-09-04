@@ -59,7 +59,15 @@ def get_schedule() -> ScheduleUpdateResult:
         return result
 
     for feed_publisher in feed_publishers:
-        save_schedule_to_database(feed_publisher, result)
+        try:
+            save_schedule_to_database(feed_publisher, result)
+        except Exception:
+            result["has_new_feed"][feed_publisher.code] = False
+            logging.exception(
+                f"Schedule import failed for feed publisher {feed_publisher.code}. "
+                "No data was written for this publisher; the previous feed "
+                "remains current."
+            )
 
     return result
 
