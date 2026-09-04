@@ -96,7 +96,7 @@ def get_vehicle_positions() -> str:
                 vehicle_positions.ParseFromString(vehicle_positions_response.content)
             except requests.RequestException as e:
                 logging.error(
-                    f"Error fetching vehicle positions from {redact_url(feed_publisher.vehicle_positions_url)}: {e}"
+                    f"Error fetching vehicle positions from {redact_url(feed_publisher.vehicle_positions_url)}: {type(e).__name__}"
                 )
                 continue
 
@@ -155,7 +155,7 @@ def get_trip_updates() -> str:
                 trip_updates.ParseFromString(trip_updates_response.content)
             except requests.RequestException as e:
                 logging.error(
-                    f"Error fetching trip updates from {redact_url(feed_publisher.trip_updates_url)}: {str(e)}"
+                    f"Error fetching trip updates from {redact_url(feed_publisher.trip_updates_url)}: {type(e).__name__}"
                 )
                 continue
 
@@ -213,7 +213,7 @@ def get_alerts() -> str:
                 alerts.ParseFromString(alerts_response.content)
             except requests.RequestException as e:
                 logging.error(
-                    f"Error fetching alerts from {redact_url(feed_publisher.alerts_url)}: {str(e)}"
+                    f"Error fetching alerts from {redact_url(feed_publisher.alerts_url)}: {type(e).__name__}"
                 )
                 continue
 

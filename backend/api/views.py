@@ -27,6 +27,7 @@ from feed.models import (
     VehiclePosition,
 )
 from rest_framework import viewsets
+from rest_framework_gis.pagination import GeoJsonPagination
 from rest_framework.request import Request
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -186,7 +187,7 @@ class NextStopView(APIView):
 class RouteStopView(APIView):
     """Serve route-and-shape stop sequences as GeoJSON features."""
 
-    throttle_scope = "realtime"
+    throttle_scope = "geometry"
 
     def get(self, request: Request) -> Response:
         """Validate route and shape identifiers, then combine indexed stops with current-feed geometry and properties."""
@@ -293,6 +294,7 @@ class GeoStopViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only GeoJSON representations of stops filterable by identifier, location type, zone, parent station, or accessibility."""
 
     throttle_scope = "geometry"
+    pagination_class = GeoJsonPagination
     queryset = Stop.objects.all()
     serializer_class = GeoStopSerializer
     filter_backends = [DjangoFilterBackend]
@@ -359,6 +361,7 @@ class GeoShapeViewSet(viewsets.ReadOnlyModelViewSet):
     """Provide read-only GeoJSON representations of route shapes filterable by shape identifier."""
 
     throttle_scope = "geometry"
+    pagination_class = GeoJsonPagination
     queryset = GeoShape.objects.all()
     serializer_class = GeoShapeSerializer
     filter_backends = [DjangoFilterBackend]

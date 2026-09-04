@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 
 from pathlib import Path
 from decouple import config, Csv
+from django.core.exceptions import ImproperlyConfigured
 import platform
 import os
 from urllib.parse import quote
@@ -138,6 +139,9 @@ REDIS_CELERY_DB = config("REDIS_CELERY_DB", default=0, cast=int)
 REDIS_CACHE_DB = config("REDIS_CACHE_DB", default=1, cast=int)
 REDIS_PASSWORD = config("REDIS_PASSWORD", default="", cast=str)
 
+if not DEBUG and not REDIS_PASSWORD:
+    raise ImproperlyConfigured("REDIS_PASSWORD is required when DEBUG is False.")
+
 # Retain roughly 14 hours of active event traffic at ~20 events per second.
 REDIS_EVENTS_STREAM_MAXLEN = config(
     "REDIS_EVENTS_STREAM_MAXLEN", default=1_000_000, cast=int
@@ -208,9 +212,10 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.AllowAny",
     ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
-        "rest_framework.throttling.ScopedRateThrottle",
+        "api.throttling.ResilientAnonRateThrottle",
+        "api.throttling.ResilientScopedRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": config("DRF_THROTTLE_ANON_RATE", default="60/min", cast=str),
@@ -219,6 +224,7 @@ REST_FRAMEWORK = {
     },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": config("DRF_PAGE_SIZE", default=100, cast=int),
+    "NUM_PROXIES": config("DRF_NUM_PROXIES", default=1, cast=int),
 }
 
 SPECTACULAR_SETTINGS = {
