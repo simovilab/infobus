@@ -151,6 +151,20 @@ REDIS_DEAD_LETTER_STREAM_MAXLEN = config(
     "REDIS_DEAD_LETTER_STREAM_MAXLEN", default=10_000, cast=int
 )
 
+# Control the purging of historical data.
+REALTIME_RETENTION_DAYS = config(
+    "REALTIME_RETENTION_DAYS", default=2, cast=int
+)
+SCHEDULE_RETENTION_DAYS = config(
+    "SCHEDULE_RETENTION_DAYS", default=2, cast=int
+)
+PARQUET_RETENTION_DAYS = config(
+    "PARQUET_RETENTION_DAYS", default=30, cast=int
+)
+PURGE_BATCH_SIZE = config(
+    "PURGE_BATCH_SIZE", default=5_000, cast=int
+)
+
 # Run lifecycle detection
 RUN_NO_SIGNAL_AFTER_SECONDS = config(
     "RUN_NO_SIGNAL_AFTER_SECONDS", default=120, cast=int
