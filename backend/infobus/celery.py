@@ -46,4 +46,8 @@ app.conf.beat_schedule = {
         "task": "engine.tasks.save_gtfs_realtime",
         "schedule": crontab(minute=0),
     },
+    "purge-old-data": {
+        "task": "engine.tasks.purge_old_data",
+        "schedule": crontab(hour=3, minute=15),
+    },
 }
