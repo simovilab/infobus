@@ -1,9 +1,11 @@
 from celery import shared_task, group
+from io import StringIO
 import logging
 from typing import TypedDict
 
 import requests
 from django.conf import settings
+from django.core.management import call_command
 from google.transit import gtfs_realtime_pb2 as gtfs_rt
 from infobus.utils import redact_url
 from feed.models import TransitSystem, FeedPublisher
@@ -310,3 +312,15 @@ def save_gtfs_realtime() -> str:
         save_stop_time_updates.s(),
     )
     return saving.apply_async().id
+
+
+@shared_task
+def purge_old_data() -> str:
+    """Purge data exceeding configured retention periods."""
+    output = StringIO()
+    try:
+        call_command("purge_old_data", apply=True, stdout=output)
+    except Exception:
+        logging.exception("Data retention purge failed.")
+        return "Data retention purge failed."
+    return output.getvalue()
