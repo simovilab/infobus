@@ -54,7 +54,10 @@ StateDetector: TypeAlias = Callable[
 ]
 
 r = Redis(
-    host=settings.REDIS_HOST, port=settings.REDIS_PORT, db=settings.REDIS_CELERY_DB
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    db=settings.REDIS_CELERY_DB,
+    password=settings.REDIS_PASSWORD or None,
 )
 
 
@@ -109,7 +112,12 @@ def _update_state_and_publish_event(
                 pipe.multi()
                 pipe.set(key, current_state)
                 if event is not None:
-                    pipe.xadd("events", event)
+                    pipe.xadd(
+                        "events",
+                        event,
+                        maxlen=settings.REDIS_EVENTS_STREAM_MAXLEN,
+                        approximate=True,
+                    )
                 pipe.execute()
                 return
             except WatchError:

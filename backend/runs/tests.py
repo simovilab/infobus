@@ -329,3 +329,33 @@ class RunLifecycleRedisCleanupTests(SimpleTestCase):
             86400,
         )
         pipe.execute.assert_called_once_with()
+
+
+class RunServiceRedisClientTests(SimpleTestCase):
+    def test_run_service_clients_use_configured_credentials_and_decoding_modes(self):
+        """Verifies credentials and decoding modes for Redis clients in run services."""
+        from django.conf import settings
+
+        from runs.services import lifecycle, realtime, state, stop_index
+
+        clients = {
+            "runs.services.realtime": (realtime.r, False),
+            "runs.services.stop_index": (stop_index.r, True),
+            "runs.services.lifecycle": (lifecycle.r, True),
+            "runs.services.state": (state.r, False),
+        }
+
+        for module_name, (client, decodes_responses) in clients.items():
+            with self.subTest(module=module_name):
+                connection_kwargs = client.connection_pool.connection_kwargs
+                password_is_configured = connection_kwargs["password"] == (
+                    settings.REDIS_PASSWORD or None
+                )
+
+                self.assertTrue(password_is_configured)
+                if decodes_responses:
+                    self.assertIs(connection_kwargs.get("decode_responses"), True)
+                else:
+                    self.assertFalse(
+                        connection_kwargs.get("decode_responses", False)
+                    )
