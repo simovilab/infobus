@@ -1,3 +1,1 @@
-from django.contrib import admin
-
-# Register your models here.
+"""The web app registers no models in the Django admin."""
