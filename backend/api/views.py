@@ -2,6 +2,7 @@ from django.conf import settings
 from django.db.models import Model, QuerySet
 from django.http import FileResponse
 from django.http import HttpRequest
+from django.views.decorators.http import require_GET
 from engine.models import InfoService
 from feed.models import (
     Feed,
@@ -26,6 +27,7 @@ from feed.models import (
     VehiclePosition,
 )
 from rest_framework import viewsets
+from rest_framework_gis.pagination import GeoJsonPagination
 from rest_framework.request import Request
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -55,10 +57,10 @@ class FilterMixin:
         return queryset.filter(**filter_args)
 
 
-class FeedPublisherViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to GTFS feed publishers with filtering by code or name."""
+class FeedPublisherViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to GTFS feed publishers with filtering by code or name."""
 
-    queryset = FeedPublisher.objects.all()
+    queryset = FeedPublisher.objects.all().order_by("pk")
     serializer_class = FeedPublisherSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["code", "name"]
@@ -67,6 +69,9 @@ class FeedPublisherViewSet(viewsets.ModelViewSet):
 
 class NextTripView(APIView):
     """Serve upcoming realtime and scheduled arrivals for a requested stop, transit system, and optional timestamp."""
+
+    throttle_scope = "realtime"
+
     def get(self, request: Request) -> Response:
         """Validate the stop and optional timestamp, then serialize upcoming arrivals for the selected transit system."""
         tz = pytz.timezone(settings.TIME_ZONE)
@@ -113,6 +118,9 @@ class NextTripView(APIView):
 
 class NextStopView(APIView):
     """Serve latest stop-time predictions for a trip identified by ID, date, and start time."""
+
+    throttle_scope = "realtime"
+
     def get(self, request: Request) -> Response:
         """Validate a trip instance descriptor and combine its latest stop-time updates with current-feed stop details."""
         # Get query parameters
@@ -178,6 +186,9 @@ class NextStopView(APIView):
 
 class RouteStopView(APIView):
     """Serve route-and-shape stop sequences as GeoJSON features."""
+
+    throttle_scope = "geometry"
+
     def get(self, request: Request) -> Response:
         """Validate route and shape identifiers, then combine indexed stops with current-feed geometry and properties."""
         # Get and validate query parameters
@@ -252,20 +263,20 @@ class RouteStopView(APIView):
             )
 
 
-class AgencyViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to transit agencies with filtering by agency identifier or name."""
+class AgencyViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to transit agencies with filtering by agency identifier or name."""
 
-    queryset = Agency.objects.all()
+    queryset = Agency.objects.all().order_by("pk")
     serializer_class = AgencySerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["agency_id", "agency_name"]
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to stops with filtering by identifier, code, name, coordinates, or URL."""
+class StopViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to stops with filtering by identifier, code, name, coordinates, or URL."""
 
-    queryset = Stop.objects.all()
+    queryset = Stop.objects.all().order_by("pk")
     serializer_class = StopSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
@@ -279,10 +290,12 @@ class StopViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class GeoStopViewSet(viewsets.ModelViewSet):
-    """Provide GeoJSON CRUD representations of stops filterable by identifier, location type, zone, parent station, or accessibility."""
+class GeoStopViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only GeoJSON representations of stops filterable by identifier, location type, zone, parent station, or accessibility."""
 
-    queryset = Stop.objects.all()
+    throttle_scope = "geometry"
+    pagination_class = GeoJsonPagination
+    queryset = Stop.objects.all().order_by("pk")
     serializer_class = GeoStopSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
@@ -295,10 +308,10 @@ class GeoStopViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class RouteViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to routes with filtering by route type or identifier."""
+class RouteViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to routes with filtering by route type or identifier."""
 
-    queryset = Route.objects.all()
+    queryset = Route.objects.all().order_by("pk")
     serializer_class = RouteSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["route_type", "route_id"]
@@ -313,50 +326,53 @@ class RouteViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class CalendarViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to service calendars filterable by service identifier."""
+class CalendarViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to service calendars filterable by service identifier."""
 
-    queryset = Calendar.objects.all()
+    queryset = Calendar.objects.all().order_by("pk")
     serializer_class = CalendarSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["service_id"]
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class CalendarDateViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to service-date exceptions filterable by service identifier."""
+class CalendarDateViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to service-date exceptions filterable by service identifier."""
 
-    queryset = CalendarDate.objects.all()
+    queryset = CalendarDate.objects.all().order_by("pk")
     serializer_class = CalendarDateSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["service_id"]
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class ShapeViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to scheduled shape points filterable by shape identifier."""
+class ShapeViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to scheduled shape points filterable by shape identifier."""
 
-    queryset = Shape.objects.all()
+    throttle_scope = "geometry"
+    queryset = Shape.objects.all().order_by("pk")
     serializer_class = ShapeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["shape_id"]
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class GeoShapeViewSet(viewsets.ModelViewSet):
-    """Provide GeoJSON CRUD representations of route shapes filterable by shape identifier."""
+class GeoShapeViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only GeoJSON representations of route shapes filterable by shape identifier."""
 
-    queryset = GeoShape.objects.all()
+    throttle_scope = "geometry"
+    pagination_class = GeoJsonPagination
+    queryset = GeoShape.objects.all().order_by("pk")
     serializer_class = GeoShapeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["shape_id"]
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class TripViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to trips with filtering by shape, direction, trip, route, or service identifiers."""
+class TripViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to trips with filtering by shape, direction, trip, route, or service identifiers."""
 
-    queryset = Trip.objects.all()
+    queryset = Trip.objects.all().order_by("pk")
     serializer_class = TripSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
@@ -369,50 +385,50 @@ class TripViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopTimeViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to scheduled stop times filterable by trip or stop identifier."""
+class StopTimeViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to scheduled stop times filterable by trip or stop identifier."""
 
-    queryset = StopTime.objects.all()
+    throttle_scope = "geometry"
+    queryset = StopTime.objects.all().order_by("pk")
     serializer_class = StopTimeSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["trip_id", "stop_id"]
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FeedInfoViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to feed metadata filterable by publisher name."""
+class FeedInfoViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to feed metadata filterable by publisher name."""
 
-    queryset = FeedInfo.objects.all()
+    queryset = FeedInfo.objects.all().order_by("pk")
     serializer_class = FeedInfoSerializer
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["feed_publisher_name"]
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FareAttributeViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to fare attributes."""
+class FareAttributeViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to fare attributes."""
 
-    queryset = FareAttribute.objects.all()
+    queryset = FareAttribute.objects.all().order_by("pk")
     serializer_class = FareAttributeSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
 
-class FareRuleViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to fare rules, filterable by route identifier."""
+class FareRuleViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to fare rules, filterable by route identifier."""
 
-    queryset = FareRule.objects.all()
+    queryset = FareRule.objects.all().order_by("pk")
     serializer_class = FareRuleSerializer
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ["shape_id", "direction_id", "trip_id", "route_id", "service_id"]
+    filterset_fields = ["route_id"]
     # permission_classes = [permissions.IsAuthenticated]
     # Esto no tiene path con query params ni response schema
 
 
-class ServiceAlertViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to service alerts with filtering by alert, route, trip, start time, or service date."""
+class ServiceAlertViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to service alerts with filtering by alert, route, trip, start time, or service date."""
 
     queryset = Alert.objects.all()
     serializer_class = ServiceAlertSerializer
@@ -427,8 +443,8 @@ class ServiceAlertViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class FeedMessageViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to feed messages."""
+class FeedMessageViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to feed messages."""
 
     queryset = FeedMessage.objects.all()
     serializer_class = FeedMessageSerializer
@@ -438,8 +454,8 @@ class FeedMessageViewSet(viewsets.ModelViewSet):
     # Esto no tiene path con query params ni response schema
 
 
-class TripUpdateViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to trip updates filterable by trip descriptor fields or vehicle identifier."""
+class TripUpdateViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to trip updates filterable by trip descriptor fields or vehicle identifier."""
 
     queryset = TripUpdate.objects.all()
     serializer_class = TripUpdateSerializer
@@ -453,8 +469,8 @@ class TripUpdateViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class StopTimeUpdateViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to stop-time updates."""
+class StopTimeUpdateViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to stop-time updates."""
 
     queryset = StopTimeUpdate.objects.all()
     serializer_class = StopTimeUpdateSerializer
@@ -465,8 +481,8 @@ class StopTimeUpdateViewSet(viewsets.ModelViewSet):
     # Esto no tiene path con query params ni response schema
 
 
-class VehiclePositionViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to vehicle positions with filtering by vehicle and trip descriptor fields."""
+class VehiclePositionViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to vehicle positions with filtering by vehicle and trip descriptor fields."""
 
     queryset = VehiclePosition.objects.all()
     serializer_class = VehiclePositionSerializer
@@ -481,8 +497,8 @@ class VehiclePositionViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
-class InfoServiceViewSet(viewsets.ModelViewSet):
-    """Provide CRUD access to connected information services ordered by creation time and filterable by type or name."""
+class InfoServiceViewSet(viewsets.ReadOnlyModelViewSet):
+    """Provide read-only access to connected information services ordered by creation time and filterable by type or name."""
 
     queryset = InfoService.objects.all().order_by("created_at")
     serializer_class = InfoServiceSerializer
@@ -491,6 +507,7 @@ class InfoServiceViewSet(viewsets.ModelViewSet):
     # permission_classes = [permissions.IsAuthenticated]
 
 
+@require_GET
 def get_schema(request: HttpRequest) -> FileResponse:
     """Return the bundled API schema YAML file as a downloadable attachment."""
     file_path = settings.BASE_DIR / "api" / "infobus.yml"

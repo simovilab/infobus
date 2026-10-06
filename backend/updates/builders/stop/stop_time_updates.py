@@ -1,5 +1,6 @@
 import json
 import logging
+from collections.abc import Sized
 from typing import Any, cast
 
 from django.conf import settings
@@ -25,6 +26,7 @@ r = Redis(
     host=settings.REDIS_HOST,
     port=settings.REDIS_PORT,
     db=settings.REDIS_CELERY_DB,
+    password=settings.REDIS_PASSWORD or None,
     decode_responses=True,
 )
 
@@ -36,7 +38,7 @@ SCHEDULE_RELATIONSHIPS = {
 }
 
 
-def _decode_stop_time_updates(value: object) -> list[dict[str, Any]]:
+def _decode_stop_time_updates(value: object, run_id: str) -> list[dict[str, Any]]:
     """Decode current RedisJSON and the legacy JSON-string representation."""
     if isinstance(value, bytes):
         value = value.decode("utf-8")
@@ -44,8 +46,21 @@ def _decode_stop_time_updates(value: object) -> list[dict[str, Any]]:
         try:
             value = json.loads(value)
         except (TypeError, ValueError):
+            logger.warning(
+                "Unable to decode stop time updates for run %s: invalid JSON from %s of length %s",
+                run_id,
+                type(value).__name__,
+                len(value),
+            )
             return []
     if not isinstance(value, list):
+        length = len(value) if isinstance(value, Sized) else None
+        logger.warning(
+            "Unable to decode stop time updates for run %s: expected list, received %s of length %s",
+            run_id,
+            type(value).__name__,
+            length,
+        )
         return []
     return [item for item in value if isinstance(item, dict)]
 
@@ -168,7 +183,7 @@ def build_stop_time_updates(topic: TopicKey) -> dict[str, object]:
         current_sequences,
     ):
         run = runs_by_id[run_id]
-        for raw_update in _decode_stop_time_updates(document):
+        for raw_update in _decode_stop_time_updates(document, run_id):
             if str(raw_update.get("stop_id")) != stop_id:
                 continue
 

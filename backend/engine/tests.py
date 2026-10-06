@@ -58,7 +58,8 @@ class GetVehiclePositionsTaskTests(SimpleTestCase):
         self.refresh_topics = self._start_patch(
             "engine.tasks.refresh_active_vehicle_position_topics"
         )
-        self.requests_get.return_value.content = b""
+        self.requests_get.return_value.content = b"payload"
+        self.feed_message.return_value.entity = [object()]
         self.update_vehicle_positions_state.return_value = set()
 
     def _start_patch(self, target):
@@ -80,8 +81,7 @@ class GetVehiclePositionsTaskTests(SimpleTestCase):
         for code, publisher_urls in systems_and_publishers:
             transit_systems.append(SimpleNamespace(code=code))
             publishers = [
-                SimpleNamespace(vehicle_positions_url=url)
-                for url in publisher_urls
+                SimpleNamespace(vehicle_positions_url=url) for url in publisher_urls
             ]
             publisher_querysets.append(self._queryset(publishers))
 
@@ -122,7 +122,7 @@ class GetVehiclePositionsTaskTests(SimpleTestCase):
             ("system-a", ("https://failed.example", "https://success.example"))
         )
         successful_response = MagicMock()
-        successful_response.content = b""
+        successful_response.content = b"payload"
         self.requests_get.side_effect = [
             requests.RequestException("request failed"),
             successful_response,
@@ -153,3 +153,23 @@ class GetVehiclePositionsTaskTests(SimpleTestCase):
 
         self.assertEqual(result, "No active transit systems found.")
         self.refresh_topics.assert_not_called()
+
+
+class CeleryBrokerRedisCredentialTests(SimpleTestCase):
+    def test_celery_broker_url_carries_redis_credentials_when_configured(self):
+        """Verifies the Celery Redis URL conditionally carries encoded credentials."""
+        from django.conf import settings
+
+        broker_url = settings.CELERY_BROKER_URL
+
+        self.assertTrue(broker_url.startswith("redis://"))
+        if settings.REDIS_PASSWORD:
+            self.assertIn("@", broker_url)
+            if any(
+                character in settings.REDIS_PASSWORD
+                for character in ":/?#[]@!$&'()*+,;=%"
+            ):
+                password_is_plaintext = settings.REDIS_PASSWORD in broker_url
+                self.assertFalse(password_is_plaintext)
+        else:
+            self.assertNotIn("@", broker_url)
