@@ -146,6 +146,7 @@ services:
       - .env.dev
     volumes:
       - ./context:/app
+      - context_venv:/app/.venv
 
   knowledge:
     build:
@@ -187,6 +188,7 @@ volumes:
   broker_data:
   ui_node_modules:
   backend_venv:
+  context_venv:
 
 networks:
   default:
