@@ -3,10 +3,10 @@ from rest_framework import routers
 
 from . import views
 
-router = routers.DefaultRouter()
-router.register(r"home", views.HomeViewSet)
-router.register(r"routes", views.RoutesViewSet)
+app_name = "web"
 
+router = routers.DefaultRouter()
+router.register(r"home", views.HomeViewSet, basename="home")
 
 urlpatterns = [
     path("", include(router.urls)),
