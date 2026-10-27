@@ -351,7 +351,7 @@ ensure_dev_superuser() {
 }
 
 collect_static_files() {
-    uv run python manage.py collectstatic --noinput || warn "Static files collection skipped"
+    uv run python manage.py collectstatic --noinput
 }
 
 load_initial_data() {

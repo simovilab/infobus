@@ -37,7 +37,6 @@ services:
     volumes:
       - backend_venv:/home/app/.venv
       - lake_data:/app/data
-      - static_files:/app/staticfiles
     depends_on:
       database:
         condition: service_healthy
@@ -269,7 +268,6 @@ volumes:
   lake_data:
   broker_data:
   backend_venv:
-  static_files:
   minio_data:
 
 networks:

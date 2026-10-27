@@ -138,7 +138,7 @@ if docker compose -f "$COMPOSE_FILE" config --quiet 2>/dev/null; then
     echo -e "  ${GREEN}[OK]${NC}  $COMPOSE_FILE is valid"
 else
     echo -e "  ${RED}[!!]${NC}  $COMPOSE_FILE has errors:"
-    docker compose -f "$COMPOSE_FILE" config 2>&1 | head -20
+    docker compose -f "$COMPOSE_FILE" config --quiet
     exit 1
 fi
 
@@ -198,7 +198,7 @@ done
 if [ "$INFRA_OK" = true ]; then
     echo -e "${GREEN}Infrastructure healthy after ${ELAPSED}s.${NC}"
 else
-    echo -e "${RED}Infrastructure not healthy after ${MAX_WAIT}s. Continuing anyway...${NC}"
+    echo -e "${RED}Infrastructure not healthy after ${MAX_WAIT}s. Aborting deployment.${NC}"
     for svc in database state broker lake; do
         cid=$(docker compose -f "$COMPOSE_FILE" ps -q "$svc" 2>/dev/null || true)
         if [ -n "$cid" ]; then
@@ -206,6 +206,7 @@ else
             echo -e "  ${YELLOW}${svc}${NC}: $health"
         fi
     done
+    exit 1
 fi
 
 print_section "$BLUE" "Starting application services"
@@ -227,13 +228,14 @@ ELAPSED=0
 ORCHESTRATOR_OK=false
 
 while [ $ELAPSED -lt $MAX_WAIT ]; do
-    # Check via container health rather than HTTP (no TLS certs locally)
+    # Probe Daphne directly inside the container, without depending on TLS.
     cid=$(docker compose -f "$COMPOSE_FILE" ps -q orchestrator 2>/dev/null || true)
     if [ -n "$cid" ]; then
         status=$(docker inspect --format='{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown")
         if [ "$status" = "running" ]; then
-            # Check if Daphne is listening by testing TCP inside the container
-            if docker exec "$cid" sh -c 'exec 3<>/dev/tcp/localhost/8000' 2>/dev/null; then
+            # /bin/sh is dash in the production image and has no /dev/tcp.
+            if docker exec "$cid" /home/app/.venv/bin/python -c \
+                'import socket; socket.create_connection(("127.0.0.1", 8000), timeout=2).close()' 2>/dev/null; then
                 ORCHESTRATOR_OK=true
                 break
             fi
@@ -258,6 +260,7 @@ else
     echo -e "${RED}Orchestrator did not respond within ${MAX_WAIT}s.${NC}"
     echo -e "${YELLOW}Last orchestrator logs:${NC}"
     docker compose -f "$COMPOSE_FILE" logs --tail=30 orchestrator
+    exit 1
 fi
 
 # ---------------------------------------------------------------------------
@@ -295,7 +298,7 @@ done
 
 print_section "$CYAN" "Docker volumes"
 
-for vol in database_data memory_data broker_data lake_data minio_data backend_venv static_files; do
+for vol in database_data memory_data broker_data lake_data minio_data backend_venv; do
     full_name="infobus-prod_${vol}"
     if docker volume inspect "$full_name" >/dev/null 2>&1; then
         echo -e "  ${GREEN}[OK]${NC}  ${full_name}"

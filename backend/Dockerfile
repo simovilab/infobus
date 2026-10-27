@@ -29,7 +29,7 @@ RUN groupadd --gid 1000 app && \
 WORKDIR /app
 
 # Change ownership of /app directory to user "app"
-RUN mkdir -p /home/app/.venv && \
+RUN mkdir -p /home/app/.venv /app/staticfiles && \
     chown -R app:app /app /home/app
 
 # Copy dependency files

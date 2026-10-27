@@ -1,6 +1,36 @@
+import os
+import subprocess
+import sys
+from pathlib import Path
 from django.test import SimpleTestCase
 
 from .utils import redact_url
+
+
+class AsgiStartupTests(SimpleTestCase):
+    def test_application_import_initializes_django_in_a_fresh_process(self):
+        env = os.environ.copy()
+        env.pop("DJANGO_SETTINGS_MODULE", None)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from infobus.asgi import application; "
+                    "from django.apps import apps; "
+                    "assert apps.ready; "
+                    "assert set(application.application_mapping) == "
+                    "{'http', 'websocket'}"
+                ),
+            ],
+            cwd=Path(__file__).resolve().parent.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 class RedactUrlTests(SimpleTestCase):
