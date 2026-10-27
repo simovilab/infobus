@@ -1,76 +1,35 @@
 # API
 
-The `api` Django app is Infobús®'s HTTP serialization boundary. It exposes
-selected `feed` Schedule models, the `engine.InfoService` model, three
-read-oriented query views, browsable-API authentication routes, and Redoc
-documentation under the project-level `/api/` prefix
-(`backend/infobus/urls.py:32`, `backend/api/urls.py:8`,
-`backend/api/urls.py:22`, `backend/api/urls.py:29`,
-`backend/api/urls.py:34`).
+The `api` Django app is Infobús' HTTP serialization boundary. It exposes selected `feed` Schedule models, the `engine.InfoService` model, three read-oriented query views, browsable-API authentication routes, and Redoc documentation under the project-level `/api/` prefix
+(`backend/infobus/urls.py:32`, `backend/api/urls.py:8`, `backend/api/urls.py:22`, `backend/api/urls.py:29`, `backend/api/urls.py:34`).
 
-The app is stateless in the application-ownership sense: it defines no model
-of its own and delegates all persisted data to `feed` or `engine`
-(`backend/api/models.py:1`, `backend/api/models.py:3`,
-`backend/api/views.py:3`, `backend/api/views.py:4`).
+The app is stateless in the application-ownership sense: it defines no model of its own and delegates all persisted data to `feed` or `engine` (`backend/api/models.py:1`, `backend/api/models.py:3`, `backend/api/views.py:3`, `backend/api/views.py:4`).
 
 ## Purpose
 
 The app has four connected purposes:
 
-1. Publish mutable REST resources for 14 `feed` Schedule model projections
-   and one `engine.InfoService` projection through a DRF `DefaultRouter`
-   (`backend/api/urls.py:7`, `backend/api/urls.py:8`,
-   `backend/api/urls.py:9`, `backend/api/urls.py:22`).
-2. Provide next-trip, next-stop, and route-stop query endpoints outside the
-   router (`backend/api/urls.py:29`, `backend/api/urls.py:30`,
-   `backend/api/urls.py:31`).
-3. Represent stops and shapes as GeoJSON-compatible resources through
-   `GeoFeatureModelSerializer` (`backend/api/serializers.py:112`,
-   `backend/api/serializers.py:118`, `backend/api/serializers.py:154`,
-   `backend/api/serializers.py:160`).
-4. Serve Redoc against a repository-owned static OpenAPI YAML document
-   (`backend/api/urls.py:33`, `backend/api/urls.py:34`,
-   `backend/api/views.py:520`, `backend/api/views.py:523`).
+1. Publish mutable REST resources for 14 `feed` Schedule model projections and one `engine.InfoService` projection through a DRF `DefaultRouter` (`backend/api/urls.py:7`, `backend/api/urls.py:8`, `backend/api/urls.py:9`, `backend/api/urls.py:22`).
+2. Provide next-trip, next-stop, and route-stop query endpoints outside the router (`backend/api/urls.py:29`, `backend/api/urls.py:30`, `backend/api/urls.py:31`).
+3. Represent stops and shapes as GeoJSON-compatible resources through `GeoFeatureModelSerializer` (`backend/api/serializers.py:112`, `backend/api/serializers.py:118`, `backend/api/serializers.py:154`, `backend/api/serializers.py:160`).
+4. Serve Redoc against a repository-owned static OpenAPI YAML document (`backend/api/urls.py:33`, `backend/api/urls.py:34`, `backend/api/views.py:520`, `backend/api/views.py:523`).
 
-The API does not acquire GTFS feeds, normalize Realtime messages, own transit
-models, or own `InfoService`. Those responsibilities remain in `feed` and
-`engine`; `api` imports their models and one feed query service
-(`backend/api/views.py:3`, `backend/api/views.py:4`,
-`backend/api/views.py:33`).
+The API does not acquire GTFS feeds, normalize Realtime messages, own transit models, or own `InfoService`. Those responsibilities remain in `feed` and `engine`; `api` imports their models and one feed query service (`backend/api/views.py:3`, `backend/api/views.py:4`, `backend/api/views.py:33`).
 
 ## Responsibilities and boundaries
 
 ### Responsibilities
 
-- Register the Schedule and information-service resources that form the
-  current router surface (`backend/api/urls.py:8`,
-  `backend/api/urls.py:22`).
-- Attach a model queryset, serializer, `DjangoFilterBackend`, and explicit
-  filter fields to every defined ViewSet (`backend/api/views.py:55`,
-  `backend/api/views.py:56`, `backend/api/views.py:57`,
-  `backend/api/views.py:58`, `backend/api/views.py:513`,
-  `backend/api/views.py:514`, `backend/api/views.py:515`,
-  `backend/api/views.py:516`).
-- Validate query parameters and serialize computed responses for the three
-  APIViews (`backend/api/views.py:67`, `backend/api/views.py:102`,
-  `backend/api/views.py:113`, `backend/api/views.py:164`,
-  `backend/api/views.py:172`, `backend/api/views.py:234`).
-- Attempt to construct the route-stop response as a GeoJSON `FeatureCollection`
-  (`backend/api/views.py:199`, `backend/api/views.py:200`,
-  `backend/api/views.py:207`, `backend/api/views.py:232`). This path is
-  **broken** when matching stops exist: the loop reads `stop.shelter`, but
-  `Stop` defines no such field or property (`backend/api/views.py:218`,
-  `backend/feed/models.py:194`).
-- Expose the DRF browsable-API login routes and the Redoc UI
-  (`backend/api/urls.py:32`, `backend/api/urls.py:34`).
+- Register the Schedule and information-service resources that form the current router surface (`backend/api/urls.py:8`, `backend/api/urls.py:22`).
+- Attach a model queryset, serializer, `DjangoFilterBackend`, and explicit filter fields to every defined ViewSet (`backend/api/views.py:55`, `backend/api/views.py:56`, `backend/api/views.py:57`, `backend/api/views.py:58`, `backend/api/views.py:513`, `backend/api/views.py:514`, `backend/api/views.py:515`, `backend/api/views.py:516`).
+- Validate query parameters and serialize computed responses for the three APIViews (`backend/api/views.py:67`, `backend/api/views.py:102`, `backend/api/views.py:113`, `backend/api/views.py:164`, `backend/api/views.py:172`, `backend/api/views.py:234`).
+- Attempt to construct the route-stop response as a GeoJSON `FeatureCollection` (`backend/api/views.py:199`, `backend/api/views.py:200`, `backend/api/views.py:207`, `backend/api/views.py:232`). This path is **broken** when matching stops exist: the loop reads `stop.shelter`, but `Stop` defines no such field or property (`backend/api/views.py:218`, `backend/feed/models.py:194`).
+- Expose the DRF browsable-API login routes and the Redoc UI (`backend/api/urls.py:32`, `backend/api/urls.py:34`).
 
 ### Boundaries
 
-- The app owns no database model or migration. `models.py` contains only the
-  generated import and placeholder comment (`backend/api/models.py:1`,
-  `backend/api/models.py:3`), and the repository-wide `migrations/` ignore
-  rule is active (`.gitignore:87`).
-- The router exposes Schedule-oriented resources plus `InfoService`; it does
+- The app owns no database model or migration. `models.py` is empty and the repository-wide `migrations/` ignore rule is active (`.gitignore:87`).
+- The router exposes GTFS Schedule-oriented resources plus `InfoService`; it does
   not register the five implemented Realtime ViewSets
   (`backend/api/urls.py:8`, `backend/api/urls.py:22`,
   `backend/api/views.py:428`, `backend/api/views.py:446`,

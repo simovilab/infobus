@@ -24,10 +24,12 @@ A real-time public transportation information system, developed. Infobús proces
 | **scheduler**      | Triggers periodic tasks                     | Celery Beat            |
 | **user-interface** | Web frontend                                | Nuxt                   |
 | **database**       | Durable persistence with geospatial support | PostgreSQL + PostGIS   |
-| **memory**         | Cache, sessions, and Celery broker          | Redis                  |
+| **state**          | Cache, sessions, and Celery broker          | Redis                  |
 | **broker**         | Async messaging                             | RabbitMQ               |
-| **context**        | MCP tool server                             | FastMCP                |
-| **knowledge**      | SPARQL / knowledge graph                    | Apache Jena Fuseki     |
+| **lake**           | Object storage                              | MinIO                  |
+
+FastMCP, Fuseki, and the documentation site are deployed separately from the
+development and production Compose stacks.
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed service mandates and design principles.
 
@@ -62,19 +64,22 @@ cp .env.example .env   # edit with your values
 ./scripts/dev.sh
 ```
 
-The startup script pulls images, builds containers, runs migrations, and waits for all services to become healthy. On first run this takes 1–2 minutes.
+The development stack includes licensed MinIO storage. Provide `minio.license`
+in the repository root and set `MINIO_ROOT_PASSWORD` in `.env` before startup.
+
+The startup script pulls images, builds containers, runs migrations, and performs basic service checks. On first run this takes 1–2 minutes.
 
 ### Development URLs
 
 | URL                         | Description                       |
 | --------------------------- | --------------------------------- |
-| http://localhost:8000       | Orchestrator / API                |
-| http://localhost:8000/admin | Django admin (admin/admin)        |
-| http://localhost:8000/api/  | REST API root                     |
+| http://localhost:8001       | Orchestrator / API                |
+| http://localhost:8001/admin | Django admin (admin/admin)        |
+| http://localhost:8001/api/  | REST API root                     |
 | http://localhost:3000       | Nuxt frontend                     |
-| http://localhost:15672      | RabbitMQ management (guest/guest) |
-| http://localhost:3030       | Fuseki SPARQL endpoint            |
-| http://localhost:3278       | MCP context server                |
+| http://localhost:25672      | RabbitMQ management (guest/guest) |
+| http://localhost:9000       | MinIO S3 API                      |
+| http://localhost:9001       | MinIO console                     |
 
 ### Common commands
 
@@ -119,10 +124,7 @@ cp .env.example .env   # add production domains and credentials (see below)
 # Domain routing (Traefik)
 ORCHESTRATOR_DOMAIN=api.example.com
 UI_DOMAIN=app.example.com
-KNOWLEDGE_DOMAIN=knowledge.example.com
-CONTEXT_DOMAIN=context.example.com
-BROKER_DOMAIN=broker.example.com
-DOCS_DOMAIN=docs.example.com
+LAKE_DOMAIN=lake.example.com
 CERT_RESOLVER=letsencrypt
 
 # Credentials
@@ -131,7 +133,13 @@ DB_PASSWORD=<strong-password>
 REDIS_PASSWORD=<strong-password>
 RABBITMQ_USER=infobus
 RABBITMQ_PASS=<strong-password>
+MINIO_ROOT_USER=infobus
+MINIO_ROOT_PASSWORD=<strong-password>
 ```
+
+Provide the licensed `minio.license` file in the repository root before
+starting the MinIO service. FastMCP, Fuseki, and the documentation site are
+deployed separately and have their own domain configuration.
 
 ### Production services
 
@@ -139,12 +147,9 @@ RABBITMQ_PASS=<strong-password>
 | -------------- | --------------------- | -------------------------- |
 | orchestrator   | `ORCHESTRATOR_DOMAIN` | Django API and admin       |
 | user-interface | `UI_DOMAIN`           | Nuxt frontend              |
-| knowledge      | `KNOWLEDGE_DOMAIN`    | Fuseki SPARQL endpoint     |
-| context        | `CONTEXT_DOMAIN`      | MCP context server         |
-| broker         | `BROKER_DOMAIN`       | RabbitMQ management UI     |
-| docs           | `DOCS_DOMAIN`         | Documentation site (nginx) |
+| lake           | `LAKE_DOMAIN`         | MinIO S3-compatible API    |
 
-Internal-only (not exposed): `database`, `memory`, `engine`, `scheduler`.
+Internal-only (not exposed): `database`, `state`, `engine`, `scheduler`, `broker`, and the MinIO console.
 
 ### Common operations
 

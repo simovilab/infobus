@@ -504,15 +504,15 @@ mbta.stop.occupancy_status.by_stop.123
 
 The stop-time projection uses all seven segments:
 
-| Segment | Value example | Stop-time meaning |
-| --- | --- | --- |
-| Transit system | `mbta` | Scopes Redis state and `Run` records to one transit system. (`backend/updates/builders/stop/stop_time_updates.py:136-162`) |
-| Entity | `stop` | Selects the stop-level aggregate view. (`backend/updates/registry.py:92-97`) |
-| Information | `stop_time_updates` | Selects current GTFS Realtime stop predictions. (`backend/updates/registry.py:92-97`) |
-| Primary selector | `by_stop` | Interprets the primary value as a stop ID. (`backend/updates/registry.py:92-97`) |
-| Primary value | `123` | Filters prediction entries to the requested stop. (`backend/updates/builders/stop/stop_time_updates.py:131-132`, `backend/updates/builders/stop/stop_time_updates.py:171-173`) |
-| Qualifier selector | `by_direction` | Interprets the qualifier value as a GTFS direction ID. (`backend/updates/registry.py:92-97`) |
-| Qualifier value | `1` | Accepts only the canonical strings `0` and `1`. (`backend/updates/projections/stop/stop_time_updates.py:11-22`) |
+| Segment            | Value example       | Stop-time meaning                                                                                                                                                              |
+| ------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Transit system     | `mbta`              | Scopes Redis state and `Run` records to one transit system. (`backend/updates/builders/stop/stop_time_updates.py:136-162`)                                                     |
+| Entity             | `stop`              | Selects the stop-level aggregate view. (`backend/updates/registry.py:92-97`)                                                                                                   |
+| Information        | `stop_time_updates` | Selects current GTFS Realtime stop predictions. (`backend/updates/registry.py:92-97`)                                                                                          |
+| Primary selector   | `by_stop`           | Interprets the primary value as a stop ID. (`backend/updates/registry.py:92-97`)                                                                                               |
+| Primary value      | `123`               | Filters prediction entries to the requested stop. (`backend/updates/builders/stop/stop_time_updates.py:131-132`, `backend/updates/builders/stop/stop_time_updates.py:171-173`) |
+| Qualifier selector | `by_direction`      | Interprets the qualifier value as a GTFS direction ID. (`backend/updates/registry.py:92-97`)                                                                                   |
+| Qualifier value    | `1`                 | Accepts only the canonical strings `0` and `1`. (`backend/updates/projections/stop/stop_time_updates.py:11-22`)                                                                |
 
 There is no route qualifier. One topic can therefore contain predictions from
 multiple routes when those runs approach the same stop in the selected direction.
@@ -566,13 +566,13 @@ building depend on them.
 
 ### State read by the stop-time builder
 
-| Key | Type | Purpose |
-| --- | --- | --- |
-| `<transit_system>:runs:active` | set | Canonical membership of runs eligible for public snapshots. (`backend/runs/services/lifecycle.py:83-85`, `backend/updates/builders/stop/stop_time_updates.py:136-143`) |
-| `<transit_system>:stop:<stop_id>:approaching_runs` | set | Candidate run IDs indexed for the requested stop. (`backend/runs/services/stop_index.py:24-26`, `backend/runs/services/stop_index.py:105-107`) |
-| `<transit_system>:run:<run_id>:remaining_stops` | sorted set | Confirms that the stop remains at or ahead of current progress. (`backend/runs/services/stop_index.py:19-21`, `backend/runs/services/stop_index.py:110-123`) |
-| `<transit_system>:trip:<run_id>:current_stop_sequence` | string | Current progress used to reject earlier or sequence-less visits. (`backend/updates/builders/stop/stop_time_updates.py:87-102`, `backend/updates/builders/stop/stop_time_updates.py:175-183`) |
-| `<transit_system>:trip:<run_id>:stop_time_updates` | RedisJSON | Current arrival, departure, sequence, stop, and schedule-relationship values. (`backend/runs/services/state.py:263-293`) |
+| Key                                                    | Type       | Purpose                                                                                                                                                                                      |
+| ------------------------------------------------------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<transit_system>:runs:active`                         | set        | Canonical membership of runs eligible for public snapshots. (`backend/runs/services/lifecycle.py:83-85`, `backend/updates/builders/stop/stop_time_updates.py:136-143`)                       |
+| `<transit_system>:stop:<stop_id>:approaching_runs`     | set        | Candidate run IDs indexed for the requested stop. (`backend/runs/services/stop_index.py:24-26`, `backend/runs/services/stop_index.py:105-107`)                                               |
+| `<transit_system>:run:<run_id>:remaining_stops`        | sorted set | Confirms that the stop remains at or ahead of current progress. (`backend/runs/services/stop_index.py:19-21`, `backend/runs/services/stop_index.py:110-123`)                                 |
+| `<transit_system>:trip:<run_id>:current_stop_sequence` | string     | Current progress used to reject earlier or sequence-less visits. (`backend/updates/builders/stop/stop_time_updates.py:87-102`, `backend/updates/builders/stop/stop_time_updates.py:175-183`) |
+| `<transit_system>:trip:<run_id>:stop_time_updates`     | RedisJSON  | Current arrival, departure, sequence, stop, and schedule-relationship values. (`backend/runs/services/state.py:263-293`)                                                                     |
 
 The builder also queries scoped `Run` rows for the UUID, GTFS trip ID, GTFS
 route ID, transit system, and direction. It does not use the historical
@@ -618,7 +618,7 @@ status is described below.
 ### `client.py`
 
 This module is the long-running Redis Streams worker. The Docker
-`streams-consumer` service launches it with:
+`streams` service launches it with:
 
 ```text
 python -m updates.client
@@ -1339,7 +1339,7 @@ provides the JSON commands used by the stop occupancy builder and run state
 service.
 
 > Estado de producción: `roto` en los tres puntos siguientes. Primero,
-> `streams-consumer` está declarado en desarrollo (`compose.dev.yml:70-87`),
+> `streams` está declarado en desarrollo (`compose.dev.yml:70-87`),
 > pero no tiene un servicio equivalente en el mapa de servicios de producción
 > (`compose.prod.yml:22-289`). Segundo, producción usa `redis:7-alpine` sin
 > módulos declarados (`compose.prod.yml:167-170`), mientras el builder de parada
@@ -1400,24 +1400,24 @@ docker compose -f compose.dev.yml exec orchestrator \
 ### Check the consumer group
 
 ```bash
-docker compose -f compose.dev.yml exec memory \
+docker compose -f compose.dev.yml exec state \
 	redis-cli XINFO GROUPS events
 
-docker compose -f compose.dev.yml exec memory \
+docker compose -f compose.dev.yml exec state \
 	redis-cli XPENDING events updates
 ```
 
 ### Inspect dead-letter events
 
 ```bash
-docker compose -f compose.dev.yml exec memory \
+docker compose -f compose.dev.yml exec state \
 	redis-cli XREVRANGE events:dead-letter + - COUNT 20
 ```
 
 ### Restart the stream consumer
 
 ```bash
-docker compose -f compose.dev.yml restart streams-consumer
+docker compose -f compose.dev.yml restart streams
 ```
 
 ### Manual browser test
@@ -1497,7 +1497,6 @@ shows raw WebSocket messages.
 > (`backend/engine/templates/status.html:65-70`) y ASGI solo monta el routing de
 > `updates` (`backend/infobus/asgi.py:15-22`).
 
-
 > Estado: `no encontrado`; decisión abierta. El contrato de tópico, evento y
 > mensaje no declara una versión: `Event` no incluye un campo de versión
 > (`backend/runs/events/types.py:35-44`) y `TopicKey` no contiene un segmento de
@@ -1525,13 +1524,13 @@ For example:
 mbta.route.vehicle_positions.by_route.1
 ```
 
-| Segment | Value example | Route vehicle-position meaning |
-| --- | --- | --- |
-| Transit system | `mbta` | Scopes both PostgreSQL runs and Redis state to one transit system. (`backend/updates/builders/route/vehicle_positions.py:75-83`, `backend/updates/builders/route/vehicle_positions.py:91-98`) |
-| Entity | `route` | Selects the route-level aggregate view. (`backend/updates/registry.py:120-124`) |
-| Information | `vehicle_positions` | Selects current GTFS Realtime vehicle positions. (`backend/updates/registry.py:115-124`) |
-| Primary selector | `by_route` | Interprets the primary value as a GTFS route ID. (`backend/updates/registry.py:120-124`) |
-| Primary value | `1` | Filters `Run` rows to the requested `route_id`. (`backend/updates/builders/route/vehicle_positions.py:72-80`) |
+| Segment          | Value example       | Route vehicle-position meaning                                                                                                                                                                |
+| ---------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Transit system   | `mbta`              | Scopes both PostgreSQL runs and Redis state to one transit system. (`backend/updates/builders/route/vehicle_positions.py:75-83`, `backend/updates/builders/route/vehicle_positions.py:91-98`) |
+| Entity           | `route`             | Selects the route-level aggregate view. (`backend/updates/registry.py:120-124`)                                                                                                               |
+| Information      | `vehicle_positions` | Selects current GTFS Realtime vehicle positions. (`backend/updates/registry.py:115-124`)                                                                                                      |
+| Primary selector | `by_route`          | Interprets the primary value as a GTFS route ID. (`backend/updates/registry.py:120-124`)                                                                                                      |
+| Primary value    | `1`                 | Filters `Run` rows to the requested `route_id`. (`backend/updates/builders/route/vehicle_positions.py:72-80`)                                                                                 |
 
 There is no qualifier. The projection-specific validator requires only a
 nonempty primary value; structural matching of `route`, `vehicle_positions`,
@@ -1677,15 +1676,15 @@ For example:
 mbta.route.vehicle_positions.by_route.1.by_direction.0
 ```
 
-| Segment | Value example | Route-and-direction vehicle-position meaning |
-| --- | --- | --- |
-| Transit system | `mbta` | Uses `TransitSystem.code` and scopes both PostgreSQL runs and Redis state to one transit system. (`backend/feed/models.py:34-43`, `backend/updates/builders/route/vehicle_positions.py:80-90`, `backend/updates/builders/route/vehicle_positions.py:101-108`) |
-| Entity | `route` | Selects the route-level aggregate view. (`backend/updates/registry.py:147-152`) |
-| Information | `vehicle_positions` | Selects current GTFS Realtime vehicle positions. (`backend/updates/registry.py:147-152`) |
-| Primary selector | `by_route` | Interprets the primary value as a GTFS route ID. (`backend/updates/registry.py:147-152`) |
-| Primary value | `1` | Filters `Run` rows to the requested `route_id`. (`backend/updates/builders/route/vehicle_positions.py:80-90`) |
-| Qualifier selector | `by_direction` | Interprets the qualifier value as a canonical GTFS direction ID. (`backend/updates/registry.py:147-152`, `backend/updates/directions.py:6-17`) |
-| Qualifier value | `0` | Adds the selected canonical direction to the `Run` query and the payload wrapper. (`backend/updates/builders/route/vehicle_positions.py:233-245`) |
+| Segment            | Value example       | Route-and-direction vehicle-position meaning                                                                                                                                                                                                                  |
+| ------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Transit system     | `mbta`              | Uses `TransitSystem.code` and scopes both PostgreSQL runs and Redis state to one transit system. (`backend/feed/models.py:34-43`, `backend/updates/builders/route/vehicle_positions.py:80-90`, `backend/updates/builders/route/vehicle_positions.py:101-108`) |
+| Entity             | `route`             | Selects the route-level aggregate view. (`backend/updates/registry.py:147-152`)                                                                                                                                                                               |
+| Information        | `vehicle_positions` | Selects current GTFS Realtime vehicle positions. (`backend/updates/registry.py:147-152`)                                                                                                                                                                      |
+| Primary selector   | `by_route`          | Interprets the primary value as a GTFS route ID. (`backend/updates/registry.py:147-152`)                                                                                                                                                                      |
+| Primary value      | `1`                 | Filters `Run` rows to the requested `route_id`. (`backend/updates/builders/route/vehicle_positions.py:80-90`)                                                                                                                                                 |
+| Qualifier selector | `by_direction`      | Interprets the qualifier value as a canonical GTFS direction ID. (`backend/updates/registry.py:147-152`, `backend/updates/directions.py:6-17`)                                                                                                                |
+| Qualifier value    | `0`                 | Adds the selected canonical direction to the `Run` query and the payload wrapper. (`backend/updates/builders/route/vehicle_positions.py:233-245`)                                                                                                             |
 
 ### Direction qualifier
 
@@ -1796,5 +1795,3 @@ unqualified topic. (`backend/updates/builders/route/vehicle_positions.py:78-91`,
   per-topic loop. (`backend/updates/refresh.py:27-60`,
   `backend/updates/refresh.py:82-90`,
   `backend/updates/builders/route/vehicle_positions.py:222-245`)
-
-

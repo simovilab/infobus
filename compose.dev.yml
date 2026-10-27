@@ -1,6 +1,7 @@
 name: infobus-dev
 services:
 
+  # ── Django orchestrator ───────────────────────────────────────────────────
   orchestrator:
     build:
       context: ./backend
@@ -16,13 +17,14 @@ services:
     volumes:
       - ./backend:/app
       - backend_venv:/home/app/.venv
-      - lake_data:/app/data
+      - backend_data:/app/data
     depends_on:
       database:
         condition: service_healthy
-      memory:
+      state:
         condition: service_healthy
 
+  # ── Celery worker ─────────────────────────────────────────────────────────
   engine:
     build:
       context: ./backend
@@ -36,15 +38,16 @@ services:
     volumes:
       - ./backend:/app
       - backend_venv:/home/app/.venv
-      - lake_data:/app/data
+      - backend_data:/app/data
     depends_on:
       database:
         condition: service_healthy
-      memory:
+      state:
         condition: service_healthy
       broker:
         condition: service_healthy
 
+  # ── Celery Beat ───────────────────────────────────────────────────────────
   scheduler:
     build:
       context: ./backend
@@ -58,19 +61,20 @@ services:
     volumes:
       - ./backend:/app
       - backend_venv:/home/app/.venv
-      - lake_data:/app/data
+      - backend_data:/app/data
     depends_on:
       database:
         condition: service_healthy
-      memory:
+      state:
         condition: service_healthy
       broker:
         condition: service_healthy
 
-  streams-consumer:
+  # ── Redis Streams consumer ────────────────────────────────────────────────
+  streams:
     build:
       context: ./backend
-      target: streams-consumer
+      target: streams
     environment:
       - DJANGO_SETUP=False
       - UV_PROJECT_ENVIRONMENT=/home/app/.venv
@@ -83,9 +87,10 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      memory:
+      state:
         condition: service_healthy
 
+  # ── RabbitMQ (AMQP message broker) ────────────────────────────────────────
   broker:
     image: rabbitmq:4-management
     ports:
@@ -103,6 +108,7 @@ services:
       timeout: 5s
       retries: 5
 
+  # ── PostgreSQL + PostGIS ──────────────────────────────────────────────────
   database:
     build:
       context: ./database
@@ -113,14 +119,15 @@ services:
       - POSTGRES_USER=${DB_USER:-postgres}
       - POSTGRES_HOST_AUTH_METHOD=trust
     volumes:
-      - database_data:/var/lib/postgresql    
+      - database_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "${DB_USER:-postgres}", "-d", "${DB_NAME:-infobus}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
-  memory:
+  # ── Redis ─────────────────────────────────────────────────────────────────
+  state:
     image: redis:8-alpine
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD}"]
     environment:
@@ -134,33 +141,33 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      default:
+        aliases:
+          - memory
 
-  context:
-    build:
-      context: ./context
-      dockerfile: Dockerfile
+  # ── MinIO object storage ──────────────────────────────────────────────────
+  lake:
+    image: ${MINIO_IMAGE:-quay.io/minio/aistor/minio:latest}
+    restart: unless-stopped
+    command: server /mnt/data --console-address ":9001" --license /minio.license
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
     ports:
-      - "${CONTEXT_PORT:-3278}:${CONTEXT_PORT:-3278}"
-    env_file:
-      - .env
-      - .env.dev
+      - "${LAKE_PORT:-9000}:9000"
+      - "${LAKE_CONSOLE_PORT:-9001}:9001"
     volumes:
-      - ./context:/app
-      - context_venv:/app/.venv
+      - lake_data:/mnt/data
+      - ./minio.license:/minio.license:ro
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
-  knowledge:
-    build:
-      context: ./knowledge
-      args:
-        JENA_VERSION: 5.3.0
-    image: fuseki
-    command: ["--tdb2", "--update", "--loc", "databases/DB2", "/ds"]
-    ports:
-      - "3030:3030"
-    volumes:
-      - ./knowledge/logs:/fuseki/logs
-      - ./knowledge/databases:/fuseki/databases
-
+  # ── Nuxt frontend ────────────────────────────────────────────────────────
   user-interface:
     build:
       context: ./frontend
@@ -184,11 +191,11 @@ services:
 volumes:
   database_data:
   memory_data:
+  backend_data:
   lake_data:
   broker_data:
   ui_node_modules:
   backend_venv:
-  context_venv:
 
 networks:
   default:

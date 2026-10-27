@@ -77,7 +77,7 @@ FROM base AS scheduler
 CMD ["uv", "run", "celery", "-A", "infobus", "beat", "--loglevel=info"]
 
 # --- Redis Streams Consumer
-FROM base AS streams-consumer
+FROM base AS streams
 # ----------------------------
 
 CMD ["uv", "run", "python", "-m", "updates.client"]

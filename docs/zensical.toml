@@ -29,7 +29,7 @@ site_author = "https://simovilab.org"
 # The site_url is the canonical URL for your site. When building online
 # documentation you should set this.
 # Read more: https://zensical.org/docs/setup/basics/#site_url
-site_url = "https://docs.infobus.simovilab.com/"
+site_url = "https://docs.infobus.simovi.org/"
 
 repo_url = "https://github.com/simovilab/infobus"
 repo_name = "simovilab/infobus"

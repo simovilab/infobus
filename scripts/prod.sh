@@ -77,6 +77,10 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     echo -e "${RED}Error: $COMPOSE_FILE not found.${NC}"
     exit 1
 fi
+if [ ! -f "minio.license" ]; then
+    echo -e "${RED}Error: minio.license is required to start the MinIO service.${NC}"
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Validate required environment variables
@@ -85,8 +89,8 @@ fi
 print_section "$BLUE" "Validating environment"
 
 MISSING=0
-for var in ORCHESTRATOR_DOMAIN UI_DOMAIN KNOWLEDGE_DOMAIN CONTEXT_DOMAIN BROKER_DOMAIN DOCS_DOMAIN \
-           SECRET_KEY DB_PASSWORD REDIS_PASSWORD RABBITMQ_PASS; do
+for var in ORCHESTRATOR_DOMAIN UI_DOMAIN LAKE_DOMAIN \
+           SECRET_KEY DB_PASSWORD REDIS_PASSWORD RABBITMQ_PASS MINIO_ROOT_USER MINIO_ROOT_PASSWORD; do
     val=$(get_env_value "$var" "")
     if [ -z "$val" ]; then
         echo -e "  ${RED}[MISSING]${NC}  $var"
@@ -160,7 +164,7 @@ docker compose -f "$COMPOSE_FILE" build
 
 print_section "$BLUE" "Starting infrastructure services"
 
-docker compose -f "$COMPOSE_FILE" up -d database memory broker
+docker compose -f "$COMPOSE_FILE" up -d database state broker lake
 
 echo -e "${GRAY}Waiting for infrastructure to become healthy...${NC}"
 MAX_WAIT=60
@@ -169,7 +173,7 @@ INFRA_OK=false
 
 while [ $ELAPSED -lt $MAX_WAIT ]; do
     ALL_HEALTHY=true
-    for svc in database memory broker; do
+    for svc in database state broker lake; do
         cid=$(docker compose -f "$COMPOSE_FILE" ps -q "$svc" 2>/dev/null || true)
         if [ -n "$cid" ]; then
             health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no healthcheck{{end}}' "$cid" 2>/dev/null || echo "unknown")
@@ -195,7 +199,7 @@ if [ "$INFRA_OK" = true ]; then
     echo -e "${GREEN}Infrastructure healthy after ${ELAPSED}s.${NC}"
 else
     echo -e "${RED}Infrastructure not healthy after ${MAX_WAIT}s. Continuing anyway...${NC}"
-    for svc in database memory broker; do
+    for svc in database state broker lake; do
         cid=$(docker compose -f "$COMPOSE_FILE" ps -q "$svc" 2>/dev/null || true)
         if [ -n "$cid" ]; then
             health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no healthcheck{{end}}' "$cid" 2>/dev/null || echo "unknown")
@@ -270,7 +274,7 @@ docker compose -f "$COMPOSE_FILE" ps
 
 print_section "$CYAN" "Infrastructure health checks"
 
-for svc in database memory broker; do
+for svc in database state broker lake; do
     cid=$(docker compose -f "$COMPOSE_FILE" ps -q "$svc" 2>/dev/null || true)
     if [ -n "$cid" ]; then
         health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no healthcheck{{end}}' "$cid" 2>/dev/null || echo "unknown")
@@ -291,7 +295,7 @@ done
 
 print_section "$CYAN" "Docker volumes"
 
-for vol in database_data memory_data broker_data lake_data backend_venv static_files knowledge_logs knowledge_data; do
+for vol in database_data memory_data broker_data lake_data minio_data backend_venv static_files; do
     full_name="infobus-prod_${vol}"
     if docker volume inspect "$full_name" >/dev/null 2>&1; then
         echo -e "  ${GREEN}[OK]${NC}  ${full_name}"
@@ -305,10 +309,7 @@ done
 # ---------------------------------------------------------------------------
 
 UI_DOMAIN=$(get_env_value "UI_DOMAIN" "")
-KNOWLEDGE_DOMAIN=$(get_env_value "KNOWLEDGE_DOMAIN" "")
-CONTEXT_DOMAIN=$(get_env_value "CONTEXT_DOMAIN" "")
-BROKER_DOMAIN=$(get_env_value "BROKER_DOMAIN" "")
-DOCS_DOMAIN=$(get_env_value "DOCS_DOMAIN" "")
+LAKE_DOMAIN=$(get_env_value "LAKE_DOMAIN" "")
 
 print_section "$GREEN" "Production URLs (via Traefik)"
 
@@ -316,10 +317,7 @@ echo "  Orchestrator / API   https://${ORCHESTRATOR_DOMAIN}"
 echo "  Django admin         https://${ORCHESTRATOR_DOMAIN}/admin"
 echo "  REST API             https://${ORCHESTRATOR_DOMAIN}/api/"
 echo "  Frontend             https://${UI_DOMAIN}"
-echo "  Documentation        https://${DOCS_DOMAIN}"
-echo "  Knowledge (Fuseki)   https://${KNOWLEDGE_DOMAIN}"
-echo "  Context (MCP)        https://${CONTEXT_DOMAIN}"
-echo "  RabbitMQ management  https://${BROKER_DOMAIN}"
+echo "  MinIO S3 API         https://${LAKE_DOMAIN}"
 
 print_section "$YELLOW" "Useful commands"
 
