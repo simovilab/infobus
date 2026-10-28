@@ -49,8 +49,8 @@ BACKEND_PORT=$(get_env_value "BACKEND_PORT" "8000")
 MEMORY_PORT=$(get_env_value "MEMORY_PORT" "6379")
 BROKER_AMQP_PORT=$(get_env_value "BROKER_AMQP_PORT" "5672")
 BROKER_MANAGEMENT_PORT=$(get_env_value "BROKER_MANAGEMENT_PORT" "15672")
-CONTEXT_PORT=$(get_env_value "CONTEXT_PORT" "3278")
-KNOWLEDGE_PORT=$(get_env_value "KNOWLEDGE_PORT" "3030")
+LAKE_PORT=$(get_env_value "LAKE_PORT" "9000")
+LAKE_CONSOLE_PORT=$(get_env_value "LAKE_CONSOLE_PORT" "9001")
 
 echo -e "${GREEN}Infobús — development environment${NC}"
 echo ""
@@ -85,13 +85,10 @@ if [ ! -f "$COMPOSE_FILE" ]; then
     echo -e "${RED}Error: $COMPOSE_FILE not found.${NC}"
     exit 1
 fi
-
-# ---------------------------------------------------------------------------
-# Jena Fuseki persistent storage directories
-# ---------------------------------------------------------------------------
-
-echo -e "${BLUE}Ensuring Jena Fuseki directories exist...${NC}"
-mkdir -p knowledge/logs knowledge/databases/DB2
+if [ ! -f "minio.license" ]; then
+    echo -e "${RED}Error: minio.license is required to start the MinIO service.${NC}"
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Pull base images (only services without a local build)
@@ -177,7 +174,7 @@ docker compose -f "$COMPOSE_FILE" ps
 
 print_section "$CYAN" "Infrastructure health checks"
 
-for svc in database memory broker; do
+for svc in database state broker lake; do
     cid=$(docker compose -f "$COMPOSE_FILE" ps -q "$svc" 2>/dev/null || true)
     if [ -n "$cid" ]; then
         health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no healthcheck{{end}}' "$cid" 2>/dev/null || echo "unknown")
@@ -219,13 +216,13 @@ echo "  Orchestrator / API   http://localhost:${BACKEND_PORT}"
 echo "  Django admin         http://localhost:${BACKEND_PORT}/admin"
 echo "  REST API             http://localhost:${BACKEND_PORT}/api/"
 echo "  RabbitMQ management  http://localhost:${BROKER_MANAGEMENT_PORT}"
-echo "  Context service      http://localhost:${CONTEXT_PORT}"
-echo "  Knowledge service    http://localhost:${KNOWLEDGE_PORT}"
+echo "  MinIO S3 API         http://localhost:${LAKE_PORT}"
+echo "  MinIO console        http://localhost:${LAKE_CONSOLE_PORT}"
 
 print_section "$BLUE" "Infrastructure ports"
 
 echo "  PostgreSQL (database)  internal only (docker compose exec database psql -U postgres)"
-echo "  Redis (memory)         localhost:${MEMORY_PORT}"
+echo "  Redis (state)          localhost:${MEMORY_PORT}"
 echo "  RabbitMQ AMQP          localhost:${BROKER_AMQP_PORT}"
 
 print_section "$YELLOW" "Useful commands"

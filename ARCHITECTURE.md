@@ -29,10 +29,8 @@ flowchart LR
     engine(("engine<br/>(Celery)"))
     broker(("broker<br/>(RabbitMQ)"))
     scheduler(("scheduler<br/>(Celery Beat)"))
-    memory(("memory<br/>(Redis)"))
+    state(("state<br/>(Redis)"))
     database@{ shape: db, label: "database<br/>(PostgreSQL)" }
-    context(("context<br/>(FastMCP)"))
-    knowledge(("knowledge<br/>(Jena Fuseki)"))
     trips(("trips<br/>(OTP)"))
 
     lake@{ shape: docs, label: "Data Lake" }
@@ -40,19 +38,15 @@ flowchart LR
     schedule --"HTTP polling"--> engine
     realtime --"HTTP polling"--> engine
     engine <-."receives commands /<br/> publishes events".-> broker
-    engine <-."reads state / writes state".-> memory
+    engine <-."reads state / writes state".-> state
     engine <-."reads / writes".-> database
     engine -."saves".-> lake
     orchestrator <-."receives events /<br/> sends commands".-> broker
-    orchestrator <-."reads state / writes state".-> memory
+    orchestrator <-."reads state / writes state".-> state
     orchestrator <-."reads / writes".-> database
     orchestrator -."saves".-> lake
     scheduler -."schedules commands".-> broker
     orchestrator -."queries".-> trips
-    context -."queries".-> knowledge
-    context -."queries".-> orchestrator
-    mcp --> context
-    sparql --> knowledge
     api --> orchestrator
     graphql --> orchestrator
     ws --> orchestrator

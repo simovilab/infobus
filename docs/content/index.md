@@ -21,7 +21,7 @@ flowchart LR
     engine["engine<br/>Celery worker<br/>feed ingestion + run lifecycle"]:::implemented
     database[("PostgreSQL / PostGIS<br/>Schedule, Realtime records, runs")]:::implemented
     redis[("Redis<br/>Celery broker, current run state,<br/>events stream, Channels layer")]:::implemented
-    streams["streams-consumer<br/>updates projections<br/>development only"]:::partial
+    streams["streams<br/>updates projections<br/>development only"]:::partial
     orchestrator["orchestrator<br/>Django + Daphne<br/>REST/OpenAPI, website, /ws/updates/<br/>interfaces partial"]:::partial
     clients["REST and WebSocket clients"]:::implemented
 
@@ -61,66 +61,66 @@ GTFS Realtime enters Infobús® through HTTP polling: Celery Beat dispatches the
 
 <div class="grid cards" markdown>
 
--   :lucide-lightbulb:{ .lg .middle } **Core concepts**
+- :lucide-lightbulb:{ .lg .middle } **Core concepts**
 
-    ---
+  ***
 
-    Learn the vocabulary and domain boundaries used throughout Infobús®.
+  Learn the vocabulary and domain boundaries used throughout Infobús®.
 
-    [:octicons-arrow-right-24: Concepts](concepts.md)
+  [:octicons-arrow-right-24: Concepts](concepts.md)
 
--   :lucide-network:{ .lg .middle } **System architecture**
+- :lucide-network:{ .lg .middle } **System architecture**
 
-    ---
+  ***
 
-    See how the runtime services fit together, then examine the responsibilities and maturity of the Django applications.
+  See how the runtime services fit together, then examine the responsibilities and maturity of the Django applications.
 
-    [:octicons-arrow-right-24: Architecture](architecture.md) ·
-    [Django Applications](django-applications.md)
+  [:octicons-arrow-right-24: Architecture](architecture.md) ·
+  [Django Applications](django-applications.md)
 
--   :lucide-database:{ .lg .middle } **Transit data**
+- :lucide-database:{ .lg .middle } **Transit data**
 
-    ---
+  ***
 
-    Follow acquisition and storage separately for static schedules and frequently polled Realtime feeds.
+  Follow acquisition and storage separately for static schedules and frequently polled Realtime feeds.
 
-    [:octicons-arrow-right-24: GTFS Schedule](gtfs-schedule.md) ·
-    [GTFS Realtime](gtfs-realtime.md)
+  [:octicons-arrow-right-24: GTFS Schedule](gtfs-schedule.md) ·
+  [GTFS Realtime](gtfs-realtime.md)
 
--   :lucide-radio:{ .lg .middle } **Live data flow**
+- :lucide-radio:{ .lg .middle } **Live data flow**
 
-    ---
+  ***
 
-    Understand how observations become runs, lifecycle transitions, Redis events, projections, and topic-based WebSocket snapshots.
+  Understand how observations become runs, lifecycle transitions, Redis events, projections, and topic-based WebSocket snapshots.
 
-    [:octicons-arrow-right-24: Runs and Lifecycle](runs-lifecycle.md) ·
-    [Updates and WebSockets](updates-websockets.md)
+  [:octicons-arrow-right-24: Runs and Lifecycle](runs-lifecycle.md) ·
+  [Updates and WebSockets](updates-websockets.md)
 
--   :lucide-plug:{ .lg .middle } **Interfaces**
+- :lucide-plug:{ .lg .middle } **Interfaces**
 
-    ---
+  ***
 
-    Review routed REST resources, query endpoints, the OpenAPI and Redoc surface, and known contract drift.
+  Review routed REST resources, query endpoints, the OpenAPI and Redoc surface, and known contract drift.
 
-    [:octicons-arrow-right-24: API and OpenAPI](api-openapi.md)
+  [:octicons-arrow-right-24: API and OpenAPI](api-openapi.md)
 
--   :lucide-terminal:{ .lg .middle } **Operations**
+- :lucide-terminal:{ .lg .middle } **Operations**
 
-    ---
+  ***
 
-    Set up the local environment and understand production services, domains, persistence, and operational gaps.
+  Set up the local environment and understand production services, domains, persistence, and operational gaps.
 
-    [:octicons-arrow-right-24: Local Development](local-development.md) ·
-    [Deployment and Operations](deployment-operations.md)
+  [:octicons-arrow-right-24: Local Development](local-development.md) ·
+  [Deployment and Operations](deployment-operations.md)
 
--   :lucide-flask-conical:{ .lg .middle } **Quality and trade-offs**
+- :lucide-flask-conical:{ .lg .middle } **Quality and trade-offs**
 
-    ---
+  ***
 
-    See the current testing surface and the decisions, constraints, and incomplete paths that affect system behavior.
+  See the current testing surface and the decisions, constraints, and incomplete paths that affect system behavior.
 
-    [:octicons-arrow-right-24: Testing](testing.md) ·
-    [Decisions and Limitations](decisions-limitations.md)
+  [:octicons-arrow-right-24: Testing](testing.md) ·
+  [Decisions and Limitations](decisions-limitations.md)
 
 </div>
 

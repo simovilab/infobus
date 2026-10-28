@@ -6,10 +6,7 @@ name: infobus-prod
 #   Domain routing (Traefik):
 #     ORCHESTRATOR_DOMAIN    – Django API / admin
 #     UI_DOMAIN              – Nuxt frontend
-#     KNOWLEDGE_DOMAIN       – Fuseki SPARQL endpoint
-#     CONTEXT_DOMAIN         – MCP context server
-#     BROKER_DOMAIN          – RabbitMQ management UI
-#     DOCS_DOMAIN            – Project documentation site
+#     LAKE_DOMAIN            – MinIO S3-compatible API
 #     CERT_RESOLVER          – Traefik cert resolver name (default: letsencrypt)
 #
 #   Credentials:
@@ -17,6 +14,8 @@ name: infobus-prod
 #     DB_PASSWORD            – PostgreSQL password
 #     REDIS_PASSWORD         – Redis password
 #     RABBITMQ_USER / RABBITMQ_PASS – RabbitMQ credentials
+#     MINIO_ROOT_USER / MINIO_ROOT_PASSWORD – MinIO credentials
+#     minio.license          – MinIO license file in the repository root
 # ---------------------------------------------------------------------------
 
 services:
@@ -38,11 +37,10 @@ services:
     volumes:
       - backend_venv:/home/app/.venv
       - lake_data:/app/data
-      - static_files:/app/staticfiles
     depends_on:
       database:
         condition: service_healthy
-      memory:
+      state:
         condition: service_healthy
     networks:
       - internal
@@ -77,7 +75,7 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      memory:
+      state:
         condition: service_healthy
       broker:
         condition: service_healthy
@@ -104,7 +102,7 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      memory:
+      state:
         condition: service_healthy
       broker:
         condition: service_healthy
@@ -112,10 +110,10 @@ services:
       - internal
 
   # ── Redis Streams consumer ────────────────────────────────────────────────
-  streams-consumer:
+  streams:
     build:
       context: ./backend
-      target: streams-consumer
+      target: streams
     environment:
       - DJANGO_SETUP=False
       - UV_PROJECT_ENVIRONMENT=/home/app/.venv
@@ -130,7 +128,7 @@ services:
     depends_on:
       database:
         condition: service_healthy
-      memory:
+      state:
         condition: service_healthy
     networks:
       - internal
@@ -180,7 +178,7 @@ services:
       - internal
 
   # ── Redis ─────────────────────────────────────────────────────────────────
-  memory:
+  state:
     image: redis:8.10.1-alpine
     command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"]
     environment:
@@ -197,80 +195,40 @@ services:
       retries: 5
       start_period: 60s
     networks:
-      - internal
+      internal:
+        aliases:
+          - memory
 
-  # ── FastMCP context server ────────────────────────────────────────────────
-  context:
-    build:
-      context: ./context
-      dockerfile: Dockerfile
-    env_file:
-      - .env
-      - .env.prod
+  # ── MinIO object storage ──────────────────────────────────────────────────
+  lake:
+    image: ${MINIO_IMAGE:-quay.io/minio/aistor/minio:latest}
+    command: server /mnt/data --console-address ":9001" --license /minio.license
     environment:
-      - CONTEXT_PORT=3278
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - internal
-      - traefik_proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.context.rule=Host(`${CONTEXT_DOMAIN}`)"
-      - "traefik.http.routers.context.entrypoints=websecure"
-      - "traefik.http.routers.context.tls=true"
-      - "traefik.http.routers.context.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
-      - "traefik.http.routers.context.middlewares=security-headers@file,rate-limit@file"
-      - "traefik.http.services.context.loadbalancer.server.port=3278"
-      - "traefik.docker.network=traefik_proxy"
-
-  # ── Apache Jena Fuseki (SPARQL / knowledge graph) ────────────────────────
-  knowledge:
-    build:
-      context: ./knowledge
-      args:
-        JENA_VERSION: 5.3.0
-    image: fuseki
-    command: ["--tdb2", "--update", "--loc", "databases/DB2", "/ds"]
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?set MINIO_ROOT_PASSWORD in .env}
     volumes:
-      - knowledge_logs:/fuseki/logs
-      - knowledge_data:/fuseki/databases
+      - minio_data:/mnt/data
+      - ./minio.license:/minio.license:ro
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
     networks:
       - internal
       - traefik_proxy
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.knowledge.rule=Host(`${KNOWLEDGE_DOMAIN}`)"
-      - "traefik.http.routers.knowledge.entrypoints=websecure"
-      - "traefik.http.routers.knowledge.tls=true"
-      - "traefik.http.routers.knowledge.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
-      - "traefik.http.routers.knowledge.middlewares=security-headers@file,rate-limit@file"
-      - "traefik.http.services.knowledge.loadbalancer.server.port=3030"
-      - "traefik.docker.network=traefik_proxy"
-
-  # ── Documentation (static site) ────────────────────────────────────────
-  docs:
-    image: nginx:1.31.4-alpine
-    volumes:
-      - ./docs/site:/usr/share/nginx/html:ro
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - internal
-      - traefik_proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.docs.rule=Host(`${DOCS_DOMAIN}`)"
-      - "traefik.http.routers.docs.entrypoints=websecure"
-      - "traefik.http.routers.docs.tls=true"
-      - "traefik.http.routers.docs.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
-      - "traefik.http.routers.docs.middlewares=security-headers@file,compression@file"
-      - "traefik.http.services.docs.loadbalancer.server.port=80"
+      - "traefik.http.routers.lake.rule=Host(`${LAKE_DOMAIN:?set LAKE_DOMAIN in .env}`)"
+      - "traefik.http.routers.lake.entrypoints=websecure"
+      - "traefik.http.routers.lake.tls=true"
+      - "traefik.http.routers.lake.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      - "traefik.http.routers.lake.middlewares=security-headers@file"
+      - "traefik.http.services.lake.loadbalancer.server.port=9000"
       - "traefik.docker.network=traefik_proxy"
 
   # ── Nuxt frontend ────────────────────────────────────────────────────────
@@ -310,9 +268,7 @@ volumes:
   lake_data:
   broker_data:
   backend_venv:
-  static_files:
-  knowledge_logs:
-  knowledge_data:
+  minio_data:
 
 networks:
   internal:

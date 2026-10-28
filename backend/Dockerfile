@@ -29,7 +29,7 @@ RUN groupadd --gid 1000 app && \
 WORKDIR /app
 
 # Change ownership of /app directory to user "app"
-RUN mkdir -p /home/app/.venv && \
+RUN mkdir -p /home/app/.venv /app/staticfiles && \
     chown -R app:app /app /home/app
 
 # Copy dependency files
@@ -77,7 +77,7 @@ FROM base AS scheduler
 CMD ["uv", "run", "celery", "-A", "infobus", "beat", "--loglevel=info"]
 
 # --- Redis Streams Consumer
-FROM base AS streams-consumer
+FROM base AS streams
 # ----------------------------
 
 CMD ["uv", "run", "python", "-m", "updates.client"]

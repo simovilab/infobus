@@ -25,16 +25,10 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 4. **user-interface** (Nuxt) — Web frontend
    - Located in: `frontend/`
 
-5. **context** (FastMCP) — MCP tool server
-   - Located in: `context/`
-
-6. **knowledge** (Apache Jena Fuseki) — SPARQL / knowledge graph
-   - Located in: `knowledge/`
-
 ### Infrastructure Services
 
 - **database** — PostgreSQL 16 with PostGIS 3.4 (durable persistence)
-- **memory** — Redis 7 (cache, sessions, Celery broker)
+- **state** — Redis (cache, sessions, Celery broker)
 - **broker** — RabbitMQ 4 (AMQP messaging)
 
 ### Key Dependencies
@@ -116,6 +110,7 @@ docker compose -f compose.prod.yml down
 ### Background Tasks
 
 Key Celery tasks:
+
 - `get_weather()`: Fetch weather data for display locations
 - `get_social_feed()`: Collect relevant social media content
 - `get_cap_alerts()`: Retrieve Common Alerting Protocol emergency alerts
@@ -151,7 +146,7 @@ Files:
 - **GTFS submodule**: Always run `git submodule update --init --recursive` after cloning
 - **Package manager**: Uses `uv`, not pip directly
 - **Timezone**: `America/Costa_Rica` (es-cr locale)
-- **Service names in Docker**: Use compose service names (`database`, `memory`, `broker`) not `localhost` for inter-service communication
+- **Service names in Docker**: Use compose service names (`database`, `state`, `broker`) not `localhost` for inter-service communication
 - **Compose files**: `compose.dev.yml` (development), `compose.prod.yml` (production)
 - **Production proxy**: Traefik (external container on `traefik_proxy` network), not Nginx
 - **Tests**: Minimal coverage currently. Use pytest with pytest-django for new tests
