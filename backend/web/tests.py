@@ -174,7 +174,7 @@ class RoutesViewTests(WebBFFTestCase):
 
     def test_list_contains_only_current_routes_of_selected_system(self) -> None:
         """List routes from the selected system's current feed, paginated."""
-        status_code, body = self.get_json(reverse("web:route-list"), system="alpha")
+        status_code, body = self.get_json(reverse("web:routes-list"), system="alpha")
 
         self.assertEqual(status_code, status.HTTP_200_OK)
         for key in ("count", "next", "previous", "results"):
@@ -186,7 +186,7 @@ class RoutesViewTests(WebBFFTestCase):
 
     def test_detail_resolves_route_within_selected_system(self) -> None:
         """Return a different route for the same route_id in each system."""
-        url = reverse("web:route-detail", kwargs={"route_id": "R1"})
+        url = reverse("web:routes-detail", kwargs={"route_id": "R1"})
         expected = {"alpha": "Alpha Line", "beta": "Beta Line"}
 
         for code, long_name in expected.items():
@@ -197,7 +197,7 @@ class RoutesViewTests(WebBFFTestCase):
 
     def test_detail_accepts_identifiers_with_dots(self) -> None:
         """Retrieve a route whose GTFS identifier contains a dot."""
-        url = reverse("web:route-detail", kwargs={"route_id": "R.2"})
+        url = reverse("web:routes-detail", kwargs={"route_id": "R.2"})
 
         status_code, body = self.get_json(url, system="alpha")
 
@@ -206,7 +206,7 @@ class RoutesViewTests(WebBFFTestCase):
 
     def test_detail_excludes_routes_from_non_current_feeds(self) -> None:
         """Return 404 for a route that exists only in a non-current feed."""
-        url = reverse("web:route-detail", kwargs={"route_id": "OLD"})
+        url = reverse("web:routes-detail", kwargs={"route_id": "OLD"})
 
         status_code, _ = self.get_json(url, system="alpha")
 
@@ -214,7 +214,7 @@ class RoutesViewTests(WebBFFTestCase):
 
     def test_write_methods_are_not_allowed(self) -> None:
         """Reject POST on the routes list."""
-        response = self.client.post(f"{reverse('web:route-list')}?system=alpha")
+        response = self.client.post(f"{reverse('web:routes-list')}?system=alpha")
 
         self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
 
@@ -224,14 +224,14 @@ class StopsViewTests(WebBFFTestCase):
 
     def test_list_contains_only_current_stops_of_selected_system(self) -> None:
         """List stops from the selected system's current feed."""
-        status_code, body = self.get_json(reverse("web:stop-list"), system="alpha")
+        status_code, body = self.get_json(reverse("web:stops-list"), system="alpha")
 
         self.assertEqual(status_code, status.HTTP_200_OK)
         self.assertEqual([stop["stop_id"] for stop in body["results"]], ["S1"])
 
     def test_detail_resolves_stop_within_selected_system(self) -> None:
         """Return a different stop for the same stop_id in each system."""
-        url = reverse("web:stop-detail", kwargs={"stop_id": "S1"})
+        url = reverse("web:stops-detail", kwargs={"stop_id": "S1"})
         expected = {"alpha": "Alpha Stop", "beta": "Beta Stop"}
 
         for code, stop_name in expected.items():
@@ -242,7 +242,7 @@ class StopsViewTests(WebBFFTestCase):
 
     def test_detail_excludes_stops_from_non_current_feeds(self) -> None:
         """Return 404 for a stop that exists only in a non-current feed."""
-        url = reverse("web:stop-detail", kwargs={"stop_id": "S-OLD"})
+        url = reverse("web:stops-detail", kwargs={"stop_id": "S-OLD"})
 
         status_code, _ = self.get_json(url, system="alpha")
 
