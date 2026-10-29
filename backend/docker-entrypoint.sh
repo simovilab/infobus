@@ -4,8 +4,6 @@ set -euo pipefail
 # Virtual environment paths
 VENV_DIR="${UV_PROJECT_ENVIRONMENT:-/home/app/.venv}"
 UV_SYNC_LOCKDIR="/app/.uv-sync.lockdir"
-CLONE_IO_LOCKDIR="/app/.gtfs-io-clone.lockdir"
-CLONE_LOCKDIR="/app/.gtfs-django-clone.lockdir"
 DUCKDB_CLI_DIR="/home/app/.duckdb/cli/latest"
 
 # Colors for output
@@ -29,78 +27,6 @@ is_true(){
     esac
 }
 
-clone_gtfs_io() {
-    if [ -d "gtfs-io/.git" ]; then
-        log "gtfs-io directory already present; skipping clone"
-        return
-    fi
-
-    warn "gtfs-io not found; waiting for clone lock"
-    while ! mkdir "${CLONE_IO_LOCKDIR}" 2>/dev/null; do
-        if [ -d "gtfs-io/.git" ]; then
-            log "gtfs-io is now available"
-            return
-        fi
-        sleep 1
-    done
-
-    cleanup_io_clone_lock() {
-        rmdir "${CLONE_IO_LOCKDIR}" 2>/dev/null || true
-    }
-
-    trap cleanup_io_clone_lock EXIT
-
-    if [ -d "gtfs-io/.git" ]; then
-        log "gtfs-io already cloned"
-        cleanup_io_clone_lock
-        trap - EXIT
-        return
-    fi
-
-    log "Cloning gtfs-io repository..."
-    git clone https://github.com/simovilab/gtfs-io.git gtfs-io
-
-    log "gtfs-io cloned"
-    cleanup_io_clone_lock
-    trap - EXIT
-}
-
-clone_gtfs_django() {
-    if [ -d "gtfs-django/.git" ]; then
-        log "gtfs-django directory already present; skipping clone"
-        return
-    fi
-
-    warn "gtfs-django not found; waiting for clone lock"
-    while ! mkdir "${CLONE_LOCKDIR}" 2>/dev/null; do
-        if [ -d "gtfs-django/.git" ]; then
-            log "gtfs-django is now available"
-            return
-        fi
-        sleep 1
-    done
-
-    cleanup_clone_lock() {
-        rmdir "${CLONE_LOCKDIR}" 2>/dev/null || true
-    }
-
-    trap cleanup_clone_lock EXIT
-
-    if [ -d "gtfs-django/.git" ]; then
-        log "gtfs-django already cloned"
-        cleanup_clone_lock
-        trap - EXIT
-        return
-    fi
-
-    log "Cloning gtfs-django repository..."
-    git clone https://github.com/simovilab/gtfs-django.git gtfs-django
-
-    log "gtfs-django cloned"
-    cleanup_clone_lock
-    trap - EXIT
-}
-
 # ------------------------------------------------
 section "Building DATABASE_URL from components..."
 # ------------------------------------------------
@@ -117,18 +43,6 @@ if [ -z "${DATABASE_URL:-}" ]; then
         warn "DATABASE_URL not set and insufficient components to construct it."
     fi
 fi
-
-# ----------------------------------------------
-section "Cloning gtfs-io (workspace member)..."
-# ----------------------------------------------
-
-clone_gtfs_io
-
-# ----------------------------------------------
-section "Cloning gtfs-django (workspace member)..."
-# ----------------------------------------------
-
-clone_gtfs_django
 
 # ----------------------------------------------
 section "Enabling Python virtual environment..."
@@ -286,22 +200,6 @@ else
     log "Skipping DuckDB CLI install for service '${1:-unknown}'"
 fi
 
-# In dev mode, replace the PyPI-installed gtfs-django with an editable install
-# pointing at a local clone. This requires UV_NO_SYNC=1 in the container env so
-# subsequent `uv run` calls don't revert the editable install back to PyPI.
-# Note: toggling GTFS_DJANGO_DEV between runs requires removing the backend_venv
-# volume, otherwise setup_virtualenv's fast path skips uv sync and the previous
-# mode's install sticks around.
-enable_local_gtfs_io() {
-    log "Enabling local editable install of gtfs-io..."
-    uv add --editable ./gtfs-io
-}
-
-enable_local_gtfs_django() {
-    # clone_gtfs_django() already ran before uv sync; directory is guaranteed present.
-    log "gtfs-django workspace member active (editable via pyproject.toml)"
-}
-
 wait_for_database() {
     # Explicitly fail if DATABASE_URL is still missing after construction step.
     if [ -z "${DATABASE_URL:-}" ]; then
@@ -319,7 +217,7 @@ run_makemigrations() {
     if is_true "${DEBUG:-False}"; then
         APPS_TO_MIGRATE=("feed" "engine")
         log "Creating migrations for: ${APPS_TO_MIGRATE[*]}"
-        uv run python manage.py makemigrations "${APPS_TO_MIGRATE[@]}" || warn "No changes detected for migrations"
+        uv run python manage.py makemigrations --noinput "${APPS_TO_MIGRATE[@]}" || warn "No changes detected for migrations"
     else
         log "Skipping makemigrations outside DEBUG (DEBUG=${DEBUG:-})"
     fi
@@ -365,12 +263,6 @@ load_initial_data() {
 
 run_django_setup() {
     section "Starting Django setup..."
-
-    section "Enabling local gtfs-io package for development..."
-    enable_local_gtfs_io
-
-    section "Enabling local gtfs-django package for development..."
-    enable_local_gtfs_django
 
     section "Running makemigrations (DEBUG only)..."
     run_makemigrations
