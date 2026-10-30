@@ -37,7 +37,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed service mandates and design 
 
 - **website** — Main site pages, user management, public interfaces
 - **alerts** — Screen management, real-time data display via WebSockets
-- **gtfs** — GTFS Schedule and Realtime data (Git submodule)
+- **gtfs** — Abstract GTFS models and field types from the `gtfs-django` package (PyPI), subclassed by `feed`
 - **engine** — Information service providers and WebSocket consumers
 - **api** — RESTful API endpoints with DRF integration
 
