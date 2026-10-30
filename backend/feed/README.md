@@ -100,9 +100,9 @@ acquisition is different: it occurs inside `feed.services.schedule`
   persistence (`backend/engine/tasks.py:16`, `backend/engine/tasks.py:20`,
   `backend/engine/tasks.py:79`, `backend/engine/tasks.py:80`,
   `backend/engine/tasks.py:125`, `backend/engine/tasks.py:126`).
-- The external `gtfs` and `gtfs-io` clones are dependencies, not modules owned
-  by this app (`backend/feed/models.py:6`,
-  `backend/feed/services/schedule.py:20`).
+- `gtfs-django` (import name `gtfs`) is an external dependency installed from
+  PyPI, not a module owned by this app (`backend/feed/models.py:6`,
+  `backend/pyproject.toml:16`).
 
 ### Source layout
 
@@ -451,13 +451,14 @@ Zstandard compression (`backend/feed/services/data.py:191`,
   `backend/feed/services/data.py:6`, `backend/feed/services/data.py:7`,
   `backend/feed/services/data.py:8`, `backend/feed/services/data.py:9`).
 
-`gtfs` (`gtfs-django`) and `gtfs-io` are external clones, not feed-owned code.
-The entrypoint clones them dynamically without pinning a commit
-(`backend/docker-entrypoint.sh:32`). For reproducibility, the local
-`gtfs-django` clone observed during this documentation verification was at
-`13543fe81cc8ae282926143b79e238c005e89392`; deployments are **not verifiable**
-as using that same revision because the entrypoint does not fix it
-(`backend/docker-entrypoint.sh:32`).
+`gtfs` (`gtfs-django`) is an external package, not feed-owned code. It is
+installed from PyPI and pinned to version 0.3.2 (`backend/pyproject.toml:16`,
+`backend/uv.lock:531`). `feed` subclasses its abstract Schedule models
+and uses its `gtfs.utils` helpers (`backend/feed/models.py:6`,
+`backend/feed/services/schedule.py:25`,
+`backend/feed/services/realtime.py:19`). `gtfs-io` is not imported by
+Infobús; it is installed only as a dependency of `gtfs-django`
+(`backend/uv.lock:548`).
 
 ## Entrypoints
 
@@ -977,9 +978,6 @@ incomplete or broken (`backend/feed/services/schedule.py:72`,
 - Whether a deployed database already has tables equivalent to the ignored
   physical migration (`backend/feed/migrations/0001_initial.py:9`,
   `.gitignore:87`).
-- Which `gtfs-django` revision a deployment receives because the entrypoint
-  dynamically clones without a fixed commit
-  (`backend/docker-entrypoint.sh:32`).
 - Whether `/app/data` has sufficient space, permissions, backup, compaction,
   or external lifecycle management; the app only creates partitions and new
   files (`backend/feed/services/data.py:70`,
@@ -1104,9 +1102,9 @@ incomplete or broken (`backend/feed/services/schedule.py:72`,
 9. **Migration policy:** decide how migrations will be committed and reconciled
    with databases that may already contain locally generated feed tables
    (`backend/feed/migrations/0001_initial.py:9`, `.gitignore:87`).
-10. **External dependency pinning:** pin or otherwise record the deployed
-    `gtfs-django` and `gtfs-io` revisions instead of dynamically cloning an
-    unspecified revision (`backend/docker-entrypoint.sh:32`).
+10. **External dependency pinning:** resolved. `gtfs-django` is pinned to
+    0.3.2 (`backend/pyproject.toml:16`) and the entrypoint no longer clones
+    external repositories.
 11. **Public boundary:** decide whether `feed` should remain an internal
     service/model app or expose a supported read API; its current URL and view
     modules are placeholders (`backend/feed/urls.py:1`,
