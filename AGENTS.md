@@ -13,7 +13,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 ### Services (Docker Compose)
 
 1. **orchestrator** (Django / Daphne ASGI) — Control plane, REST API, admin, WebSockets
-   - Django apps: `website`, `alerts`, `gtfs` (submodule), `engine`, `api`
+   - Django apps: `website`, `alerts`, `gtfs` (from the `gtfs-django` package), `engine`, `api`
    - Located in: `backend/`
 
 2. **engine** (Celery worker) — Background task processing
@@ -33,7 +33,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ### Key Dependencies
 
-The `gtfs` directory in `backend/` is a Git submodule. Always run `git submodule update --init --recursive` after cloning.
+The `gtfs` Django app comes from the `gtfs-django` package on PyPI, pinned in `backend/pyproject.toml` and locked in `backend/uv.lock`; `uv sync` installs it. There is no submodule or local clone.
 
 ## Development Commands
 
@@ -103,7 +103,7 @@ docker compose -f compose.prod.yml down
 
 - **website** — Main site pages, user management, public interfaces
 - **alerts** — Screen management, real-time data display via WebSockets
-- **gtfs** — GTFS Schedule and Realtime data (Git submodule)
+- **gtfs** — Abstract GTFS models and field types from the `gtfs-django` package (PyPI), subclassed by `feed`
 - **engine** — Information service providers and WebSocket consumers
 - **api** — DRF ViewSets, token authentication, OpenAPI schema via drf-spectacular
 
@@ -143,7 +143,7 @@ Files:
 
 ## Important Notes
 
-- **GTFS submodule**: Always run `git submodule update --init --recursive` after cloning
+- **GTFS models**: `gtfs-django` is a pinned PyPI dependency (`backend/pyproject.toml`); to upgrade it, change the pin and re-lock with `uv lock`
 - **Package manager**: Uses `uv`, not pip directly
 - **Timezone**: `America/Costa_Rica` (es-cr locale)
 - **Service names in Docker**: Use compose service names (`database`, `state`, `broker`) not `localhost` for inter-service communication
