@@ -2,8 +2,14 @@
 export default defineNuxtConfig({
   modules: [
     '@nuxt/eslint',
+    '@nuxt/image',
     '@nuxt/ui',
-    '@vueuse/nuxt'
+    '@nuxt/content',
+    'nuxt-og-image',
+    'nuxt-llms',
+    'nuxt-agent-discovery',
+    '@nuxtjs/mcp-toolkit',
+    '@nuxt/a11y'
   ],
 
   devtools: {
@@ -12,13 +18,24 @@ export default defineNuxtConfig({
 
   css: ['~/assets/css/main.css'],
 
-  routeRules: {
-    '/api/**': {
-      cors: true
+  content: {
+    build: {
+      markdown: {
+        toc: {
+          searchDepth: 1
+        }
+      }
+    },
+    experimental: {
+      sqliteConnector: 'native'
     }
   },
 
-  compatibilityDate: '2024-07-11',
+  experimental: {
+    asyncContext: true
+  },
+
+  compatibilityDate: '2026-06-30',
 
   eslint: {
     config: {
@@ -27,5 +44,53 @@ export default defineNuxtConfig({
         braceStyle: '1tbs'
       }
     }
+  },
+
+  llms: {
+    domain: 'https://docs-template.nuxt.dev',
+    title: 'Nuxt Docs Template',
+    description: 'A template for building documentation with Nuxt UI and Nuxt Content.',
+    full: {
+      title: 'Nuxt Docs Template - Full Documentation',
+      description: 'This is the full documentation for the Nuxt Docs Template.'
+    },
+    sections: [
+      {
+        title: 'Getting Started',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '/getting-started%' }
+        ]
+      },
+      {
+        title: 'Essentials',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '/essentials%' }
+        ]
+      },
+      {
+        title: 'AI',
+        contentCollection: 'docs',
+        contentFilters: [
+          { field: 'path', operator: 'LIKE', value: '/ai%' }
+        ]
+      }
+    ]
+  },
+
+  mcp: {
+    name: 'Docs template'
+  },
+
+  ogImage: {
+    zeroRuntime: true
+  },
+
+  prerender: {
+    routes: [
+      '/'
+    ],
+    crawlLinks: true
   }
 })

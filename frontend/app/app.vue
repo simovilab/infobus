@@ -1,13 +1,14 @@
 <script setup lang="ts">
-const colorMode = useColorMode()
+const { seo } = useAppConfig()
 
-const color = computed(() => colorMode.value === 'dark' ? '#1b1718' : 'white')
+const { data: navigation } = await useAsyncData('navigation', () => queryCollectionNavigation('docs'))
+const { data: files } = useLazyAsyncData('search', () => queryCollectionSearchSections('docs'), {
+  server: false
+})
 
 useHead({
   meta: [
-    { charset: 'utf-8' },
-    { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-    { key: 'theme-color', name: 'theme-color', content: color }
+    { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
     { rel: 'icon', href: '/favicon.ico' }
@@ -17,25 +18,34 @@ useHead({
   }
 })
 
-const title = 'Nuxt Dashboard Template'
-const description = 'A professional dashboard template built with Nuxt UI, featuring multiple pages, data visualization, and comprehensive management capabilities for creating powerful admin interfaces.'
-
 useSeoMeta({
-  title,
-  description,
-  ogTitle: title,
-  ogDescription: description,
-  ogImage: 'https://ui.nuxt.com/assets/templates/nuxt/dashboard-light.png',
+  titleTemplate: `%s - ${seo?.siteName}`,
+  ogSiteName: seo?.siteName,
   twitterCard: 'summary_large_image'
 })
+
+provide('navigation', navigation)
 </script>
 
 <template>
   <UApp>
     <NuxtLoadingIndicator />
 
-    <NuxtLayout>
-      <NuxtPage />
-    </NuxtLayout>
+    <AppHeader />
+
+    <UMain>
+      <NuxtLayout>
+        <NuxtPage />
+      </NuxtLayout>
+    </UMain>
+
+    <AppFooter />
+
+    <ClientOnly>
+      <LazyUContentSearch
+        :files="files"
+        :navigation="navigation"
+      />
+    </ClientOnly>
   </UApp>
 </template>

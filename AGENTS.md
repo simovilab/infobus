@@ -22,7 +22,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 3. **scheduler** (Celery Beat) — Periodic task scheduling
    - Located in: `backend/`
 
-4. **user-interface** (Nuxt) — Web frontend
+4. **frontend** (Nuxt) — Web frontend
    - Located in: `frontend/`
 
 ### Infrastructure Services

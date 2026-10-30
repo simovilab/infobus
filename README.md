@@ -22,7 +22,7 @@ A real-time public transportation information system, developed. Infobús proces
 | **orchestrator**   | Control plane, REST API, admin, WebSockets  | Django / Daphne (ASGI) |
 | **engine**         | Background task processing                  | Celery worker          |
 | **scheduler**      | Triggers periodic tasks                     | Celery Beat            |
-| **user-interface** | Web frontend                                | Nuxt                   |
+| **frontend**       | Web frontend                                | Nuxt                   |
 | **database**       | Durable persistence with geospatial support | PostgreSQL + PostGIS   |
 | **state**          | Cache, sessions, and Celery broker          | Redis                  |
 | **broker**         | Async messaging                             | RabbitMQ               |
@@ -146,7 +146,7 @@ deployed separately and have their own domain configuration.
 | Service        | Domain variable       | Description                |
 | -------------- | --------------------- | -------------------------- |
 | orchestrator   | `ORCHESTRATOR_DOMAIN` | Django API and admin       |
-| user-interface | `UI_DOMAIN`           | Nuxt frontend              |
+| frontend       | `UI_DOMAIN`           | Nuxt frontend              |
 | lake           | `LAKE_DOMAIN`         | MinIO S3-compatible API    |
 
 Internal-only (not exposed): `database`, `state`, `engine`, `scheduler`, `broker`, and the MinIO console.
@@ -155,8 +155,8 @@ Internal-only (not exposed): `database`, `state`, `engine`, `scheduler`, `broker
 
 ```bash
 # Rebuild and restart after code changes
-docker compose -f compose.prod.yml build orchestrator user-interface
-docker compose -f compose.prod.yml up -d orchestrator user-interface
+docker compose -f compose.prod.yml build orchestrator frontend
+docker compose -f compose.prod.yml up -d orchestrator frontend
 
 # Django management
 docker compose -f compose.prod.yml exec orchestrator uv run python manage.py migrate

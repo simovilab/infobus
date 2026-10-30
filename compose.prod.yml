@@ -232,7 +232,7 @@ services:
       - "traefik.docker.network=traefik_proxy"
 
   # ── Nuxt frontend ────────────────────────────────────────────────────────
-  user-interface:
+  frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
