@@ -1470,6 +1470,10 @@ shows raw WebSocket messages.
   `backend/gtfs-django/gtfs/models.py:248-267`,
   `backend/gtfs-django/gtfs/models.py:285-303`,
   `backend/updates/builders/stop/stop_time_updates.py:145-198`)
+  > Verification note: as of 2026-10-29, the four `backend/gtfs-django/gtfs/models.py`
+  > citations above point to the former local clone, which no longer exists.
+  > The same abstract models now come from the installed `gtfs-django==0.3.2`
+  > package (`backend/pyproject.toml:16`).
 - The remaining-stop indexes and current RedisJSON document are written by
   separate Redis operations. There is no transaction spanning both writes, so a
   concurrent snapshot build can observe the intermediate state.
